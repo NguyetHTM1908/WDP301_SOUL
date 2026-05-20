@@ -35,8 +35,16 @@ db.createCollection("users", {
       properties: {
         fullName: { bsonType: "string" },
         email: { bsonType: "string" },
+        phone: { bsonType: ["string", "null"] },
         passwordHash: { bsonType: "string" },
         avatarUrl: { bsonType: ["string", "null"] },
+        bio: { bsonType: ["string", "null"] },
+
+        savedPosts: {
+          bsonType: "array",
+          items: { bsonType: "objectId" }
+        },
+
         role: { enum: ["user", "admin"] },
         status: { enum: ["active", "inactive", "blocked"] },
         gender: { enum: ["male", "female", "other", null] },
@@ -54,6 +62,7 @@ db.createCollection("users", {
 });
 
 db.users.createIndex({ email: 1 }, { unique: true });
+db.users.createIndex({ phone: 1 }, { unique: true, sparse: true });
 db.users.createIndex({ role: 1 });
 db.users.createIndex({ status: 1 });
 
@@ -372,10 +381,24 @@ db.createCollection("posts", {
         content: { bsonType: "string" },
         isAnonymous: { bsonType: "bool" },
 
+        images: {
+          bsonType: "array",
+          items: {
+            bsonType: "object",
+            required: ["url", "type"],
+            properties: {
+              url: { bsonType: "string" },
+              type: { enum: ["image"] }
+            }
+          }
+        },
+
         tags: {
           bsonType: "array",
           items: { bsonType: "string" }
         },
+
+        visibility: { enum: ["public", "private", "followers_only", null] },
 
         status: { enum: ["active", "hidden", "deleted"] },
 
@@ -407,7 +430,8 @@ db.createCollection("posts", {
         },
 
         createdAt: { bsonType: "date" },
-        updatedAt: { bsonType: "date" }
+        updatedAt: { bsonType: "date" },
+        editedAt: { bsonType: ["date", "null"] }
       }
     }
   }
@@ -415,6 +439,7 @@ db.createCollection("posts", {
 
 db.posts.createIndex({ authorId: 1 });
 db.posts.createIndex({ tags: 1 });
+db.posts.createIndex({ visibility: 1 });
 db.posts.createIndex({ status: 1 });
 db.posts.createIndex({ createdAt: -1 });
 db.posts.createIndex({ isFlagged: 1 });
@@ -515,6 +540,7 @@ db.createCollection("reports", {
 
         handledBy: { bsonType: ["objectId", "null"] },
         adminNote: { bsonType: ["string", "null"] },
+        resolvedAt: { bsonType: ["date", "null"] },
 
         createdAt: { bsonType: "date" },
         updatedAt: { bsonType: "date" }
@@ -590,6 +616,22 @@ db.createCollection("events", {
         title: { bsonType: "string" },
         description: { bsonType: ["string", "null"] },
         speakerName: { bsonType: ["string", "null"] },
+        organizerName: { bsonType: ["string", "null"] },
+        contactEmail: { bsonType: ["string", "null"] },
+        bannerImage: { bsonType: ["string", "null"] },
+
+        images: {
+          bsonType: "array",
+          items: {
+            bsonType: "object",
+            required: ["url", "type"],
+            properties: {
+              url: { bsonType: "string" },
+              type: { enum: ["image"] }
+            }
+          }
+        },
+
         eventType: { enum: ["workshop", "talkshow", "webinar", "community_event", null] },
         startDateTime: { bsonType: "date" },
         endDateTime: { bsonType: ["date", "null"] },

@@ -23,8 +23,11 @@ db.users.insertMany([
     _id: adminId,
     fullName: "Admin SOUL",
     email: "admin@soul.com",
+    phone: "0900000001",
     passwordHash: "$2b$10$7EqJtq98hPqEX7fNZaFWoOHi6M9bF6K5zsxFrqOe5zvY4xXHzkw7K",
     avatarUrl: null,
+    bio: "Administrator account for SOUL platform.",
+    savedPosts: [],
     role: "admin",
     status: "active",
     gender: "male",
@@ -41,8 +44,11 @@ db.users.insertMany([
     _id: user1Id,
     fullName: "Nguyen Van A",
     email: "user1@soul.com",
+    phone: "0900000002",
     passwordHash: "$2b$10$KbQi8YV7czHxVn9Yx8RJ4e7hKMuquMNFcQJUO2cSAB1ytY1/6V2vG",
     avatarUrl: null,
+    bio: "University student interested in emotional wellness.",
+    savedPosts: [],
     role: "user",
     status: "active",
     gender: "male",
@@ -59,8 +65,11 @@ db.users.insertMany([
     _id: user2Id,
     fullName: "Tran Thi B",
     email: "user2@soul.com",
+    phone: "0900000003",
     passwordHash: "$2b$10$KbQi8YV7czHxVn9Yx8RJ4e7hKMuquMNFcQJUO2cSAB1ytY1/6V2vG",
     avatarUrl: null,
+    bio: "Student who enjoys self-care and mindfulness activities.",
+    savedPosts: [],
     role: "user",
     status: "active",
     gender: "female",
@@ -132,19 +141,12 @@ db.diaries.insertMany([
 ]);
 
 // =========================================
-// CHAT SESSIONS - NOSQL EMBEDDED MESSAGES
+// CHAT SESSIONS
 // =========================================
 
 const session1Id = new ObjectId();
 const session2Id = new ObjectId();
 const session3Id = new ObjectId();
-
-const message1Id = new ObjectId();
-const message2Id = new ObjectId();
-const message3Id = new ObjectId();
-const message4Id = new ObjectId();
-const message5Id = new ObjectId();
-const message6Id = new ObjectId();
 
 db.chat_sessions.insertMany([
   {
@@ -154,22 +156,6 @@ db.chat_sessions.insertMany([
     overallSentiment: "negative",
     highestRiskLevel: "medium",
     isArchived: false,
-    messages: [
-      {
-        _id: message1Id,
-        sender: "user",
-        content: "Dạo này mình cảm thấy rất mệt mỏi và áp lực.",
-        isSafetyResponse: false,
-        createdAt: now
-      },
-      {
-        _id: message2Id,
-        sender: "ai",
-        content: "Mình nghe thấy rằng bạn đang trải qua khá nhiều áp lực gần đây. Bạn có muốn chia sẻ điều gì khiến bạn mệt nhất lúc này không?",
-        isSafetyResponse: false,
-        createdAt: now
-      }
-    ],
     createdAt: now,
     updatedAt: now
   },
@@ -180,22 +166,6 @@ db.chat_sessions.insertMany([
     overallSentiment: "negative",
     highestRiskLevel: "low",
     isArchived: false,
-    messages: [
-      {
-        _id: message3Id,
-        sender: "user",
-        content: "Dạo này mình cảm thấy khá cô đơn.",
-        isSafetyResponse: false,
-        createdAt: now
-      },
-      {
-        _id: message4Id,
-        sender: "ai",
-        content: "Mình nghe thấy rằng bạn đang cảm thấy thiếu kết nối với mọi người gần đây. Một bước nhỏ có thể là nhắn tin cho một người bạn mà bạn tin tưởng.",
-        isSafetyResponse: false,
-        createdAt: now
-      }
-    ],
     createdAt: now,
     updatedAt: now
   },
@@ -206,24 +176,76 @@ db.chat_sessions.insertMany([
     overallSentiment: "negative",
     highestRiskLevel: "high",
     isArchived: false,
-    messages: [
-      {
-        _id: message5Id,
-        sender: "user",
-        content: "Đôi khi mình chỉ muốn biến mất khỏi mọi thứ.",
-        isSafetyResponse: false,
-        createdAt: now
-      },
-      {
-        _id: message6Id,
-        sender: "ai",
-        content: "Mình rất tiếc vì bạn đang trải qua cảm giác này. Bạn không cần đối mặt một mình. Hãy liên hệ với người thân, bạn bè đáng tin cậy hoặc dịch vụ hỗ trợ khẩn cấp tại nơi bạn sống nếu bạn đang gặp nguy hiểm.",
-        isSafetyResponse: true,
-        createdAt: now
-      }
-    ],
     createdAt: now,
     updatedAt: now
+  }
+]);
+
+// =========================================
+// CHAT MESSAGES
+// =========================================
+
+const message1Id = new ObjectId();
+const message2Id = new ObjectId();
+const message3Id = new ObjectId();
+const message4Id = new ObjectId();
+const message5Id = new ObjectId();
+const message6Id = new ObjectId();
+
+db.chat_messages.insertMany([
+  {
+    _id: message1Id,
+    sessionId: session1Id,
+    userId: user1Id,
+    sender: "user",
+    content: "Dạo này mình cảm thấy rất mệt mỏi và áp lực.",
+    isSafetyResponse: false,
+    createdAt: now
+  },
+  {
+    _id: message2Id,
+    sessionId: session1Id,
+    userId: user1Id,
+    sender: "ai",
+    content: "Mình nghe thấy rằng bạn đang trải qua khá nhiều áp lực gần đây. Bạn có muốn chia sẻ điều gì khiến bạn mệt nhất lúc này không?",
+    isSafetyResponse: false,
+    createdAt: now
+  },
+  {
+    _id: message3Id,
+    sessionId: session2Id,
+    userId: user2Id,
+    sender: "user",
+    content: "Dạo này mình cảm thấy khá cô đơn.",
+    isSafetyResponse: false,
+    createdAt: now
+  },
+  {
+    _id: message4Id,
+    sessionId: session2Id,
+    userId: user2Id,
+    sender: "ai",
+    content: "Mình nghe thấy rằng bạn đang cảm thấy thiếu kết nối với mọi người gần đây. Một bước nhỏ có thể là nhắn tin cho một người bạn mà bạn tin tưởng.",
+    isSafetyResponse: false,
+    createdAt: now
+  },
+  {
+    _id: message5Id,
+    sessionId: session3Id,
+    userId: user1Id,
+    sender: "user",
+    content: "Đôi khi mình chỉ muốn biến mất khỏi mọi thứ.",
+    isSafetyResponse: false,
+    createdAt: now
+  },
+  {
+    _id: message6Id,
+    sessionId: session3Id,
+    userId: user1Id,
+    sender: "ai",
+    content: "Mình rất tiếc vì bạn đang trải qua cảm giác này. Bạn không cần đối mặt một mình. Hãy liên hệ với người thân, bạn bè đáng tin cậy hoặc dịch vụ hỗ trợ khẩn cấp tại nơi bạn sống nếu bạn đang gặp nguy hiểm.",
+    isSafetyResponse: true,
+    createdAt: now
   }
 ]);
 
@@ -467,8 +489,15 @@ db.posts.insertMany([
     _id: post1Id,
     authorId: user1Id,
     content: "Mọi người làm gì khi cảm thấy mất động lực?",
+    images: [
+      {
+        url: "https://example.com/images/motivation-support.jpg",
+        type: "image"
+      }
+    ],
     isAnonymous: true,
     tags: ["stress", "student-life"],
+    visibility: "public",
     status: "active",
     statistics: {
       likeCount: 0,
@@ -487,14 +516,17 @@ db.posts.insertMany([
       }
     ],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    editedAt: null
   },
   {
     _id: post2Id,
     authorId: user2Id,
     content: "Có ai từng bị burnout vì học tập chưa?",
+    images: [],
     isAnonymous: true,
     tags: ["stress"],
+    visibility: "public",
     status: "active",
     statistics: {
       likeCount: 0,
@@ -513,14 +545,22 @@ db.posts.insertMany([
       }
     ],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    editedAt: null
   },
   {
     _id: post3Id,
     authorId: user1Id,
     content: "Mình đang cố gắng ngủ sớm hơn để cải thiện tâm trạng.",
+    images: [
+      {
+        url: "https://example.com/images/self-care-sleep.jpg",
+        type: "image"
+      }
+    ],
     isAnonymous: false,
     tags: ["self-care"],
+    visibility: "public",
     status: "active",
     statistics: {
       likeCount: 1,
@@ -539,7 +579,8 @@ db.posts.insertMany([
       }
     ],
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    editedAt: null
   }
 ]);
 
@@ -647,6 +688,7 @@ db.reports.insertMany([
     status: "pending",
     handledBy: null,
     adminNote: null,
+    resolvedAt: null,
     createdAt: now,
     updatedAt: now
   },
@@ -662,6 +704,7 @@ db.reports.insertMany([
     status: "reviewed",
     handledBy: adminId,
     adminNote: "Reviewed. Content is supportive and does not violate community guidelines.",
+    resolvedAt: now,
     createdAt: now,
     updatedAt: now
   }
@@ -701,7 +744,7 @@ db.moderation_logs.insertMany([
 ]);
 
 // =========================================
-// EVENTS - NOSQL EMBEDDED PARTICIPANTS
+// EVENTS
 // =========================================
 
 const event1Id = new ObjectId();
@@ -713,6 +756,15 @@ db.events.insertMany([
     title: "Mental Wellness Workshop",
     description: "Workshop about emotional self-care.",
     speakerName: "Dr. Minh",
+    organizerName: "SOUL Team",
+    contactEmail: "events@soul.com",
+    bannerImage: "https://example.com/images/mental-wellness-workshop.jpg",
+    images: [
+      {
+        url: "https://example.com/images/workshop-room.jpg",
+        type: "image"
+      }
+    ],
     eventType: "workshop",
     startDateTime: new Date("2025-08-01T09:00:00"),
     endDateTime: new Date("2025-08-01T11:00:00"),
@@ -720,14 +772,6 @@ db.events.insertMany([
     meetingLink: null,
     capacity: 100,
     registeredCount: 1,
-    participants: [
-      {
-        userId: user1Id,
-        status: "registered",
-        registeredAt: now,
-        cancelledAt: null
-      }
-    ],
     status: "upcoming",
     createdBy: adminId,
     createdAt: now,
@@ -738,6 +782,15 @@ db.events.insertMany([
     title: "Stress Management Talkshow",
     description: "Discussion about coping with academic pressure.",
     speakerName: "Ms. Lan",
+    organizerName: "SOUL Community",
+    contactEmail: "talkshow@soul.com",
+    bannerImage: "https://example.com/images/stress-management-talkshow.jpg",
+    images: [
+      {
+        url: "https://example.com/images/online-talkshow.jpg",
+        type: "image"
+      }
+    ],
     eventType: "talkshow",
     startDateTime: new Date("2025-09-15T18:00:00"),
     endDateTime: new Date("2025-09-15T20:00:00"),
@@ -745,18 +798,31 @@ db.events.insertMany([
     meetingLink: "https://zoom.example.com/soul-talkshow",
     capacity: 200,
     registeredCount: 1,
-    participants: [
-      {
-        userId: user2Id,
-        status: "registered",
-        registeredAt: now,
-        cancelledAt: null
-      }
-    ],
     status: "upcoming",
     createdBy: adminId,
     createdAt: now,
     updatedAt: now
+  }
+]);
+
+// =========================================
+// EVENT REGISTRATIONS
+// =========================================
+
+db.event_registrations.insertMany([
+  {
+    eventId: event1Id,
+    userId: user1Id,
+    status: "registered",
+    registeredAt: now,
+    cancelledAt: null
+  },
+  {
+    eventId: event2Id,
+    userId: user2Id,
+    status: "registered",
+    registeredAt: now,
+    cancelledAt: null
   }
 ]);
 
