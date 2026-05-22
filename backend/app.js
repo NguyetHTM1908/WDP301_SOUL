@@ -7,6 +7,7 @@ const morgan = require("morgan");
 const cookieParser = require("cookie-parser");
 
 const connectDB = require("./src/config/db");
+const authRouter = require("./src/routes/auth");
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use(morgan("dev"));
 
 app.use(express.static(path.join(__dirname, "public")));
 
+app.use("/api/auth", authRouter);
 
 app.get("/", (req, res) => {
   res.status(200).json({
