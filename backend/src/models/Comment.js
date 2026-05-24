@@ -27,55 +27,62 @@ const commentSchema = new mongoose.Schema(
       ref: "Post",
       required: true,
     },
+
     authorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
     parentCommentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Comment",
       default: null,
     },
+
     content: {
       type: String,
       required: true,
+      trim: true,
     },
+
     isAnonymous: {
       type: Boolean,
       default: false,
     },
+
     status: {
       type: String,
       enum: ["active", "hidden", "deleted"],
       default: "active",
     },
-    likeCount: {
-      type: Number,
-      default: 0,
+
+    statistics: {
+      likeCount: { type: Number, default: 0 },
+      supportCount: { type: Number, default: 0 },
+      hugCount: { type: Number, default: 0 },
+      reportCount: { type: Number, default: 0 },
     },
-    reportCount: {
-      type: Number,
-      default: 0,
-    },
+
     toxicityLevel: {
       type: String,
       enum: ["low", "medium", "high", null],
       default: null,
     },
+
     reactions: [reactionSchema],
+
+    editedAt: {
+      type: Date,
+      default: null,
+    },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Indexes
 commentSchema.index({ postId: 1 });
 commentSchema.index({ authorId: 1 });
 commentSchema.index({ parentCommentId: 1 });
 commentSchema.index({ status: 1 });
 
-const Comment = mongoose.model("Comment", commentSchema);
-
-module.exports = Comment;
+module.exports = mongoose.model("Comment", commentSchema);

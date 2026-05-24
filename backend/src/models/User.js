@@ -50,6 +50,10 @@ const userSchema = new mongoose.Schema(
       required: true,
       default: "active",
     },
+    forumBannedUntil: {
+     type: Date,
+     default: null,
+    },
     gender: {
       type: String,
       enum: ["male", "female", "other", null],
