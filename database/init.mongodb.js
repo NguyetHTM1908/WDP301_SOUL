@@ -47,6 +47,7 @@ db.createCollection("users", {
 
         role: { enum: ["user", "admin"] },
         status: { enum: ["active", "inactive", "blocked"] },
+        forumBannedUntil: { bsonType: ["date", "null"] },
         gender: { enum: ["male", "female", "other", null] },
         dateOfBirth: { bsonType: ["date", "null"] },
         isEmailVerified: { bsonType: "bool" },
@@ -378,29 +379,37 @@ db.createCollection("posts", {
       required: ["authorId", "content", "createdAt"],
       properties: {
         authorId: { bsonType: "objectId" },
-        content: { bsonType: "string" },
-        isAnonymous: { bsonType: "bool" },
 
-        images: {
+        content: { bsonType: "string" },
+
+        mediaUrls: {
           bsonType: "array",
           items: {
             bsonType: "object",
             required: ["url", "type"],
             properties: {
               url: { bsonType: "string" },
-              type: { enum: ["image"] }
+              type: { enum: ["image", "video"] }
             }
           }
         },
 
-        tags: {
+        emotionStatus: {
+          enum: ["happy", "sad", "stress", "anxious", "angry", "neutral"]
+        },
+
+        hashtags: {
           bsonType: "array",
           items: { bsonType: "string" }
         },
 
-        visibility: { enum: ["public", "private", "followers_only", null] },
+        isAnonymous: { bsonType: "bool" },
 
-        status: { enum: ["active", "hidden", "deleted"] },
+        visibility: { enum: ["public", "private"] },
+
+        status: {
+          enum: ["pending", "approved", "rejected", "hidden", "deleted"]
+        },
 
         statistics: {
           bsonType: "object",
@@ -414,6 +423,7 @@ db.createCollection("posts", {
         },
 
         isFlagged: { bsonType: "bool" },
+
         toxicityLevel: { enum: ["low", "medium", "high", null] },
 
         reactions: {
@@ -429,17 +439,20 @@ db.createCollection("posts", {
           }
         },
 
+        editedAt: { bsonType: ["date", "null"] },
+        approvedAt: { bsonType: ["date", "null"] },
+        approvedBy: { bsonType: ["objectId", "null"] },
+        rejectedReason: { bsonType: ["string", "null"] },
+
         createdAt: { bsonType: "date" },
-        updatedAt: { bsonType: "date" },
-        editedAt: { bsonType: ["date", "null"] }
+        updatedAt: { bsonType: "date" }
       }
     }
   }
 });
 
 db.posts.createIndex({ authorId: 1 });
-db.posts.createIndex({ tags: 1 });
-db.posts.createIndex({ visibility: 1 });
+db.posts.createIndex({ hashtags: 1 });
 db.posts.createIndex({ status: 1 });
 db.posts.createIndex({ createdAt: -1 });
 db.posts.createIndex({ isFlagged: 1 });
@@ -457,11 +470,23 @@ db.createCollection("comments", {
         postId: { bsonType: "objectId" },
         authorId: { bsonType: "objectId" },
         parentCommentId: { bsonType: ["objectId", "null"] },
+
         content: { bsonType: "string" },
+
         isAnonymous: { bsonType: "bool" },
+
         status: { enum: ["active", "hidden", "deleted"] },
-        likeCount: { bsonType: "int" },
-        reportCount: { bsonType: "int" },
+
+        statistics: {
+          bsonType: "object",
+          properties: {
+            likeCount: { bsonType: "int" },
+            supportCount: { bsonType: "int" },
+            hugCount: { bsonType: "int" },
+            reportCount: { bsonType: "int" }
+          }
+        },
+
         toxicityLevel: { enum: ["low", "medium", "high", null] },
 
         reactions: {
@@ -476,6 +501,8 @@ db.createCollection("comments", {
             }
           }
         },
+
+        editedAt: { bsonType: ["date", "null"] },
 
         createdAt: { bsonType: "date" },
         updatedAt: { bsonType: "date" }
@@ -521,26 +548,29 @@ db.createCollection("reports", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["reporterId", "target", "reason", "status", "createdAt"],
+      required: [
+        "targetType",
+        "targetId",
+        "reporterId",
+        "reportedUserId",
+        "reason",
+        "status",
+        "createdAt"
+      ],
       properties: {
+        targetType: { enum: ["post", "comment"] },
+
+        targetId: { bsonType: "objectId" },
+
         reporterId: { bsonType: "objectId" },
 
-        target: {
-          bsonType: "object",
-          required: ["type", "id"],
-          properties: {
-            type: { enum: ["post", "comment", "user"] },
-            id: { bsonType: "objectId" }
-          }
-        },
+        reportedUserId: { bsonType: "objectId" },
 
         reason: { bsonType: "string" },
-        description: { bsonType: ["string", "null"] },
-        status: { enum: ["pending", "reviewed", "resolved", "rejected"] },
 
-        handledBy: { bsonType: ["objectId", "null"] },
-        adminNote: { bsonType: ["string", "null"] },
-        resolvedAt: { bsonType: ["date", "null"] },
+        description: { bsonType: ["string", "null"] },
+
+        status: { enum: ["pending", "dismissed", "action_taken"] },
 
         createdAt: { bsonType: "date" },
         updatedAt: { bsonType: "date" }
@@ -549,10 +579,16 @@ db.createCollection("reports", {
   }
 });
 
+db.reports.createIndex({ targetType: 1, targetId: 1 });
 db.reports.createIndex({ reporterId: 1 });
-db.reports.createIndex({ "target.type": 1, "target.id": 1 });
+db.reports.createIndex({ reportedUserId: 1 });
 db.reports.createIndex({ status: 1 });
 db.reports.createIndex({ createdAt: -1 });
+
+db.reports.createIndex(
+  { targetType: 1, targetId: 1, reporterId: 1 },
+  { unique: true }
+);
 
 // =========================================
 // MODERATION LOGS
@@ -575,6 +611,8 @@ db.createCollection("moderation_logs", {
 
         action: {
           enum: [
+            "approve_post",
+            "reject_post",
             "hide_content",
             "delete_content",
             "restore_content",

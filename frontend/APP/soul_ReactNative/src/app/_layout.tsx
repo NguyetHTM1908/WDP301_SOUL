@@ -2,6 +2,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 
 import { colors } from "@/constants/colors";
+
 export default function RootLayout() {
   return (
     <Tabs
@@ -28,6 +29,20 @@ export default function RootLayout() {
           tabBarIcon: ({ color, size }: { color: string; size: number }) => (
             <MaterialCommunityIcons
               name="compass-outline"
+              size={size}
+              color={color}
+            />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="forum"
+        options={{
+          title: "Forum",
+          tabBarIcon: ({ color, size }: { color: string; size: number }) => (
+            <MaterialCommunityIcons
+              name="account-group-outline"
               size={size}
               color={color}
             />
