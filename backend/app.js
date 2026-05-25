@@ -14,6 +14,7 @@ const commentRoutes = require("./src/routes/commentRoutes");
 const reactionRoutes = require("./src/routes/reactionRoutes");
 const reportRoutes = require("./src/routes/reportRoutes");
 const adminForumRoutes = require("./src/routes/adminForumRoutes");
+const journalRoutes = require("./src/routes/journalRoutes");
 
 const app = express();
 
@@ -32,6 +33,7 @@ app.use("/api/comments", commentRoutes);
 app.use("/api/reactions", reactionRoutes);
 app.use("/api/reports", reportRoutes);
 app.use("/api/admin/forum", adminForumRoutes);
+app.use("/api/journals", journalRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({
