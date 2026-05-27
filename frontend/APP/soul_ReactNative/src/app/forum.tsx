@@ -17,6 +17,7 @@ import {
 import {
   createPost,
   getApprovedPosts,
+  getMyPosts,
   reactToPost,
   reportPost,
 } from "@/api/forumApi";
@@ -41,6 +42,7 @@ function moodLabel(mood: string) {
 export default function ForumScreen() {
   const [token, setToken] = useState<string | null>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [mode, setMode] = useState<"community" | "mine">("community");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
@@ -51,19 +53,46 @@ export default function ForumScreen() {
   const [emotionStatus, setEmotionStatus] = useState("stress");
   const [isAnonymous, setIsAnonymous] = useState(true);
 
-  const loadToken = async () => {
-    const savedToken = await AsyncStorage.getItem("token");
-    setToken(savedToken);
-  };
+  const loadPosts = async (
+    nextMode: "community" | "mine" = mode,
+    currentToken: string | null = token
+  ) => {
+    if (nextMode === "mine") {
+      if (!currentToken) {
+        Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để xem bài viết của bạn.");
+        return;
+      }
 
-  const loadPosts = async () => {
+      const res = await getMyPosts(currentToken);
+
+      if (res.success) {
+        setPosts(res.data || []);
+      } else {
+        Alert.alert("Lỗi", res.message || "Không tải được bài viết cá nhân.");
+      }
+
+      return;
+    }
+
     const res = await getApprovedPosts();
-    if (res.success) setPosts(res.data || []);
+
+    if (res.success) {
+      setPosts(res.data || []);
+    } else {
+      Alert.alert("Lỗi", res.message || "Không tải được bài viết cộng đồng.");
+    }
   };
 
   useEffect(() => {
-    loadToken();
-    loadPosts();
+    const init = async () => {
+      const savedToken = await AsyncStorage.getItem("token");
+      setToken(savedToken);
+
+      const res = await getApprovedPosts();
+      if (res.success) setPosts(res.data || []);
+    };
+
+    init();
   }, []);
 
   const requireLogin = () => {
@@ -71,6 +100,7 @@ export default function ForumScreen() {
       Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để dùng chức năng này.");
       return false;
     }
+
     return true;
   };
 
@@ -117,23 +147,38 @@ export default function ForumScreen() {
     const res = await createPost(token as string, body);
 
     if (res.success) {
-      Alert.alert("Đã gửi duyệt", "Bài viết đang chờ admin duyệt.");
+      Alert.alert(
+        "Đã gửi bài thành công 🌿",
+        "Bài viết của bạn hiện đang ở trạng thái Pending và đang chờ Admin duyệt.\n\nSau khi được duyệt, bài viết sẽ hiển thị trên diễn đàn cộng đồng."
+      );
+
       setShowCreate(false);
       setContent("");
       setMediaUrl("");
       setHashtags("stress, deadline");
       setEmotionStatus("stress");
       setIsAnonymous(true);
-      loadPosts();
-    } else {
-      Alert.alert("Lỗi", res.message || "Không tạo được bài viết.");
+
+      if (mode === "mine") {
+        loadPosts("mine", token);
+      }
+
+      return;
     }
+
+    Alert.alert("Không thể đăng bài", res.message || "Đã có lỗi xảy ra khi tạo bài viết.");
   };
 
   const handleReact = async (postId: string, type: "like" | "support" | "hug") => {
     if (!requireLogin()) return;
+
     const res = await reactToPost(token as string, postId, type);
-    if (res.success) loadPosts();
+
+    if (res.success) {
+      loadPosts(mode, token);
+    } else {
+      Alert.alert("Lỗi", res.message || "Không thể react bài viết.");
+    }
   };
 
   const handleReport = async (postId: string) => {
@@ -175,7 +220,13 @@ export default function ForumScreen() {
             </View>
           </View>
 
-          <MaterialCommunityIcons name="dots-horizontal" size={24} color="#566A66" />
+          {mode === "mine" ? (
+            <View style={s.statusBadge}>
+              <Text style={s.statusText}>{item.status}</Text>
+            </View>
+          ) : (
+            <MaterialCommunityIcons name="dots-horizontal" size={24} color="#566A66" />
+          )}
         </View>
 
         <Text style={s.postContent}>{item.content}</Text>
@@ -231,7 +282,9 @@ export default function ForumScreen() {
         <View style={s.headerTop}>
           <View>
             <Text style={s.title}>Healing Forum</Text>
-            <Text style={s.subtitle}>A safe space to share, support{"\n"}and grow together 🌿</Text>
+            <Text style={s.subtitle}>
+              A safe space to share, support{"\n"}and grow together 🌿
+            </Text>
           </View>
 
           <View style={s.headerActions}>
@@ -260,6 +313,7 @@ export default function ForumScreen() {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
           {filters.map((item) => {
             const active = item === filter;
+
             return (
               <Pressable
                 key={item}
@@ -284,8 +338,14 @@ export default function ForumScreen() {
         ListEmptyComponent={
           <View style={s.emptyBox}>
             <Text style={s.emptyIcon}>🌿</Text>
-            <Text style={s.emptyTitle}>No posts yet</Text>
-            <Text style={s.emptyText}>Be the first to share something gentle today.</Text>
+            <Text style={s.emptyTitle}>
+              {mode === "mine" ? "No personal posts yet" : "No posts yet"}
+            </Text>
+            <Text style={s.emptyText}>
+              {mode === "mine"
+                ? "Your pending and approved posts will appear here."
+                : "Be the first to share something gentle today."}
+            </Text>
           </View>
         }
       />
@@ -342,6 +402,7 @@ export default function ForumScreen() {
             <View style={s.emotionGrid}>
               {emotions.map((e) => {
                 const active = emotionStatus === e.value;
+
                 return (
                   <Pressable
                     key={e.value}
@@ -377,8 +438,64 @@ export default function ForumScreen() {
               <Text style={s.cancelText}>Cancel</Text>
             </Pressable>
           </View>
+          
         </View>
       </Modal>
+      <View style={s.bottomSwitcher}>
+  <Pressable
+    style={[
+      s.bottomTab,
+      mode === "community" && s.bottomTabActive,
+    ]}
+    onPress={() => {
+      setMode("community");
+      loadPosts("community", token);
+    }}
+  >
+    <MaterialCommunityIcons
+      name="account-group-outline"
+      size={22}
+      color={mode === "community" ? "#FFFFFF" : "#40657D"}
+    />
+
+    <Text
+      style={[
+        s.bottomTabText,
+        mode === "community" && s.bottomTabTextActive,
+      ]}
+    >
+      Community
+    </Text>
+  </Pressable>
+
+  <Pressable
+    style={[
+      s.bottomTab,
+      mode === "mine" && s.bottomTabActive,
+    ]}
+    onPress={() => {
+      if (!requireLogin()) return;
+
+      setMode("mine");
+      loadPosts("mine", token);
+    }}
+  >
+    <MaterialCommunityIcons
+      name="account-outline"
+      size={22}
+      color={mode === "mine" ? "#FFFFFF" : "#40657D"}
+    />
+
+    <Text
+      style={[
+        s.bottomTabText,
+        mode === "mine" && s.bottomTabTextActive,
+      ]}
+    >
+      My Posts
+    </Text>
+  </Pressable>
+</View>
     </View>
   );
 }

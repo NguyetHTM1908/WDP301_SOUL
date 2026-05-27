@@ -129,7 +129,7 @@ export const forumStyles = StyleSheet.create({
   list: {
     paddingHorizontal: 18,
     paddingTop: 18,
-    paddingBottom: 120,
+    paddingBottom: 140,
   },
 
   postCard: {
@@ -181,6 +181,20 @@ export const forumStyles = StyleSheet.create({
     marginTop: 3,
     fontSize: 13,
     fontWeight: "600",
+  },
+
+  statusBadge: {
+    backgroundColor: "#FFF4D6",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+
+  statusText: {
+    color: "#A16207",
+    fontWeight: "800",
+    fontSize: 12,
+    textTransform: "capitalize",
   },
 
   postContent: {
@@ -429,10 +443,6 @@ export const forumStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     gap: 12,
-    shadowColor: "#00866B",
-    shadowOpacity: 0.22,
-    shadowRadius: 14,
-    elevation: 5,
   },
 
   submitText: {
@@ -447,5 +457,58 @@ export const forumStyles = StyleSheet.create({
     color: "#6F7E7B",
     fontSize: 17,
     fontWeight: "700",
+  },
+
+  bottomSwitcher: {
+    position: "absolute",
+    bottom: 24,
+    left: 20,
+    right: 20,
+    height: 72,
+
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+
+    paddingHorizontal: 10,
+
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+
+    elevation: 10,
+  },
+
+  bottomTab: {
+    flex: 1,
+    height: 54,
+    borderRadius: 999,
+
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+
+    gap: 8,
+  },
+
+  bottomTabActive: {
+    backgroundColor: "#00866B",
+  },
+
+  bottomTabText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#40657D",
+  },
+
+  bottomTabTextActive: {
+    color: "#FFFFFF",
   },
 });

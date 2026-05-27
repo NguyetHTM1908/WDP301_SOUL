@@ -18,6 +18,16 @@ export async function getApprovedPosts() {
   const res = await fetch(`${API_BASE_URL}/posts`);
   return handleResponse(res);
 }
+export async function getMyPosts(token: string) {
+  const res = await fetch(`${API_BASE_URL}/posts/my-posts`, {
+    method: "GET",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  return handleResponse(res);
+}
 
 export async function createPost(token: string, body: any) {
   const res = await fetch(`${API_BASE_URL}/posts`, {
