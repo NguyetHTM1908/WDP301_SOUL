@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { authService, setAuthToken } from "@/services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Định nghĩa giao diện TypeScript cho dữ liệu người dùng
 interface User {
@@ -41,7 +42,7 @@ interface AuthState {
     googleId: string,
     avatarUrl?: string
   ) => Promise<{ success: boolean; message: string }>;
-  setSession: (token: string, user: User) => void;
+  setSession: (token: string, user: User) => Promise<void> | void;
   updateProfile: (profileData: {
     fullName?: string;
     phone?: string;
@@ -50,7 +51,7 @@ interface AuthState {
     avatarUrl?: string;
     bio?: string;
   }) => Promise<{ success: boolean; message: string }>;
-  logout: () => void;
+  logout: () => Promise<void> | void;
 
   
   // Các hành động Khôi phục mật khẩu (Forgot Password)
@@ -76,6 +77,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const response = await authService.login(email, password);
       if (response.success && response.data) {
         const { token, user } = response.data;
+        
+        // Lưu token vào bộ nhớ thiết bị
+        await AsyncStorage.setItem("token", token);
         
         // Thiết lập header Authorization trong axios client
         setAuthToken(token);
@@ -113,6 +117,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       if (response.success && response.data) {
         const { token, user } = response.data;
         
+        // Lưu token vào bộ nhớ thiết bị
+        await AsyncStorage.setItem("token", token);
+        
         // Gắn JWT token vào axios header
         setAuthToken(token);
         
@@ -130,7 +137,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // Lưu trực tiếp session đăng nhập từ Deep Link
-  setSession: (token, user) => {
+  setSession: async (token, user) => {
+    try {
+      await AsyncStorage.setItem("token", token);
+    } catch (e) {
+      console.warn("Lỗi lưu token vào AsyncStorage khi setSession:", e);
+    }
     setAuthToken(token);
     set({
       user,
@@ -160,7 +172,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // Xử lý Đăng xuất
-  logout: () => {
+  logout: async () => {
+    try {
+      await AsyncStorage.removeItem("token");
+    } catch (e) {
+      console.warn("Lỗi xóa token khỏi AsyncStorage khi logout:", e);
+    }
     setAuthToken(null);
 
     set({
