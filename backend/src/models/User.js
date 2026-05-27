@@ -79,6 +79,22 @@ const userSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    // Mã xác thực quên mật khẩu (4 chữ số) và thời gian hết hạn
+    resetCode: {
+      type: String,
+      default: null,
+    },
+    resetCodeExpires: {
+      type: Date,
+      default: null,
+    },
+    // Định danh Google phục vụ đăng nhập Google Sign In
+    googleId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+    },
   },
   {
     timestamps: true, // Automatically manages createdAt and updatedAt
