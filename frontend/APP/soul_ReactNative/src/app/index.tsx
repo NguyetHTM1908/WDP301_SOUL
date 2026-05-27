@@ -1,45 +1,15 @@
-import { useState } from "react";
-import { ScrollView, View } from "react-native";
-import { styles } from "@/styles/home.styles";
+import { useEffect } from "react";
+import { router } from "expo-router";
+import SplashScreen from "./splash";
 
-import { HomeHeader } from "@/components/home/HomeHeader";
-import { HeroCard } from "@/components/home/HeroCard";
-import { QuickActions } from "@/components/home/QuickActions";
-import { MoodAnalytics } from "@/components/home/MoodAnalytics";
-import { WeeklyInsight } from "@/components/home/WeeklyInsight";
-import { CommunityPreview } from "@/components/home/CommunityPreview";
-import { EventCard } from "@/components/home/EventCard";
-import { BottomNav } from "@/components/home/BottomNav";
-import { Sidebar } from "@/components/home/Sidebar";
+export default function IndexGateway() {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      router.replace("/onboarding");
+    }, 2500); // 2.5 seconds of beautiful splash loading
 
-export default function HomeScreen() {
-  const [showSidebar, setShowSidebar] = useState(false);
+    return () => clearTimeout(timer);
+  }, []);
 
-  return (
-    <View style={styles.page}>
-      {showSidebar && <Sidebar />}
-
-      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-        <HomeHeader
-          showSidebar={showSidebar}
-          onToggleSidebar={() => setShowSidebar(!showSidebar)}
-        />
-
-        <HeroCard />
-        <QuickActions />
-
-        <View style={styles.row}>
-          <MoodAnalytics />
-          <WeeklyInsight />
-        </View>
-
-        <View style={styles.row}>
-          <CommunityPreview />
-          <EventCard />
-        </View>
-
-        <BottomNav />
-      </ScrollView>
-    </View>
-  );
+  return <SplashScreen />;
 }
