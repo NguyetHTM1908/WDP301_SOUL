@@ -5,7 +5,7 @@ import { styles } from "@/styles/home.styles";
 export function WeeklyInsight() {
   return (
     <View style={styles.panel}>
-      <Text style={styles.panelTitle}>✨ Today's Suggestion</Text>
+      <Text style={styles.panelTitle}>{"✨ Today's Suggestion"}</Text>
 
       <View style={styles.centerBox}>
         <MaterialCommunityIcons name="meditation" size={150} color="#2A9D8F" />

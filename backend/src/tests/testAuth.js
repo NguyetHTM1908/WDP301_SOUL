@@ -131,6 +131,42 @@ const runAuthTest = async () => {
       process.exit(1);
     }
 
+    // 5.5. Kiểm tra phân quyền isAdmin (Người dùng thường - role: user)
+    console.log("\n--- Kiểm tra phân quyền isAdmin (Người dùng thường - role: user) ---");
+    const userRoleReq = {
+      user: savedUser,
+    };
+    const userRoleRes = mockResponse();
+    const userRoleNext = mockNext();
+    await authMiddleware.isAdmin(userRoleReq, userRoleRes, userRoleNext.fn);
+
+    if (userRoleRes.statusCode === 403 && !userRoleNext.called) {
+      console.log("[PASS] Đúng - Từ chối người dùng thường truy cập admin (403).");
+      console.log("       - Thông báo:", userRoleRes.body.message);
+    } else {
+      console.error("[FAIL] Người dùng thường không bị từ chối truy cập admin!");
+      process.exit(1);
+    }
+
+    // 5.6. Kiểm tra phân quyền isAdmin (Quản trị viên - role: admin)
+    console.log("\n--- Kiểm tra phân quyền isAdmin (Quản trị viên - role: admin) ---");
+    savedUser.role = "admin";
+    await savedUser.save();
+    
+    const adminRoleReq = {
+      user: savedUser,
+    };
+    const adminRoleRes = mockResponse();
+    const adminRoleNext = mockNext();
+    await authMiddleware.isAdmin(adminRoleReq, adminRoleRes, adminRoleNext.fn);
+
+    if (adminRoleNext.called) {
+      console.log("[PASS] Đúng - Cho phép quản trị viên truy cập admin.");
+    } else {
+      console.error("[FAIL] Quản trị viên bị từ chối truy cập admin!", adminRoleRes.body ? adminRoleRes.body.message : "");
+      process.exit(1);
+    }
+
     // 6. Dọn dẹp
     await User.deleteOne({ email: testEmail });
     await TokenBlacklist.deleteMany({});
