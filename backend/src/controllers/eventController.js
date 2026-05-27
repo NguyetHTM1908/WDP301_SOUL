@@ -45,6 +45,44 @@ const getEvents = async (req, res) => {
   }
 };
 
+/**
+ * @route   GET /api/events/:id
+ * @desc    Get event detail by ID
+ * @access  Public
+ */
+const getEventById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Validate MongoDB ObjectId format
+    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    const event = await Event.findById(id).populate(
+      "createdBy",
+      "username fullName avatar"
+    );
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    // Build response, exclude full participants array to keep it clean
+    // but include registered count
+    const responseData = event.toObject();
+
+    res.status(200).json({
+      success: true,
+      data: responseData,
+    });
+  } catch (error) {
+    console.error("Error fetching event detail:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
 module.exports = {
   getEvents,
+  getEventById,
 };
