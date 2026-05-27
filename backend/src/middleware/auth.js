@@ -45,4 +45,31 @@ const auth = async (req, res, next) => {
   }
 };
 
+const isAdmin = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({
+        success: false,
+        message: "Không xác định được danh tính người dùng. Vui lòng đăng nhập.",
+      });
+    }
+
+    if (req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Không có quyền truy cập. Chức năng này chỉ dành cho quản trị viên.",
+      });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi kiểm tra quyền truy cập: " + error.message,
+    });
+  }
+};
+
+auth.isAdmin = isAdmin;
+
 module.exports = auth;
