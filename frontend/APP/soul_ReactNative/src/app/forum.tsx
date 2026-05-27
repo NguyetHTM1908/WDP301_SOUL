@@ -24,17 +24,18 @@ import { forumStyles as s } from "@/styles/forum.styles";
 
 const filters = ["all", "stress", "self-care", "student-life", "deadline"];
 
-function moodLabel(mood: string) {
-  const map: Record<string, string> = {
-    happy: "😊 Happy",
-    sad: "😔 Sad",
-    stress: "😵 Stress",
-    anxious: "😟 Anxious",
-    angry: "😤 Angry",
-    neutral: "🌿 Neutral",
-  };
+const emotions = [
+  { value: "happy", label: "😊", text: "Happy" },
+  { value: "sad", label: "😔", text: "Sad" },
+  { value: "stress", label: "😵", text: "Stress" },
+  { value: "anxious", label: "😟", text: "Anxious" },
+  { value: "angry", label: "😤", text: "Angry" },
+  { value: "neutral", label: "🌱", text: "Neutral" },
+];
 
-  return map[mood] || "🌿 Neutral";
+function moodLabel(mood: string) {
+  const found = emotions.find((item) => item.value === mood);
+  return found ? `${found.label} ${found.text}` : "🌱 Neutral";
 }
 
 export default function ForumScreen() {
@@ -46,7 +47,7 @@ export default function ForumScreen() {
   const [showCreate, setShowCreate] = useState(false);
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
-  const [hashtags, setHashtags] = useState("stress");
+  const [hashtags, setHashtags] = useState("stress, deadline");
   const [emotionStatus, setEmotionStatus] = useState("stress");
   const [isAnonymous, setIsAnonymous] = useState(true);
 
@@ -57,12 +58,7 @@ export default function ForumScreen() {
 
   const loadPosts = async () => {
     const res = await getApprovedPosts();
-
-    if (res.success) {
-      setPosts(res.data || []);
-    } else {
-      Alert.alert("Lỗi", res.message || "Không tải được danh sách bài viết.");
-    }
+    if (res.success) setPosts(res.data || []);
   };
 
   useEffect(() => {
@@ -72,13 +68,9 @@ export default function ForumScreen() {
 
   const requireLogin = () => {
     if (!token) {
-      Alert.alert(
-        "Bạn cần đăng nhập",
-        "Vui lòng đăng nhập để sử dụng chức năng này."
-      );
+      Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để dùng chức năng này.");
       return false;
     }
-
     return true;
   };
 
@@ -99,7 +91,7 @@ export default function ForumScreen() {
     if (!requireLogin()) return;
 
     if (!content.trim()) {
-      Alert.alert("Thiếu nội dung", "Vy nhập nội dung bài viết trước nha.");
+      Alert.alert("Thiếu nội dung", "Nhập nội dung bài viết trước nha.");
       return;
     }
 
@@ -125,11 +117,11 @@ export default function ForumScreen() {
     const res = await createPost(token as string, body);
 
     if (res.success) {
-      Alert.alert("Thành công", "Bài viết đang chờ admin duyệt.");
+      Alert.alert("Đã gửi duyệt", "Bài viết đang chờ admin duyệt.");
       setShowCreate(false);
       setContent("");
       setMediaUrl("");
-      setHashtags("stress");
+      setHashtags("stress, deadline");
       setEmotionStatus("stress");
       setIsAnonymous(true);
       loadPosts();
@@ -140,14 +132,8 @@ export default function ForumScreen() {
 
   const handleReact = async (postId: string, type: "like" | "support" | "hug") => {
     if (!requireLogin()) return;
-
     const res = await reactToPost(token as string, postId, type);
-
-    if (res.success) {
-      loadPosts();
-    } else {
-      Alert.alert("Lỗi", res.message || "Không react được bài viết.");
-    }
+    if (res.success) loadPosts();
   };
 
   const handleReport = async (postId: string) => {
@@ -157,14 +143,13 @@ export default function ForumScreen() {
       token as string,
       postId,
       "negative_content",
-      "Nội dung có thể gây tiêu cực hoặc không phù hợp."
+      "Nội dung có thể không phù hợp với cộng đồng."
     );
 
-    if (res.success) {
-      Alert.alert("Đã gửi report", "Admin sẽ xem xét nội dung này.");
-    } else {
-      Alert.alert("Không thể report", res.message || "Bạn đã report rồi.");
-    }
+    Alert.alert(
+      res.success ? "Đã gửi report" : "Không thể report",
+      res.message || "Admin sẽ xem xét nội dung này."
+    );
   };
 
   const renderPost = ({ item }: { item: any }) => {
@@ -177,26 +162,23 @@ export default function ForumScreen() {
       : item.authorId?.avatarUrl || "https://i.pravatar.cc/100?img=32";
 
     return (
-      <View style={s.card}>
-        <View style={s.cardTop}>
-          <View style={s.userRow}>
+      <View style={s.postCard}>
+        <View style={s.postHeader}>
+          <View style={s.authorRow}>
             <Image source={{ uri: avatar }} style={s.avatar} />
             <View>
-              <Text style={s.userName}>{authorName}</Text>
-              <Text style={s.time}>Just now · Community Forum</Text>
+              <View style={s.nameRow}>
+                <Text style={s.authorName}>{authorName}</Text>
+                <MaterialCommunityIcons name="check-decagram" size={15} color="#00866B" />
+              </View>
+              <Text style={s.postMeta}>Just now · {moodLabel(item.emotionStatus)}</Text>
             </View>
           </View>
 
-          <View style={s.moodPill}>
-            <Text style={s.moodText}>{moodLabel(item.emotionStatus)}</Text>
-          </View>
+          <MaterialCommunityIcons name="dots-horizontal" size={24} color="#566A66" />
         </View>
 
-        <Text style={s.content}>{item.content}</Text>
-
-        {item.mediaUrls?.[0]?.url ? (
-          <Image source={{ uri: item.mediaUrls[0].url }} style={s.media} />
-        ) : null}
+        <Text style={s.postContent}>{item.content}</Text>
 
         <View style={s.tagRow}>
           {item.hashtags?.map((tag: string) => (
@@ -206,54 +188,33 @@ export default function ForumScreen() {
           ))}
         </View>
 
+        {item.mediaUrls?.[0]?.url ? (
+          <Image source={{ uri: item.mediaUrls[0].url }} style={s.postImage} />
+        ) : null}
+
         <View style={s.actionRow}>
-          <Pressable
-            style={s.action}
-            onPress={() => handleReact(item._id, "like")}
-          >
-            <MaterialCommunityIcons name="heart-outline" size={22} color="#E76F51" />
+          <Pressable style={s.actionItem} onPress={() => handleReact(item._id, "like")}>
+            <MaterialCommunityIcons name="heart-outline" size={24} color="#EF4444" />
             <Text style={s.actionText}>{item.statistics?.likeCount || 0}</Text>
           </Pressable>
 
-          <Pressable
-            style={s.action}
-            onPress={() => handleReact(item._id, "support")}
-          >
-            <MaterialCommunityIcons
-              name="hand-heart-outline"
-              size={22}
-              color="#2A9D8F"
-            />
+          <Pressable style={s.actionItem} onPress={() => handleReact(item._id, "support")}>
+            <MaterialCommunityIcons name="hand-heart" size={24} color="#00866B" />
             <Text style={s.actionText}>{item.statistics?.supportCount || 0}</Text>
           </Pressable>
 
-          <Pressable
-            style={s.action}
-            onPress={() => handleReact(item._id, "hug")}
-          >
-            <MaterialCommunityIcons
-              name="emoticon-happy-outline"
-              size={22}
-              color="#F4A261"
-            />
+          <Pressable style={s.actionItem} onPress={() => handleReact(item._id, "hug")}>
+            <Text style={s.hugIcon}>🤗</Text>
             <Text style={s.actionText}>{item.statistics?.hugCount || 0}</Text>
           </Pressable>
 
-          <View style={s.action}>
-            <MaterialCommunityIcons
-              name="comment-outline"
-              size={22}
-              color="#55736D"
-            />
+          <View style={s.actionItem}>
+            <MaterialCommunityIcons name="comment-outline" size={23} color="#60706C" />
             <Text style={s.actionText}>{item.statistics?.commentCount || 0}</Text>
           </View>
 
-          <Pressable style={s.action} onPress={() => handleReport(item._id)}>
-            <MaterialCommunityIcons
-              name="flag-outline"
-              size={22}
-              color="#9CA3AF"
-            />
+          <Pressable onPress={() => handleReport(item._id)}>
+            <MaterialCommunityIcons name="flag-outline" size={23} color="#60706C" />
           </Pressable>
         </View>
       </View>
@@ -263,52 +224,56 @@ export default function ForumScreen() {
   return (
     <View style={s.page}>
       <View style={s.header}>
+        <View style={s.decorHeart}>
+          <MaterialCommunityIcons name="heart-outline" size={42} color="rgba(0,134,107,0.08)" />
+        </View>
+
         <View style={s.headerTop}>
           <View>
             <Text style={s.title}>Healing Forum</Text>
-            <Text style={s.subtitle}>
-              A safe space to share emotions, support each other, and grow gently.
-            </Text>
+            <Text style={s.subtitle}>A safe space to share, support{"\n"}and grow together 🌿</Text>
           </View>
 
-          <Pressable style={s.createButton} onPress={() => setShowCreate(true)}>
-            <MaterialCommunityIcons name="plus" size={30} color="#FFFFFF" />
-          </Pressable>
+          <View style={s.headerActions}>
+            <Pressable style={s.bellButton}>
+              <MaterialCommunityIcons name="bell-outline" size={26} color="#083D34" />
+              <View style={s.redDot} />
+            </Pressable>
+
+            <Pressable style={s.plusButton} onPress={() => setShowCreate(true)}>
+              <MaterialCommunityIcons name="plus" size={30} color="#FFFFFF" />
+            </Pressable>
+          </View>
         </View>
 
         <View style={s.searchBox}>
-          <MaterialCommunityIcons name="magnify" size={22} color="#7DA59C" />
+          <MaterialCommunityIcons name="magnify" size={22} color="#7E8F8B" />
           <TextInput
-            placeholder="Search stories, feelings, hashtags..."
-            placeholderTextColor="#9AB7B0"
             style={s.searchInput}
+            placeholder="Search stories, feelings, hashtags..."
+            placeholderTextColor="#7E8F8B"
             value={search}
             onChangeText={setSearch}
           />
         </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
+          {filters.map((item) => {
+            const active = item === filter;
+            return (
+              <Pressable
+                key={item}
+                style={[s.filterChip, active && s.filterChipActive]}
+                onPress={() => setFilter(item)}
+              >
+                <Text style={[s.filterText, active && s.filterTextActive]}>
+                  {item === "all" ? "All" : `#${item}`}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
       </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filterRow}
-      >
-        {filters.map((item) => {
-          const active = item === filter;
-
-          return (
-            <Pressable
-              key={item}
-              style={[s.chip, active && s.chipActive]}
-              onPress={() => setFilter(item)}
-            >
-              <Text style={[s.chipText, active && s.chipTextActive]}>
-                {item === "all" ? "All" : `#${item}`}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
 
       <FlatList
         data={visiblePosts}
@@ -316,61 +281,95 @@ export default function ForumScreen() {
         renderItem={renderPost}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={
+          <View style={s.emptyBox}>
+            <Text style={s.emptyIcon}>🌿</Text>
+            <Text style={s.emptyTitle}>No posts yet</Text>
+            <Text style={s.emptyText}>Be the first to share something gentle today.</Text>
+          </View>
+        }
       />
 
       <Modal visible={showCreate} transparent animationType="slide">
         <View style={s.modalBackdrop}>
-          <View style={s.modal}>
+          <View style={s.createModal}>
+            <View style={s.modalHandle} />
+
+            <Pressable style={s.closeButton} onPress={() => setShowCreate(false)}>
+              <MaterialCommunityIcons name="close" size={28} color="#1F332F" />
+            </Pressable>
+
             <Text style={s.modalTitle}>Share your feeling ✨</Text>
+            <Text style={s.modalSub}>Your story might be the light for someone.</Text>
 
-            <TextInput
-              style={s.input}
-              multiline
-              placeholder="What is on your mind today?"
-              placeholderTextColor="#9AB7B0"
-              value={content}
-              onChangeText={setContent}
-            />
+            <View style={s.bigInputWrap}>
+              <TextInput
+                style={s.bigInput}
+                multiline
+                placeholder="What is on your mind today?"
+                placeholderTextColor="#8A9996"
+                value={content}
+                onChangeText={setContent}
+                maxLength={1000}
+              />
+              <Text style={s.counter}>{content.length}/1000</Text>
+            </View>
 
-            <TextInput
-              style={s.smallInput}
-              placeholder="Image/video URL"
-              placeholderTextColor="#9AB7B0"
-              value={mediaUrl}
-              onChangeText={setMediaUrl}
-            />
+            <View style={s.formInput}>
+              <MaterialCommunityIcons name="image-outline" size={25} color="#7A8A87" />
+              <TextInput
+                style={s.formTextInput}
+                placeholder="Image / Video URL (optional)"
+                placeholderTextColor="#8A9996"
+                value={mediaUrl}
+                onChangeText={setMediaUrl}
+              />
+            </View>
 
-            <TextInput
-              style={s.smallInput}
-              placeholder="Hashtags: stress, self-care"
-              placeholderTextColor="#9AB7B0"
-              value={hashtags}
-              onChangeText={setHashtags}
-            />
+            <View style={s.formInput}>
+              <Text style={s.hashIcon}>#</Text>
+              <TextInput
+                style={s.formTextInput}
+                placeholder="Hashtags (e.g. stress, self-care)"
+                placeholderTextColor="#8A9996"
+                value={hashtags}
+                onChangeText={setHashtags}
+              />
+            </View>
 
-            <TextInput
-              style={s.smallInput}
-              placeholder="Emotion: happy, sad, stress, anxious, angry, neutral"
-              placeholderTextColor="#9AB7B0"
-              value={emotionStatus}
-              onChangeText={setEmotionStatus}
-            />
+            <Text style={s.feelingLabel}>How are you feeling?</Text>
 
-            <View
-              style={{
-                marginTop: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Text style={{ color: "#123D36", fontWeight: "800" }}>
-                Post anonymously
-              </Text>
-              <Switch value={isAnonymous} onValueChange={setIsAnonymous} />
+            <View style={s.emotionGrid}>
+              {emotions.map((e) => {
+                const active = emotionStatus === e.value;
+                return (
+                  <Pressable
+                    key={e.value}
+                    style={[s.emotionCard, active && s.emotionCardActive]}
+                    onPress={() => setEmotionStatus(e.value)}
+                  >
+                    <Text style={s.emotionEmoji}>{e.label}</Text>
+                    <Text style={s.emotionName}>{e.text}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={s.anonymousRow}>
+              <View style={s.anonLeft}>
+                <MaterialCommunityIcons name="incognito" size={24} color="#95A19E" />
+                <Text style={s.anonText}>Post anonymously</Text>
+              </View>
+              <Switch
+                value={isAnonymous}
+                onValueChange={setIsAnonymous}
+                trackColor={{ false: "#D8E3E0", true: "#00866B" }}
+                thumbColor="#FFFFFF"
+              />
             </View>
 
             <Pressable style={s.submitButton} onPress={handleCreatePost}>
+              <MaterialCommunityIcons name="send-outline" size={24} color="#FFFFFF" />
               <Text style={s.submitText}>Submit for Review</Text>
             </Pressable>
 

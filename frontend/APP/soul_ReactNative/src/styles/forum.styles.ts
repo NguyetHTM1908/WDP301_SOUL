@@ -3,270 +3,449 @@ import { StyleSheet } from "react-native";
 export const forumStyles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: "#F5FBF9",
+    backgroundColor: "#F0FBF7",
   },
 
   header: {
-    paddingTop: 56,
+    backgroundColor: "#E4F8F1",
+    paddingTop: 58,
     paddingHorizontal: 22,
-    paddingBottom: 22,
-    backgroundColor: "#DFF7EF",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    paddingBottom: 14,
+    borderBottomLeftRadius: 34,
+    borderBottomRightRadius: 34,
+    overflow: "hidden",
+  },
+
+  decorHeart: {
+    position: "absolute",
+    right: 110,
+    top: 72,
   },
 
   headerTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-
-  title: {
-    fontSize: 30,
-    fontWeight: "800",
-    color: "#123D36",
-  },
-
-  subtitle: {
-    marginTop: 8,
-    color: "#4B7D73",
-    fontSize: 15,
-    lineHeight: 22,
-  },
-
-  createButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: "#2A9D8F",
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#2A9D8F",
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 5,
-  },
-
-  searchBox: {
-    marginTop: 22,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 18,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-
-  searchInput: {
-    flex: 1,
-    fontSize: 15,
-    color: "#123D36",
-  },
-
-  filterRow: {
-    paddingVertical: 18,
-    paddingLeft: 20,
-    gap: 10,
-  },
-
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 9,
-    borderRadius: 999,
-    backgroundColor: "#FFFFFF",
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#D8EFE8",
-  },
-
-  chipActive: {
-    backgroundColor: "#2A9D8F",
-    borderColor: "#2A9D8F",
-  },
-
-  chipText: {
-    color: "#4B7D73",
-    fontWeight: "700",
-  },
-
-  chipTextActive: {
-    color: "#FFFFFF",
-  },
-
-  list: {
-    paddingHorizontal: 18,
-    paddingBottom: 120,
-  },
-
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 28,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: "#0B3D35",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-
-  cardTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
   },
 
-  userRow: {
+  title: {
+    fontSize: 34,
+    fontWeight: "900",
+    color: "#064D3D",
+    letterSpacing: -0.8,
+  },
+
+  subtitle: {
+    marginTop: 8,
+    color: "#385E56",
+    fontSize: 17,
+    lineHeight: 24,
+  },
+
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+
+  bellButton: {
+    width: 40,
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  redDot: {
+    position: "absolute",
+    top: 6,
+    right: 5,
+    width: 9,
+    height: 9,
+    borderRadius: 99,
+    backgroundColor: "#EF4444",
+  },
+
+  plusButton: {
+    width: 54,
+    height: 54,
+    borderRadius: 28,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#00866B",
+    shadowOpacity: 0.28,
+    shadowRadius: 13,
+    elevation: 6,
+  },
+
+  searchBox: {
+    marginTop: 28,
+    height: 58,
+    borderRadius: 30,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    shadowColor: "#0B3D35",
+    shadowOpacity: 0.06,
+    shadowRadius: 15,
+    elevation: 3,
+  },
+
+  searchInput: {
+    flex: 1,
+    color: "#1C3430",
+    fontSize: 16,
+  },
+
+  filterRow: {
+    paddingTop: 18,
+    paddingBottom: 4,
+    gap: 12,
+  },
+
+  filterChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 13,
+    borderRadius: 999,
+    backgroundColor: "#EAF6F2",
+  },
+
+  filterChipActive: {
+    backgroundColor: "#00866B",
+  },
+
+  filterText: {
+    color: "#064D3D",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  filterTextActive: {
+    color: "#FFFFFF",
+  },
+
+  list: {
+    paddingHorizontal: 18,
+    paddingTop: 18,
+    paddingBottom: 120,
+  },
+
+  postCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 22,
+    padding: 18,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E3ECE9",
+    shadowColor: "#0B3D35",
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
+  },
+
+  postHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  authorRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
 
   avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 18,
-    backgroundColor: "#DFF7EF",
+    width: 52,
+    height: 52,
+    borderRadius: 28,
+    backgroundColor: "#D7F2EA",
   },
 
-  userName: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#123D36",
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
   },
 
-  time: {
+  authorName: {
+    fontSize: 17,
+    fontWeight: "900",
+    color: "#073E34",
+  },
+
+  postMeta: {
+    color: "#758783",
     marginTop: 3,
-    color: "#8AA7A0",
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "600",
   },
 
-  moodPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: "#FFF4D8",
-  },
-
-  moodText: {
-    color: "#A86B00",
-    fontWeight: "800",
-    fontSize: 12,
-  },
-
-  content: {
+  postContent: {
     marginTop: 16,
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#263F3A",
-  },
-
-  media: {
-    marginTop: 14,
-    width: "100%",
-    height: 190,
-    borderRadius: 22,
-    backgroundColor: "#EDF8F5",
+    color: "#172F2B",
+    fontSize: 17,
+    lineHeight: 26,
   },
 
   tagRow: {
+    marginTop: 14,
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 14,
-    gap: 8,
+    gap: 9,
   },
 
   tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    backgroundColor: "#EAF7F3",
     borderRadius: 999,
-    backgroundColor: "#EEF9F6",
+    paddingHorizontal: 13,
+    paddingVertical: 8,
   },
 
   tagText: {
-    color: "#2A9D8F",
-    fontWeight: "700",
-    fontSize: 12,
+    color: "#064D3D",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  postImage: {
+    marginTop: 18,
+    height: 152,
+    width: "100%",
+    borderRadius: 17,
+    backgroundColor: "#E8F5F1",
   },
 
   actionRow: {
     marginTop: 18,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: "#EEF3F1",
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
   },
 
-  action: {
+  actionItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 7,
   },
 
   actionText: {
-    color: "#55736D",
-    fontWeight: "700",
+    color: "#36534D",
+    fontSize: 15,
+    fontWeight: "800",
+  },
+
+  hugIcon: {
+    fontSize: 22,
+  },
+
+  emptyBox: {
+    alignItems: "center",
+    paddingVertical: 70,
+  },
+
+  emptyIcon: {
+    fontSize: 52,
+  },
+
+  emptyTitle: {
+    marginTop: 10,
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#064D3D",
+  },
+
+  emptyText: {
+    marginTop: 6,
+    color: "#6A807B",
+    fontSize: 15,
   },
 
   modalBackdrop: {
     flex: 1,
-    backgroundColor: "rgba(18,61,54,0.35)",
+    backgroundColor: "rgba(28, 47, 43, 0.48)",
     justifyContent: "flex-end",
   },
 
-  modal: {
+  createModal: {
     backgroundColor: "#FFFFFF",
-    padding: 22,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
+    borderTopLeftRadius: 34,
+    borderTopRightRadius: 34,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 26,
+  },
+
+  modalHandle: {
+    alignSelf: "center",
+    width: 55,
+    height: 7,
+    borderRadius: 99,
+    backgroundColor: "#D4DAD8",
+    marginBottom: 22,
+  },
+
+  closeButton: {
+    position: "absolute",
+    right: 22,
+    top: 34,
+    zIndex: 5,
   },
 
   modalTitle: {
-    fontSize: 22,
+    textAlign: "center",
+    color: "#064D3D",
+    fontSize: 26,
     fontWeight: "900",
-    color: "#123D36",
-    marginBottom: 16,
   },
 
-  input: {
-    backgroundColor: "#F4FAF8",
+  modalSub: {
+    textAlign: "center",
+    marginTop: 8,
+    color: "#6D7D79",
+    fontSize: 16,
+  },
+
+  bigInputWrap: {
+    marginTop: 26,
+    height: 175,
     borderRadius: 18,
-    padding: 14,
-    minHeight: 110,
-    textAlignVertical: "top",
-    color: "#123D36",
-    fontSize: 15,
+    borderWidth: 1,
+    borderColor: "#DDE7E4",
+    padding: 16,
   },
 
-  smallInput: {
+  bigInput: {
+    flex: 1,
+    textAlignVertical: "top",
+    color: "#1C3430",
+    fontSize: 16,
+  },
+
+  counter: {
+    textAlign: "right",
+    color: "#7D8B88",
+    fontSize: 13,
+  },
+
+  formInput: {
+    marginTop: 16,
+    height: 64,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DDE7E4",
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+
+  formTextInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#1C3430",
+  },
+
+  hashIcon: {
+    fontSize: 34,
+    color: "#7A8A87",
+    fontWeight: "500",
+  },
+
+  feelingLabel: {
+    marginTop: 24,
+    color: "#064D3D",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+
+  emotionGrid: {
     marginTop: 12,
-    backgroundColor: "#F4FAF8",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    height: 48,
-    color: "#123D36",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+
+  emotionCard: {
+    flex: 1,
+    height: 82,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#E1E9E7",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+  },
+
+  emotionCardActive: {
+    borderColor: "#00866B",
+    borderWidth: 2,
+    backgroundColor: "#F0FBF7",
+  },
+
+  emotionEmoji: {
+    fontSize: 28,
+  },
+
+  emotionName: {
+    marginTop: 6,
+    fontSize: 11,
+    color: "#263C37",
+    fontWeight: "700",
+  },
+
+  anonymousRow: {
+    marginTop: 18,
+    height: 64,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E9E7",
+    paddingHorizontal: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  anonLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  anonText: {
+    fontSize: 16,
+    color: "#173B34",
+    fontWeight: "700",
   },
 
   submitButton: {
-    marginTop: 18,
-    height: 54,
+    marginTop: 22,
+    height: 64,
     borderRadius: 18,
-    backgroundColor: "#2A9D8F",
+    backgroundColor: "#00866B",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 12,
+    shadowColor: "#00866B",
+    shadowOpacity: 0.22,
+    shadowRadius: 14,
+    elevation: 5,
   },
 
   submitText: {
     color: "#FFFFFF",
+    fontSize: 18,
     fontWeight: "900",
-    fontSize: 16,
   },
 
   cancelText: {
+    marginTop: 20,
     textAlign: "center",
-    marginTop: 14,
-    color: "#78958E",
+    color: "#6F7E7B",
+    fontSize: 17,
     fontWeight: "700",
   },
 });

@@ -1,10 +1,22 @@
-const API_BASE_URL = "http://localhost:5000/api";
+import { Platform } from "react-native";
+
+const LOCALHOST = "http://localhost:5000/api";
+
+// Nếu chạy Expo Go trên điện thoại, đổi IP này thành IPv4 máy tính của m
+const LAN_HOST = "http://192.168.1.5:5000/api";
+
+export const API_BASE_URL = Platform.OS === "web" ? LOCALHOST : LAN_HOST;
 
 export type ReactionType = "like" | "support" | "hug";
 
+async function handleResponse(res: Response) {
+  const data = await res.json();
+  return data;
+}
+
 export async function getApprovedPosts() {
   const res = await fetch(`${API_BASE_URL}/posts`);
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function createPost(token: string, body: any) {
@@ -17,25 +29,7 @@ export async function createPost(token: string, body: any) {
     body: JSON.stringify(body),
   });
 
-  return res.json();
-}
-
-export async function getCommentsByPost(postId: string) {
-  const res = await fetch(`${API_BASE_URL}/comments/post/${postId}`);
-  return res.json();
-}
-
-export async function createComment(token: string, body: any) {
-  const res = await fetch(`${API_BASE_URL}/comments`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(body),
-  });
-
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function reactToPost(
@@ -52,7 +46,7 @@ export async function reactToPost(
     body: JSON.stringify({ type }),
   });
 
-  return res.json();
+  return handleResponse(res);
 }
 
 export async function reportPost(
@@ -75,5 +69,5 @@ export async function reportPost(
     }),
   });
 
-  return res.json();
+  return handleResponse(res);
 }
