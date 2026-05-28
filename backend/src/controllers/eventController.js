@@ -1,5 +1,108 @@
 const Event = require("../models/Event");
 
+const EVENT_TYPES = ["workshop", "talkshow", "webinar", "community_event", null];
+const EVENT_STATUSES = ["upcoming", "ongoing", "completed", "cancelled"];
+const REGISTRATION_STATUSES = ["registered", "cancelled", "attended"];
+
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+const buildEventPayload = (body) => {
+  const allowedFields = [
+    "title",
+    "description",
+    "speakerName",
+    "organizerName",
+    "contactEmail",
+    "bannerImage",
+    "images",
+    "eventType",
+    "startDateTime",
+    "endDateTime",
+    "location",
+    "meetingLink",
+    "capacity",
+    "status",
+  ];
+
+  return allowedFields.reduce((payload, field) => {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      payload[field] = body[field];
+    }
+
+    return payload;
+  }, {});
+};
+
+const validateEventPayload = (payload, { isCreate = false, currentEvent = null } = {}) => {
+  if (isCreate && (!payload.title || !payload.startDateTime)) {
+    return "Title and startDateTime are required";
+  }
+
+  if (payload.title !== undefined && !String(payload.title).trim()) {
+    return "Title cannot be empty";
+  }
+
+  if (payload.eventType !== undefined && !EVENT_TYPES.includes(payload.eventType)) {
+    return "Invalid event type";
+  }
+
+  if (payload.status !== undefined && !EVENT_STATUSES.includes(payload.status)) {
+    return "Invalid event status";
+  }
+
+  if (payload.capacity !== undefined && payload.capacity !== null) {
+    const capacity = Number(payload.capacity);
+    const registeredCount = currentEvent ? currentEvent.registeredCount : 0;
+
+    if (!Number.isInteger(capacity) || capacity < 0) {
+      return "Capacity must be a non-negative integer";
+    }
+
+    if (capacity < registeredCount) {
+      return "Capacity cannot be lower than current registered count";
+    }
+
+    payload.capacity = capacity;
+  }
+
+  const startDateTime =
+    payload.startDateTime !== undefined
+      ? new Date(payload.startDateTime)
+      : currentEvent && currentEvent.startDateTime;
+  const endDateTime =
+    payload.endDateTime !== undefined
+      ? payload.endDateTime === null
+        ? null
+        : new Date(payload.endDateTime)
+      : currentEvent && currentEvent.endDateTime;
+
+  if (payload.startDateTime !== undefined && Number.isNaN(startDateTime.getTime())) {
+    return "Invalid startDateTime";
+  }
+
+  if (
+    payload.endDateTime !== undefined &&
+    payload.endDateTime !== null &&
+    Number.isNaN(endDateTime.getTime())
+  ) {
+    return "Invalid endDateTime";
+  }
+
+  if (endDateTime && startDateTime && endDateTime <= startDateTime) {
+    return "endDateTime must be after startDateTime";
+  }
+
+  if (payload.startDateTime !== undefined) {
+    payload.startDateTime = startDateTime;
+  }
+
+  if (payload.endDateTime !== undefined) {
+    payload.endDateTime = endDateTime;
+  }
+
+  return null;
+};
+
 /**
  * @route   GET /api/events
  * @desc    Get list of events
@@ -55,7 +158,7 @@ const getEventById = async (req, res) => {
     const { id } = req.params;
 
     // Validate MongoDB ObjectId format
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({ success: false, message: "Invalid event ID" });
     }
 
@@ -78,6 +181,347 @@ const getEventById = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching event detail:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   POST /api/events
+ * @desc    Create event
+ * @access  Private (Admin)
+ */
+const createEvent = async (req, res) => {
+  try {
+    const payload = buildEventPayload(req.body);
+    const validationError = validateEventPayload(payload, { isCreate: true });
+
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
+
+    const event = await Event.create({
+      ...payload,
+      registeredCount: 0,
+      participants: [],
+      createdBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Event created successfully",
+      data: event,
+    });
+  } catch (error) {
+    console.error("Error creating event:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   PATCH /api/events/:id
+ * @desc    Update event
+ * @access  Private (Admin)
+ */
+const updateEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    const event = await Event.findById(id);
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    const payload = buildEventPayload(req.body);
+    const validationError = validateEventPayload(payload, { currentEvent: event });
+
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
+
+    Object.assign(event, payload);
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Event updated successfully",
+      data: event,
+    });
+  } catch (error) {
+    console.error("Error updating event:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   DELETE /api/events/:id
+ * @desc    Delete event
+ * @access  Private (Admin)
+ */
+const deleteEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    const event = await Event.findByIdAndDelete(id);
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Event deleted successfully",
+      data: {
+        eventId: event._id,
+        title: event.title,
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting event:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   GET /api/events/:id/registrations
+ * @desc    Get event registrations
+ * @access  Private (Admin)
+ */
+const getEventRegistrations = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status = "all", page = 1, limit = 10 } = req.query;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    if (status !== "all" && !REGISTRATION_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid registration status",
+      });
+    }
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const event = await Event.findById(id)
+      .populate("participants.userId", "fullName email phone avatarUrl role status")
+      .select("title startDateTime endDateTime status capacity registeredCount participants");
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    const registrations = event.participants
+      .filter((participant) => status === "all" || participant.status === status)
+      .sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
+
+    const paginatedRegistrations = registrations.slice(skip, skip + limitNumber);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        event: {
+          _id: event._id,
+          title: event.title,
+          startDateTime: event.startDateTime,
+          endDateTime: event.endDateTime,
+          status: event.status,
+          capacity: event.capacity,
+          registeredCount: event.registeredCount,
+        },
+        registrations: paginatedRegistrations,
+      },
+      pagination: {
+        total: registrations.length,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(registrations.length / limitNumber),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching event registrations:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   PATCH /api/events/:id/registrations/:userId
+ * @desc    Update event registration status
+ * @access  Private (Admin)
+ */
+const updateEventRegistration = async (req, res) => {
+  try {
+    const { id, userId } = req.params;
+    const { status } = req.body;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    if (!isValidObjectId(userId)) {
+      return res.status(400).json({ success: false, message: "Invalid user ID" });
+    }
+
+    if (!REGISTRATION_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid registration status",
+      });
+    }
+
+    const event = await Event.findById(id);
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    const participant = event.participants.find(
+      (item) => item.userId.toString() === userId
+    );
+
+    if (!participant) {
+      return res.status(404).json({
+        success: false,
+        message: "Registration not found",
+      });
+    }
+
+    if (
+      status === "registered" &&
+      event.capacity !== null &&
+      participant.status !== "registered" &&
+      event.registeredCount >= event.capacity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Event capacity has been reached",
+      });
+    }
+
+    participant.status = status;
+    participant.cancelledAt = status === "cancelled" ? new Date() : null;
+
+    if (status === "registered" && !participant.registeredAt) {
+      participant.registeredAt = new Date();
+    }
+
+    event.registeredCount = event.participants.filter(
+      (item) => item.status === "registered"
+    ).length;
+
+    await event.save();
+
+    const updatedEvent = await Event.findById(id)
+      .populate("participants.userId", "fullName email phone avatarUrl role status")
+      .select("title registeredCount participants");
+
+    const updatedRegistration = updatedEvent.participants.find(
+      (item) => item.userId._id.toString() === userId
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Registration updated successfully",
+      data: {
+        eventId: event._id,
+        title: event.title,
+        registeredCount: event.registeredCount,
+        registration: updatedRegistration,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating event registration:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   GET /api/events/me/registered
+ * @desc    Get events registered by current user
+ * @access  Private (User)
+ */
+const getRegisteredEvents = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { status = "registered", page = 1, limit = 10 } = req.query;
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const validStatuses = ["registered", "cancelled", "attended"];
+    if (status !== "all" && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid registration status",
+      });
+    }
+
+    const participantQuery = { userId };
+    if (status !== "all") {
+      participantQuery.status = status;
+    }
+
+    const query = {
+      participants: {
+        $elemMatch: participantQuery,
+      },
+    };
+
+    const events = await Event.find(query)
+      .sort({ startDateTime: 1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .populate("createdBy", "username fullName avatar");
+
+    const total = await Event.countDocuments(query);
+
+    const data = events.map((event) => {
+      const eventData = event.toObject();
+      const registration = eventData.participants.find(
+        (participant) => participant.userId.toString() === userId.toString()
+      );
+
+      delete eventData.participants;
+
+      return {
+        ...eventData,
+        registration,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching registered events:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -246,6 +690,12 @@ const cancelRegistration = async (req, res) => {
 module.exports = {
   getEvents,
   getEventById,
+  createEvent,
+  updateEvent,
+  deleteEvent,
+  getEventRegistrations,
+  updateEventRegistration,
+  getRegisteredEvents,
   registerEvent,
   cancelRegistration,
 };
