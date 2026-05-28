@@ -1,5 +1,107 @@
 const Event = require("../models/Event");
 
+const EVENT_TYPES = ["workshop", "talkshow", "webinar", "community_event", null];
+const EVENT_STATUSES = ["upcoming", "ongoing", "completed", "cancelled"];
+
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+
+const buildEventPayload = (body) => {
+  const allowedFields = [
+    "title",
+    "description",
+    "speakerName",
+    "organizerName",
+    "contactEmail",
+    "bannerImage",
+    "images",
+    "eventType",
+    "startDateTime",
+    "endDateTime",
+    "location",
+    "meetingLink",
+    "capacity",
+    "status",
+  ];
+
+  return allowedFields.reduce((payload, field) => {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      payload[field] = body[field];
+    }
+
+    return payload;
+  }, {});
+};
+
+const validateEventPayload = (payload, { isCreate = false, currentEvent = null } = {}) => {
+  if (isCreate && (!payload.title || !payload.startDateTime)) {
+    return "Title and startDateTime are required";
+  }
+
+  if (payload.title !== undefined && !String(payload.title).trim()) {
+    return "Title cannot be empty";
+  }
+
+  if (payload.eventType !== undefined && !EVENT_TYPES.includes(payload.eventType)) {
+    return "Invalid event type";
+  }
+
+  if (payload.status !== undefined && !EVENT_STATUSES.includes(payload.status)) {
+    return "Invalid event status";
+  }
+
+  if (payload.capacity !== undefined && payload.capacity !== null) {
+    const capacity = Number(payload.capacity);
+    const registeredCount = currentEvent ? currentEvent.registeredCount : 0;
+
+    if (!Number.isInteger(capacity) || capacity < 0) {
+      return "Capacity must be a non-negative integer";
+    }
+
+    if (capacity < registeredCount) {
+      return "Capacity cannot be lower than current registered count";
+    }
+
+    payload.capacity = capacity;
+  }
+
+  const startDateTime =
+    payload.startDateTime !== undefined
+      ? new Date(payload.startDateTime)
+      : currentEvent && currentEvent.startDateTime;
+  const endDateTime =
+    payload.endDateTime !== undefined
+      ? payload.endDateTime === null
+        ? null
+        : new Date(payload.endDateTime)
+      : currentEvent && currentEvent.endDateTime;
+
+  if (payload.startDateTime !== undefined && Number.isNaN(startDateTime.getTime())) {
+    return "Invalid startDateTime";
+  }
+
+  if (
+    payload.endDateTime !== undefined &&
+    payload.endDateTime !== null &&
+    Number.isNaN(endDateTime.getTime())
+  ) {
+    return "Invalid endDateTime";
+  }
+
+  if (endDateTime && startDateTime && endDateTime <= startDateTime) {
+    return "endDateTime must be after startDateTime";
+  }
+
+  if (payload.startDateTime !== undefined) {
+    payload.startDateTime = startDateTime;
+  }
+
+  if (payload.endDateTime !== undefined) {
+    payload.endDateTime = endDateTime;
+  }
+
+  return null;
+};
+
 /**
  * @route   GET /api/events
  * @desc    Get list of events
@@ -55,7 +157,7 @@ const getEventById = async (req, res) => {
     const { id } = req.params;
 
     // Validate MongoDB ObjectId format
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
+    if (!isValidObjectId(id)) {
       return res.status(400).json({ success: false, message: "Invalid event ID" });
     }
 
@@ -78,6 +180,120 @@ const getEventById = async (req, res) => {
     });
   } catch (error) {
     console.error("Error fetching event detail:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   POST /api/events
+ * @desc    Create event
+ * @access  Private (Admin)
+ */
+const createEvent = async (req, res) => {
+  try {
+    const payload = buildEventPayload(req.body);
+    const validationError = validateEventPayload(payload, { isCreate: true });
+
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
+
+    const event = await Event.create({
+      ...payload,
+      registeredCount: 0,
+      participants: [],
+      createdBy: req.user._id,
+    });
+
+    res.status(201).json({
+      success: true,
+      message: "Event created successfully",
+      data: event,
+    });
+  } catch (error) {
+    console.error("Error creating event:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   PATCH /api/events/:id
+ * @desc    Update event
+ * @access  Private (Admin)
+ */
+const updateEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    const event = await Event.findById(id);
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    const payload = buildEventPayload(req.body);
+    const validationError = validateEventPayload(payload, { currentEvent: event });
+
+    if (validationError) {
+      return res.status(400).json({ success: false, message: validationError });
+    }
+
+    Object.assign(event, payload);
+    await event.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Event updated successfully",
+      data: event,
+    });
+  } catch (error) {
+    console.error("Error updating event:", error);
+
+    if (error.name === "ValidationError") {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
+ * @route   DELETE /api/events/:id
+ * @desc    Delete event
+ * @access  Private (Admin)
+ */
+const deleteEvent = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    }
+
+    const event = await Event.findByIdAndDelete(id);
+
+    if (!event) {
+      return res.status(404).json({ success: false, message: "Event not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Event deleted successfully",
+      data: {
+        eventId: event._id,
+        title: event.title,
+      },
+    });
+  } catch (error) {
+    console.error("Error deleting event:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -317,6 +533,9 @@ const cancelRegistration = async (req, res) => {
 module.exports = {
   getEvents,
   getEventById,
+  createEvent,
+  updateEvent,
+  deleteEvent,
   getRegisteredEvents,
   registerEvent,
   cancelRegistration,
