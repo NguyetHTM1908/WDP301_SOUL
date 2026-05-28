@@ -11,6 +11,13 @@ router.get("/", eventController.getEvents);
 router.post("/", auth, adminOnly, eventController.createEvent);
 router.patch("/:id", auth, adminOnly, eventController.updateEvent);
 router.delete("/:id", auth, adminOnly, eventController.deleteEvent);
+router.get("/:id/registrations", auth, adminOnly, eventController.getEventRegistrations);
+router.patch(
+  "/:id/registrations/:userId",
+  auth,
+  adminOnly,
+  eventController.updateEventRegistration
+);
 
 // Private routes (require login)
 router.get("/me/registered", auth, eventController.getRegisteredEvents);
