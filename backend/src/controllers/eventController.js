@@ -83,6 +83,77 @@ const getEventById = async (req, res) => {
 };
 
 /**
+ * @route   GET /api/events/me/registered
+ * @desc    Get events registered by current user
+ * @access  Private (User)
+ */
+const getRegisteredEvents = async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const { status = "registered", page = 1, limit = 10 } = req.query;
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const validStatuses = ["registered", "cancelled", "attended"];
+    if (status !== "all" && !validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid registration status",
+      });
+    }
+
+    const participantQuery = { userId };
+    if (status !== "all") {
+      participantQuery.status = status;
+    }
+
+    const query = {
+      participants: {
+        $elemMatch: participantQuery,
+      },
+    };
+
+    const events = await Event.find(query)
+      .sort({ startDateTime: 1 })
+      .skip(skip)
+      .limit(limitNumber)
+      .populate("createdBy", "username fullName avatar");
+
+    const total = await Event.countDocuments(query);
+
+    const data = events.map((event) => {
+      const eventData = event.toObject();
+      const registration = eventData.participants.find(
+        (participant) => participant.userId.toString() === userId.toString()
+      );
+
+      delete eventData.participants;
+
+      return {
+        ...eventData,
+        registration,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching registered events:", error);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+/**
  * @route   POST /api/events/:id/register
  * @desc    Register for an event
  * @access  Private (User)
@@ -246,6 +317,7 @@ const cancelRegistration = async (req, res) => {
 module.exports = {
   getEvents,
   getEventById,
+  getRegisteredEvents,
   registerEvent,
   cancelRegistration,
 };
