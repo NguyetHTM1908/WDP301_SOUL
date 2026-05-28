@@ -28,6 +28,22 @@ export async function getMyPosts(token: string) {
 
   return handleResponse(res);
 }
+export async function reactToComment(
+  token: string,
+  commentId: string,
+  type: ReactionType
+) {
+  const res = await fetch(`${API_BASE_URL}/reactions/comments/${commentId}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ type }),
+  });
+
+  return handleResponse(res);
+}
 
 export async function createPost(token: string, body: any) {
   const res = await fetch(`${API_BASE_URL}/posts`, {
@@ -54,6 +70,23 @@ export async function reactToPost(
       Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ type }),
+  });
+
+  return handleResponse(res);
+}
+export async function getComments(postId: string) {
+  const res = await fetch(`${API_BASE_URL}/comments/post/${postId}`);
+  return handleResponse(res);
+}
+
+export async function createComment(token: string, body: any) {
+  const res = await fetch(`${API_BASE_URL}/comments`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
   });
 
   return handleResponse(res);

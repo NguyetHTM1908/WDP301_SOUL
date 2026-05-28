@@ -1,27 +1,25 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  FlatList,
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Alert, FlatList, View } from "react-native";
 
 import {
+  createComment,
   createPost,
   getApprovedPosts,
+  getComments,
   getMyPosts,
+  reactToComment,
   reactToPost,
   reportPost,
 } from "@/api/forumApi";
+
 import { forumStyles as s } from "@/styles/forum.styles";
+
+import { ForumHeader } from "@/components/forum/ForumHeader";
+import { PostCard } from "@/components/forum/PostCard";
+import { CreatePostModal } from "@/components/forum/CreatePostModal";
+import { ForumBottomSwitcher } from "@/components/forum/ForumBottomSwitcher";
+import { EmptyForum } from "@/components/forum/EmptyForum";
 
 const filters = ["all", "stress", "self-care", "student-life", "deadline"];
 
@@ -53,6 +51,20 @@ export default function ForumScreen() {
   const [emotionStatus, setEmotionStatus] = useState("stress");
   const [isAnonymous, setIsAnonymous] = useState(true);
 
+  const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, any[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const [openReplyCommentId, setOpenReplyCommentId] = useState<string | null>(null);
+
+  const requireLogin = () => {
+    if (!token) {
+      Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để dùng chức năng này.");
+      return false;
+    }
+    return true;
+  };
+
   const loadPosts = async (
     nextMode: "community" | "mine" = mode,
     currentToken: string | null = token
@@ -64,23 +76,14 @@ export default function ForumScreen() {
       }
 
       const res = await getMyPosts(currentToken);
-
-      if (res.success) {
-        setPosts(res.data || []);
-      } else {
-        Alert.alert("Lỗi", res.message || "Không tải được bài viết cá nhân.");
-      }
-
+      if (res.success) setPosts(res.data || []);
+      else Alert.alert("Lỗi", res.message || "Không tải được bài viết cá nhân.");
       return;
     }
 
     const res = await getApprovedPosts();
-
-    if (res.success) {
-      setPosts(res.data || []);
-    } else {
-      Alert.alert("Lỗi", res.message || "Không tải được bài viết cộng đồng.");
-    }
+    if (res.success) setPosts(res.data || []);
+    else Alert.alert("Lỗi", res.message || "Không tải được bài viết cộng đồng.");
   };
 
   useEffect(() => {
@@ -94,15 +97,6 @@ export default function ForumScreen() {
 
     init();
   }, []);
-
-  const requireLogin = () => {
-    if (!token) {
-      Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để dùng chức năng này.");
-      return false;
-    }
-
-    return true;
-  };
 
   const visiblePosts = useMemo(() => {
     return posts.filter((post) => {
@@ -159,10 +153,7 @@ export default function ForumScreen() {
       setEmotionStatus("stress");
       setIsAnonymous(true);
 
-      if (mode === "mine") {
-        loadPosts("mine", token);
-      }
-
+      if (mode === "mine") loadPosts("mine", token);
       return;
     }
 
@@ -174,11 +165,8 @@ export default function ForumScreen() {
 
     const res = await reactToPost(token as string, postId, type);
 
-    if (res.success) {
-      loadPosts(mode, token);
-    } else {
-      Alert.alert("Lỗi", res.message || "Không thể react bài viết.");
-    }
+    if (res.success) loadPosts(mode, token);
+    else Alert.alert("Lỗi", res.message || "Không thể react bài viết.");
   };
 
   const handleReport = async (postId: string) => {
@@ -197,305 +185,195 @@ export default function ForumScreen() {
     );
   };
 
-  const renderPost = ({ item }: { item: any }) => {
-    const authorName = item.isAnonymous
-      ? "Anonymous Soul"
-      : item.authorId?.fullName || "SOUL User";
+  const toggleComments = async (postId: string) => {
+    if (openCommentPostId === postId) {
+      setOpenCommentPostId(null);
+      return;
+    }
 
-    const avatar = item.isAnonymous
-      ? "https://i.pravatar.cc/100?img=12"
-      : item.authorId?.avatarUrl || "https://i.pravatar.cc/100?img=32";
+    setOpenCommentPostId(postId);
 
-    return (
-      <View style={s.postCard}>
-        <View style={s.postHeader}>
-          <View style={s.authorRow}>
-            <Image source={{ uri: avatar }} style={s.avatar} />
-            <View>
-              <View style={s.nameRow}>
-                <Text style={s.authorName}>{authorName}</Text>
-                <MaterialCommunityIcons name="check-decagram" size={15} color="#00866B" />
-              </View>
-              <Text style={s.postMeta}>Just now · {moodLabel(item.emotionStatus)}</Text>
-            </View>
-          </View>
+    const res = await getComments(postId);
 
-          {mode === "mine" ? (
-            <View style={s.statusBadge}>
-              <Text style={s.statusText}>{item.status}</Text>
-            </View>
-          ) : (
-            <MaterialCommunityIcons name="dots-horizontal" size={24} color="#566A66" />
-          )}
-        </View>
+    if (res.success) {
+      setCommentsByPost((prev) => ({
+        ...prev,
+        [postId]: res.data || [],
+      }));
+    } else {
+      Alert.alert("Lỗi", res.message || "Không tải được bình luận.");
+    }
+  };
 
-        <Text style={s.postContent}>{item.content}</Text>
+  const handleSendComment = async (postId: string) => {
+    if (!requireLogin()) return;
 
-        <View style={s.tagRow}>
-          {item.hashtags?.map((tag: string) => (
-            <View key={tag} style={s.tag}>
-              <Text style={s.tagText}>#{tag}</Text>
-            </View>
-          ))}
-        </View>
+    const text = commentInputs[postId]?.trim();
 
-        {item.mediaUrls?.[0]?.url ? (
-          <Image source={{ uri: item.mediaUrls[0].url }} style={s.postImage} />
-        ) : null}
+    if (!text) {
+      Alert.alert("Thiếu nội dung", "Nhập bình luận trước nha.");
+      return;
+    }
 
-        <View style={s.actionRow}>
-          <Pressable style={s.actionItem} onPress={() => handleReact(item._id, "like")}>
-            <MaterialCommunityIcons name="heart-outline" size={24} color="#EF4444" />
-            <Text style={s.actionText}>{item.statistics?.likeCount || 0}</Text>
-          </Pressable>
+    const res = await createComment(token as string, {
+      postId,
+      content: text,
+      isAnonymous: false,
+    });
 
-          <Pressable style={s.actionItem} onPress={() => handleReact(item._id, "support")}>
-            <MaterialCommunityIcons name="hand-heart" size={24} color="#00866B" />
-            <Text style={s.actionText}>{item.statistics?.supportCount || 0}</Text>
-          </Pressable>
+    if (res.success) {
+      setCommentInputs((prev) => ({
+        ...prev,
+        [postId]: "",
+      }));
 
-          <Pressable style={s.actionItem} onPress={() => handleReact(item._id, "hug")}>
-            <Text style={s.hugIcon}>🤗</Text>
-            <Text style={s.actionText}>{item.statistics?.hugCount || 0}</Text>
-          </Pressable>
+      const updated = await getComments(postId);
 
-          <View style={s.actionItem}>
-            <MaterialCommunityIcons name="comment-outline" size={23} color="#60706C" />
-            <Text style={s.actionText}>{item.statistics?.commentCount || 0}</Text>
-          </View>
+      if (updated.success) {
+        setCommentsByPost((prev) => ({
+          ...prev,
+          [postId]: updated.data || [],
+        }));
+      }
 
-          <Pressable onPress={() => handleReport(item._id)}>
-            <MaterialCommunityIcons name="flag-outline" size={23} color="#60706C" />
-          </Pressable>
-        </View>
-      </View>
-    );
+      loadPosts(mode, token);
+    } else {
+      Alert.alert("Không thể bình luận", res.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const handleReplyComment = async (postId: string, parentCommentId: string) => {
+    if (!requireLogin()) return;
+
+    const text = replyInputs[parentCommentId]?.trim();
+
+    if (!text) {
+      Alert.alert("Thiếu nội dung", "Nhập nội dung trả lời trước nha.");
+      return;
+    }
+
+    const res = await createComment(token as string, {
+      postId,
+      parentCommentId,
+      content: text,
+      isAnonymous: false,
+    });
+
+    if (res.success) {
+      setReplyInputs((prev) => ({
+        ...prev,
+        [parentCommentId]: "",
+      }));
+
+      setOpenReplyCommentId(null);
+
+      const updated = await getComments(postId);
+
+      if (updated.success) {
+        setCommentsByPost((prev) => ({
+          ...prev,
+          [postId]: updated.data || [],
+        }));
+      }
+
+      loadPosts(mode, token);
+    } else {
+      Alert.alert("Không thể trả lời", res.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const handleReactComment = async (
+    postId: string,
+    commentId: string,
+    type: "like" | "support" | "hug"
+  ) => {
+    if (!requireLogin()) return;
+
+    const res = await reactToComment(token as string, commentId, type);
+
+    if (res.success) {
+      const updated = await getComments(postId);
+
+      if (updated.success) {
+        setCommentsByPost((prev) => ({
+          ...prev,
+          [postId]: updated.data || [],
+        }));
+      }
+    } else {
+      Alert.alert("Không thể react comment", res.message || "Đã có lỗi xảy ra.");
+    }
   };
 
   return (
     <View style={s.page}>
-      <View style={s.header}>
-        <View style={s.decorHeart}>
-          <MaterialCommunityIcons name="heart-outline" size={42} color="rgba(0,134,107,0.08)" />
-        </View>
-
-        <View style={s.headerTop}>
-          <View>
-            <Text style={s.title}>Healing Forum</Text>
-            <Text style={s.subtitle}>
-              A safe space to share, support{"\n"}and grow together 🌿
-            </Text>
-          </View>
-
-          <View style={s.headerActions}>
-            <Pressable style={s.bellButton}>
-              <MaterialCommunityIcons name="bell-outline" size={26} color="#083D34" />
-              <View style={s.redDot} />
-            </Pressable>
-
-            <Pressable style={s.plusButton} onPress={() => setShowCreate(true)}>
-              <MaterialCommunityIcons name="plus" size={30} color="#FFFFFF" />
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={s.searchBox}>
-          <MaterialCommunityIcons name="magnify" size={22} color="#7E8F8B" />
-          <TextInput
-            style={s.searchInput}
-            placeholder="Search stories, feelings, hashtags..."
-            placeholderTextColor="#7E8F8B"
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={s.filterRow}>
-          {filters.map((item) => {
-            const active = item === filter;
-
-            return (
-              <Pressable
-                key={item}
-                style={[s.filterChip, active && s.filterChipActive]}
-                onPress={() => setFilter(item)}
-              >
-                <Text style={[s.filterText, active && s.filterTextActive]}>
-                  {item === "all" ? "All" : `#${item}`}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
-      </View>
+      <ForumHeader
+        search={search}
+        setSearch={setSearch}
+        filter={filter}
+        setFilter={setFilter}
+        filters={filters}
+        onCreatePress={() => setShowCreate(true)}
+      />
 
       <FlatList
         data={visiblePosts}
         keyExtractor={(item) => item._id}
-        renderItem={renderPost}
+        renderItem={({ item }) => (
+          <PostCard
+            item={item}
+            mode={mode}
+            moodLabel={moodLabel}
+            openCommentPostId={openCommentPostId}
+            commentsByPost={commentsByPost}
+            commentInputs={commentInputs}
+            replyInputs={replyInputs}
+            openReplyCommentId={openReplyCommentId}
+            setCommentInputs={setCommentInputs}
+            setReplyInputs={setReplyInputs}
+            setOpenReplyCommentId={setOpenReplyCommentId}
+            onReactPost={handleReact}
+            onReportPost={handleReport}
+            onToggleComments={toggleComments}
+            onSendComment={handleSendComment}
+            onReplyComment={handleReplyComment}
+            onReactComment={handleReactComment}
+          />
+        )}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={s.emptyBox}>
-            <Text style={s.emptyIcon}>🌿</Text>
-            <Text style={s.emptyTitle}>
-              {mode === "mine" ? "No personal posts yet" : "No posts yet"}
-            </Text>
-            <Text style={s.emptyText}>
-              {mode === "mine"
-                ? "Your pending and approved posts will appear here."
-                : "Be the first to share something gentle today."}
-            </Text>
-          </View>
-        }
+        ListEmptyComponent={<EmptyForum mode={mode} />}
       />
 
-      <Modal visible={showCreate} transparent animationType="slide">
-        <View style={s.modalBackdrop}>
-          <View style={s.createModal}>
-            <View style={s.modalHandle} />
+      <CreatePostModal
+        visible={showCreate}
+        content={content}
+        mediaUrl={mediaUrl}
+        hashtags={hashtags}
+        emotionStatus={emotionStatus}
+        isAnonymous={isAnonymous}
+        emotions={emotions}
+        setContent={setContent}
+        setMediaUrl={setMediaUrl}
+        setHashtags={setHashtags}
+        setEmotionStatus={setEmotionStatus}
+        setIsAnonymous={setIsAnonymous}
+        onClose={() => setShowCreate(false)}
+        onSubmit={handleCreatePost}
+      />
 
-            <Pressable style={s.closeButton} onPress={() => setShowCreate(false)}>
-              <MaterialCommunityIcons name="close" size={28} color="#1F332F" />
-            </Pressable>
-
-            <Text style={s.modalTitle}>Share your feeling ✨</Text>
-            <Text style={s.modalSub}>Your story might be the light for someone.</Text>
-
-            <View style={s.bigInputWrap}>
-              <TextInput
-                style={s.bigInput}
-                multiline
-                placeholder="What is on your mind today?"
-                placeholderTextColor="#8A9996"
-                value={content}
-                onChangeText={setContent}
-                maxLength={1000}
-              />
-              <Text style={s.counter}>{content.length}/1000</Text>
-            </View>
-
-            <View style={s.formInput}>
-              <MaterialCommunityIcons name="image-outline" size={25} color="#7A8A87" />
-              <TextInput
-                style={s.formTextInput}
-                placeholder="Image / Video URL (optional)"
-                placeholderTextColor="#8A9996"
-                value={mediaUrl}
-                onChangeText={setMediaUrl}
-              />
-            </View>
-
-            <View style={s.formInput}>
-              <Text style={s.hashIcon}>#</Text>
-              <TextInput
-                style={s.formTextInput}
-                placeholder="Hashtags (e.g. stress, self-care)"
-                placeholderTextColor="#8A9996"
-                value={hashtags}
-                onChangeText={setHashtags}
-              />
-            </View>
-
-            <Text style={s.feelingLabel}>How are you feeling?</Text>
-
-            <View style={s.emotionGrid}>
-              {emotions.map((e) => {
-                const active = emotionStatus === e.value;
-
-                return (
-                  <Pressable
-                    key={e.value}
-                    style={[s.emotionCard, active && s.emotionCardActive]}
-                    onPress={() => setEmotionStatus(e.value)}
-                  >
-                    <Text style={s.emotionEmoji}>{e.label}</Text>
-                    <Text style={s.emotionName}>{e.text}</Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <View style={s.anonymousRow}>
-              <View style={s.anonLeft}>
-                <MaterialCommunityIcons name="incognito" size={24} color="#95A19E" />
-                <Text style={s.anonText}>Post anonymously</Text>
-              </View>
-              <Switch
-                value={isAnonymous}
-                onValueChange={setIsAnonymous}
-                trackColor={{ false: "#D8E3E0", true: "#00866B" }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            <Pressable style={s.submitButton} onPress={handleCreatePost}>
-              <MaterialCommunityIcons name="send-outline" size={24} color="#FFFFFF" />
-              <Text style={s.submitText}>Submit for Review</Text>
-            </Pressable>
-
-            <Pressable onPress={() => setShowCreate(false)}>
-              <Text style={s.cancelText}>Cancel</Text>
-            </Pressable>
-          </View>
-          
-        </View>
-      </Modal>
-      <View style={s.bottomSwitcher}>
-  <Pressable
-    style={[
-      s.bottomTab,
-      mode === "community" && s.bottomTabActive,
-    ]}
-    onPress={() => {
-      setMode("community");
-      loadPosts("community", token);
-    }}
-  >
-    <MaterialCommunityIcons
-      name="account-group-outline"
-      size={22}
-      color={mode === "community" ? "#FFFFFF" : "#40657D"}
-    />
-
-    <Text
-      style={[
-        s.bottomTabText,
-        mode === "community" && s.bottomTabTextActive,
-      ]}
-    >
-      Community
-    </Text>
-  </Pressable>
-
-  <Pressable
-    style={[
-      s.bottomTab,
-      mode === "mine" && s.bottomTabActive,
-    ]}
-    onPress={() => {
-      if (!requireLogin()) return;
-
-      setMode("mine");
-      loadPosts("mine", token);
-    }}
-  >
-    <MaterialCommunityIcons
-      name="account-outline"
-      size={22}
-      color={mode === "mine" ? "#FFFFFF" : "#40657D"}
-    />
-
-    <Text
-      style={[
-        s.bottomTabText,
-        mode === "mine" && s.bottomTabTextActive,
-      ]}
-    >
-      My Posts
-    </Text>
-  </Pressable>
-</View>
+      <ForumBottomSwitcher
+        mode={mode}
+        onCommunityPress={() => {
+          setMode("community");
+          loadPosts("community", token);
+        }}
+        onMinePress={() => {
+          if (!requireLogin()) return;
+          setMode("mine");
+          loadPosts("mine", token);
+        }}
+      />
     </View>
   );
 }

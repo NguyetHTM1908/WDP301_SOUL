@@ -421,6 +421,25 @@ export const forumStyles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
+  commentThread: {
+  marginBottom: 10,
+},
+
+replyList: {
+  marginLeft: 28,
+  marginTop: 8,
+  paddingLeft: 14,
+  borderLeftWidth: 2,
+  borderLeftColor: "#CFE5DE",
+},
+
+replyCard: {
+  backgroundColor: "#F7FCFA",
+  borderRadius: 16,
+  padding: 12,
+  marginBottom: 8,
+},
+
 
   anonLeft: {
     flexDirection: "row",
@@ -511,4 +530,93 @@ export const forumStyles = StyleSheet.create({
   bottomTabTextActive: {
     color: "#FFFFFF",
   },
+  inlineCommentBox: {
+  marginTop: 16,
+  paddingTop: 14,
+  borderTopWidth: 1,
+  borderTopColor: "#E3ECE9",
+},
+
+inlineCommentCard: {
+  backgroundColor: "#F0FBF7",
+  borderRadius: 16,
+  padding: 12,
+  marginBottom: 10,
+},
+
+inlineCommentAuthor: {
+  fontSize: 13,
+  fontWeight: "900",
+  color: "#064D3D",
+},
+
+inlineCommentText: {
+  marginTop: 4,
+  fontSize: 14,
+  color: "#1C3430",
+  lineHeight: 20,
+},
+
+inlineCommentInputRow: {
+  marginTop: 8,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 10,
+},
+
+inlineCommentInput: {
+  flex: 1,
+  height: 46,
+  borderRadius: 999,
+  backgroundColor: "#EEF5F3",
+  paddingHorizontal: 16,
+  fontSize: 14,
+  color: "#1C3430",
+},
+
+inlineCommentSend: {
+  width: 46,
+  height: 46,
+  borderRadius: 999,
+  backgroundColor: "#00866B",
+  alignItems: "center",
+  justifyContent: "center",
+},
+commentActionRow: {
+  marginTop: 8,
+  flexDirection: "row",
+  gap: 18,
+},
+
+commentActionText: {
+  fontSize: 13,
+  fontWeight: "800",
+  color: "#00866B",
+},
+
+replyInputRow: {
+  marginTop: 10,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 8,
+},
+
+replyInput: {
+  flex: 1,
+  height: 40,
+  borderRadius: 999,
+  backgroundColor: "#FFFFFF",
+  paddingHorizontal: 14,
+  fontSize: 13,
+  color: "#1C3430",
+},
+
+replySend: {
+  width: 40,
+  height: 40,
+  borderRadius: 999,
+  backgroundColor: "#00866B",
+  alignItems: "center",
+  justifyContent: "center",
+},
 });
