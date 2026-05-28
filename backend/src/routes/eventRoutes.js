@@ -2,9 +2,15 @@ const express = require("express");
 const router = express.Router();
 const eventController = require("../controllers/eventController");
 const auth = require("../middleware/auth");
+const adminOnly = require("../middleware/adminOnly");
 
 // Public routes
 router.get("/", eventController.getEvents);
+
+// Admin routes
+router.post("/", auth, adminOnly, eventController.createEvent);
+router.patch("/:id", auth, adminOnly, eventController.updateEvent);
+router.delete("/:id", auth, adminOnly, eventController.deleteEvent);
 
 // Private routes (require login)
 router.get("/me/registered", auth, eventController.getRegisteredEvents);
