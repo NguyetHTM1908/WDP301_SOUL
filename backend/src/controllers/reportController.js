@@ -2,6 +2,24 @@ const Report = require("../models/Report");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
 
+exports.getMyReports = async (req, res) => {
+  try {
+    const reports = await Report.find({
+      reporterId: req.user._id,
+    }).sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy danh sách report của tôi thành công.",
+      data: reports,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 exports.createReport = async (req, res) => {
   try {
     const { targetType, targetId, reason, description } = req.body;

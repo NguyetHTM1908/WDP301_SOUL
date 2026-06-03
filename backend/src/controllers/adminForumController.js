@@ -123,6 +123,90 @@ exports.rejectPost = async (req, res) => {
     });
   }
 };
+exports.hideComment = async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment || comment.status === "deleted") {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bình luận.",
+      });
+    }
+
+    const previousStatus = comment.status;
+
+    comment.status = "hidden";
+    await comment.save();
+
+    await ModerationLog.create({
+      target: {
+        type: "comment",
+        id: comment._id,
+      },
+      action: "hide_content",
+      reason: reason || "Comment hidden by admin",
+      note: "Comment was hidden manually by admin",
+      performedBy: req.user._id,
+      previousStatus,
+      newStatus: "hidden",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Ẩn bình luận thành công.",
+      data: comment,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.deleteCommentByAdmin = async (req, res) => {
+  try {
+    const { reason } = req.body;
+
+    const comment = await Comment.findById(req.params.id);
+
+    if (!comment || comment.status === "deleted") {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bình luận.",
+      });
+    }
+
+    const previousStatus = comment.status;
+
+    comment.status = "deleted";
+    await comment.save();
+
+    await Post.findByIdAndUpdate(comment.postId, {
+      $inc: { "statistics.commentCount": -1 },
+    });
+
+    await ModerationLog.create({
+      target: {
+        type: "comment",
+        id: comment._id,
+      },
+      action: "delete_content",
+      reason: reason || "Comment deleted by admin",
+      note: "Comment was deleted manually by admin",
+      performedBy: req.user._id,
+      previousStatus,
+      newStatus: "deleted",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Xóa bình luận thành công.",
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
 
 exports.hidePost = async (req, res) => {
   try {

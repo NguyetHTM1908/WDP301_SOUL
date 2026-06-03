@@ -16,7 +16,7 @@ const reportRoutes = require("./src/routes/reportRoutes");
 const adminForumRoutes = require("./src/routes/adminForumRoutes");
 const journalRoutes = require("./src/routes/journalRoutes");
 const eventRoutes = require("./src/routes/eventRoutes");
-
+const tagRoutes = require("./src/routes/tagRoutes");
 const app = express();
 
 connectDB();
@@ -36,6 +36,7 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/admin/forum", adminForumRoutes);
 app.use("/api/journals", journalRoutes);
 app.use("/api/events", eventRoutes);
+app.use("/api/tags", tagRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({
