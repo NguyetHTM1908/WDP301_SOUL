@@ -50,24 +50,28 @@ export default function AdminDashboard() {
       description: "Xem, chặn, phân quyền tài khoản người dùng",
       icon: "account-cog",
       color: colors.dark,
+      onPress: () => Alert.alert("Thông báo", `Tính năng đang được hoàn thiện.`),
     },
     {
       title: "Xem Báo cáo Nội dung",
       description: "Xét duyệt và xử lý các bài đăng bị báo cáo vi phạm",
       icon: "shield-alert",
       color: "#EF4444",
+      onPress: () => Alert.alert("Thông báo", `Tính năng đang được hoàn thiện.`),
     },
     {
       title: "Sự kiện & Hoạt động",
       description: "Tạo và điều phối các workshop/talkshow tâm lý",
       icon: "calendar-star",
       color: colors.darkTeal,
+      onPress: () => router.push("/(admin)/events"),
     },
     {
       title: "Cấu hình Hệ thống AI",
       description: "Tùy chỉnh mô hình LLM và độ nhạy an toàn",
       icon: "cog",
       color: "#6B7280",
+      onPress: () => Alert.alert("Thông báo", `Tính năng đang được hoàn thiện.`),
     },
   ];
 
@@ -117,7 +121,7 @@ export default function AdminDashboard() {
             key={idx}
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={() => Alert.alert("Thông báo", `Tính năng "${action.title}" đang được hoàn thiện.`)}
+            onPress={action.onPress}
           >
             <View style={[styles.actionIconContainer, { backgroundColor: action.color + "12" }]}>
               <MaterialCommunityIcons name={action.icon as any} size={26} color={action.color} />

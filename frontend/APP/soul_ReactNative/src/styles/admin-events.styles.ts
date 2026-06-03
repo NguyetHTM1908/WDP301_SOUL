@@ -1,0 +1,235 @@
+import { StyleSheet } from "react-native";
+import { colors } from "../constants/colors";
+
+export const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: colors.bg,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 16,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  headerTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: colors.dark,
+    fontFamily: "Georgia",
+  },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+  },
+  addButton: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  addButtonText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  eventCard: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  eventHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 12,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: colors.dark,
+    flex: 1,
+    marginRight: 12,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  statusUpcoming: {
+    backgroundColor: "#FEF3C7",
+    color: "#D97706",
+  },
+  statusOngoing: {
+    backgroundColor: "#D1FAE5",
+    color: "#059669",
+  },
+  statusCompleted: {
+    backgroundColor: "#E5E7EB",
+    color: "#4B5563",
+  },
+  statusCancelled: {
+    backgroundColor: "#FEE2E2",
+    color: "#DC2626",
+  },
+  eventInfoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+    gap: 8,
+  },
+  eventInfoText: {
+    fontSize: 14,
+    color: "#6B7280",
+    flex: 1,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+  },
+  emptyStateText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#9CA3AF",
+    fontWeight: "500",
+  },
+  // Form Styles
+  formContainer: {
+    padding: 20,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: colors.dark,
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#1F2937",
+  },
+  textArea: {
+    height: 100,
+    textAlignVertical: "top",
+  },
+  submitButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginTop: 10,
+    marginBottom: 40,
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  errorText: {
+    color: "#EF4444",
+    fontSize: 12,
+    marginTop: 4,
+  },
+  // Detail Styles
+  detailSection: {
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 2,
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: colors.dark,
+    marginBottom: 16,
+  },
+  descText: {
+    fontSize: 15,
+    lineHeight: 24,
+    color: "#4B5563",
+  },
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    backgroundColor: colors.softMint,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+  },
+  statBox: {
+    alignItems: "center",
+    flex: 1,
+  },
+  statNum: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: colors.darkTeal,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  actionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 20,
+  },
+  editBtn: {
+    flex: 1,
+    backgroundColor: "#3B82F6",
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  deleteBtn: {
+    flex: 1,
+    backgroundColor: "#EF4444",
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: "center",
+  },
+  btnText: {
+    color: "#fff",
+    fontWeight: "bold",
+    fontSize: 15,
+  }
+});
