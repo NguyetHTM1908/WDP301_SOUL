@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
@@ -8,16 +9,23 @@ type Props = {
   commentInput: string;
   replyInputs: Record<string, string>;
   openReplyCommentId: string | null;
+  currentUserId: string | null;
   setCommentInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setReplyInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setOpenReplyCommentId: React.Dispatch<React.SetStateAction<string | null>>;
   onSendComment: (postId: string) => void;
-  onReplyComment: (postId: string, parentCommentId: string) => void;
+  onReplyComment: (
+    postId: string,
+    parentCommentId: string,
+    inputCommentId?: string
+  ) => void;
   onReactComment: (
     postId: string,
     commentId: string,
     type: "like" | "support" | "hug"
   ) => void;
+  onEditComment: (postId: string, commentId: string, content: string) => void;
+  onDeleteComment: (postId: string, commentId: string) => void;
 };
 
 export function CommentThread({
@@ -26,14 +34,26 @@ export function CommentThread({
   commentInput,
   replyInputs,
   openReplyCommentId,
+  currentUserId,
   setCommentInputs,
   setReplyInputs,
   setOpenReplyCommentId,
   onSendComment,
   onReplyComment,
   onReactComment,
+  onEditComment,
+  onDeleteComment,
 }: Props) {
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState("");
+
   const getCommentId = (comment: any) => comment._id?.toString();
+
+  const getAuthorId = (comment: any) => {
+    if (!comment.authorId) return null;
+    if (typeof comment.authorId === "string") return comment.authorId;
+    return comment.authorId._id?.toString();
+  };
 
   const getParentId = (comment: any) => {
     if (!comment.parentCommentId) return null;
@@ -46,8 +66,29 @@ export function CommentThread({
 
   const parentComments = comments.filter((comment) => !getParentId(comment));
 
-  const getReplies = (parentCommentId: string) => {
-    return comments.filter((comment) => getParentId(comment) === parentCommentId);
+  const getRootParentId = (comment: any): string => {
+    let current = comment;
+
+    while (getParentId(current)) {
+      const parent = comments.find(
+        (item) => getCommentId(item) === getParentId(current)
+      );
+
+      if (!parent) break;
+
+      current = parent;
+    }
+
+    return getCommentId(current);
+  };
+
+  const getAllRepliesOfRoot = (rootParentId: string) => {
+    return comments.filter((comment) => {
+      const parentId = getParentId(comment);
+      if (!parentId) return false;
+
+      return getRootParentId(comment) === rootParentId;
+    });
   };
 
   const openReplyInput = (comment: any) => {
@@ -62,11 +103,132 @@ export function CommentThread({
     }));
   };
 
+  const openEdit = (comment: any) => {
+    const commentId = getCommentId(comment);
+    setEditingCommentId(commentId);
+    setEditingContent(comment.content || "");
+  };
+
+  const cancelEdit = () => {
+    setEditingCommentId(null);
+    setEditingContent("");
+  };
+
+  const saveEdit = (commentId: string) => {
+    onEditComment(postId, commentId, editingContent);
+    cancelEdit();
+  };
+
+  const renderContent = (comment: any) => {
+    const commentId = getCommentId(comment);
+
+    if (editingCommentId === commentId) {
+      return (
+        <View style={s.replyInputRow}>
+          <TextInput
+            style={s.replyInput}
+            value={editingContent}
+            onChangeText={setEditingContent}
+            placeholder="Edit your comment..."
+            placeholderTextColor="#8A9996"
+          />
+
+          <Pressable style={s.replySend} onPress={() => saveEdit(commentId)}>
+            <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
+          </Pressable>
+
+          <Pressable style={s.replySend} onPress={cancelEdit}>
+            <MaterialCommunityIcons name="close" size={18} color="#FFFFFF" />
+          </Pressable>
+        </View>
+      );
+    }
+
+    return <Text style={s.inlineCommentText}>{comment.content}</Text>;
+  };
+
+  const renderActions = (comment: any, rootParentId?: string) => {
+    const commentId = getCommentId(comment);
+    const submitParentId = rootParentId || commentId;
+
+    const authorId = getAuthorId(comment);
+    const isOwner =
+      !!currentUserId &&
+      !!authorId &&
+      String(authorId) === String(currentUserId);
+
+    return (
+      <>
+        <View style={s.commentActionRow}>
+          <Pressable onPress={() => onReactComment(postId, commentId, "like")}>
+            <Text style={s.commentActionText}>
+              ❤️ {comment.statistics?.likeCount || 0}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => onReactComment(postId, commentId, "support")}>
+            <Text style={s.commentActionText}>
+              💚 {comment.statistics?.supportCount || 0}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => onReactComment(postId, commentId, "hug")}>
+            <Text style={s.commentActionText}>
+              🤗 {comment.statistics?.hugCount || 0}
+            </Text>
+          </Pressable>
+
+          <Pressable onPress={() => openReplyInput(comment)}>
+            <Text style={s.commentActionText}>Reply</Text>
+          </Pressable>
+
+          {isOwner && (
+            <>
+              <Pressable onPress={() => openEdit(comment)}>
+                <Text style={s.commentActionText}>Edit</Text>
+              </Pressable>
+
+              <Pressable onPress={() => onDeleteComment(postId, commentId)}>
+                <Text style={[s.commentActionText, { color: "#EF4444" }]}>
+                  Delete
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        {openReplyCommentId === commentId && (
+          <View style={s.replyInputRow}>
+            <TextInput
+              style={s.replyInput}
+              placeholder="Write a reply..."
+              placeholderTextColor="#8A9996"
+              value={replyInputs[commentId] || ""}
+              onChangeText={(text) =>
+                setReplyInputs((prev) => ({
+                  ...prev,
+                  [commentId]: text,
+                }))
+              }
+            />
+
+            <Pressable
+              style={s.replySend}
+              onPress={() => onReplyComment(postId, submitParentId, commentId)}
+            >
+              <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+            </Pressable>
+          </View>
+        )}
+      </>
+    );
+  };
+
   return (
     <View style={s.inlineCommentBox}>
       {parentComments.map((comment) => {
         const commentId = getCommentId(comment);
-        const replies = getReplies(commentId);
+        const replies = getAllRepliesOfRoot(commentId);
 
         return (
           <View key={commentId} style={s.commentThread}>
@@ -75,55 +237,9 @@ export function CommentThread({
                 {getCommentAuthorName(comment)}
               </Text>
 
-              <Text style={s.inlineCommentText}>{comment.content}</Text>
+              {renderContent(comment)}
 
-              <View style={s.commentActionRow}>
-                <Pressable onPress={() => onReactComment(postId, commentId, "like")}>
-                  <Text style={s.commentActionText}>
-                    ❤️ {comment.statistics?.likeCount || 0}
-                  </Text>
-                </Pressable>
-
-                <Pressable onPress={() => onReactComment(postId, commentId, "support")}>
-                  <Text style={s.commentActionText}>
-                    💚 {comment.statistics?.supportCount || 0}
-                  </Text>
-                </Pressable>
-
-                <Pressable onPress={() => onReactComment(postId, commentId, "hug")}>
-                  <Text style={s.commentActionText}>
-                    🤗 {comment.statistics?.hugCount || 0}
-                  </Text>
-                </Pressable>
-
-                <Pressable onPress={() => openReplyInput(comment)}>
-                  <Text style={s.commentActionText}>Reply</Text>
-                </Pressable>
-              </View>
-
-              {openReplyCommentId === commentId && (
-                <View style={s.replyInputRow}>
-                  <TextInput
-                    style={s.replyInput}
-                    placeholder="Write a reply..."
-                    placeholderTextColor="#8A9996"
-                    value={replyInputs[commentId] || ""}
-                    onChangeText={(text) =>
-                      setReplyInputs((prev) => ({
-                        ...prev,
-                        [commentId]: text,
-                      }))
-                    }
-                  />
-
-                  <Pressable
-                    style={s.replySend}
-                    onPress={() => onReplyComment(postId, commentId)}
-                  >
-                    <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
-                  </Pressable>
-                </View>
-              )}
+              {renderActions(comment)}
             </View>
 
             {replies.length > 0 && (
@@ -137,29 +253,9 @@ export function CommentThread({
                         {getCommentAuthorName(reply)}
                       </Text>
 
-                      <Text style={s.inlineCommentText}>{reply.content}</Text>
+                      {renderContent(reply)}
 
-                      <View style={s.commentActionRow}>
-                        <Pressable onPress={() => onReactComment(postId, replyId, "like")}>
-                          <Text style={s.commentActionText}>
-                            ❤️ {reply.statistics?.likeCount || 0}
-                          </Text>
-                        </Pressable>
-
-                        <Pressable
-                          onPress={() => onReactComment(postId, replyId, "support")}
-                        >
-                          <Text style={s.commentActionText}>
-                            💚 {reply.statistics?.supportCount || 0}
-                          </Text>
-                        </Pressable>
-
-                        <Pressable onPress={() => onReactComment(postId, replyId, "hug")}>
-                          <Text style={s.commentActionText}>
-                            🤗 {reply.statistics?.hugCount || 0}
-                          </Text>
-                        </Pressable>
-                      </View>
+                      {renderActions(reply, commentId)}
                     </View>
                   );
                 })}
