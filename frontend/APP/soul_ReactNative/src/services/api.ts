@@ -4,7 +4,7 @@ import { API_BASE_URL } from "@/api/config";
 // Khởi tạo instance Axios với cấu hình cơ bản
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 1500, // Giảm timeout xuống 1.5 giây để nếu máy chủ tắt, chế độ MOCK sẽ kích hoạt ngay lập tức (không bị load lâu)
+  timeout: 10000, // 10 giây - đủ thời gian cho backend xử lý DB operations
   headers: {
     "Content-Type": "application/json",
   },
