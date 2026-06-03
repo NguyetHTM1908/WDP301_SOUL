@@ -24,12 +24,13 @@ db.users.insertMany([
     fullName: "Admin SOUL",
     email: "admin@soul.com",
     phone: "0900000001",
-    passwordHash: "$2b$10$7EqJtq98hPqEX7fNZaFWoOHi6M9bF6K5zsxFrqOe5zvY4xXHzkw7K",
+    passwordHash: "$2b$10$aZNR27yMewRS93tPRdlm5OC7oVeHJqM.WoySg0L2Z0K.nBFWEToYO",
     avatarUrl: null,
     bio: "Administrator account for SOUL platform.",
     savedPosts: [],
     role: "admin",
     status: "active",
+    forumBannedUntil: null,
     gender: "male",
     dateOfBirth: null,
     isEmailVerified: true,
@@ -45,12 +46,13 @@ db.users.insertMany([
     fullName: "Nguyen Van A",
     email: "user1@soul.com",
     phone: "0900000002",
-    passwordHash: "$2b$10$KbQi8YV7czHxVn9Yx8RJ4e7hKMuquMNFcQJUO2cSAB1ytY1/6V2vG",
+    passwordHash: "$2b$10$14/MOZ5I5VgxcxcCgtnXK.KsMGQm5Lz0/4MfqMS.IsrVv7bE.Zgn.",
     avatarUrl: null,
     bio: "University student interested in emotional wellness.",
     savedPosts: [],
     role: "user",
     status: "active",
+    forumBannedUntil: null,
     gender: "male",
     dateOfBirth: null,
     isEmailVerified: true,
@@ -66,12 +68,13 @@ db.users.insertMany([
     fullName: "Tran Thi B",
     email: "user2@soul.com",
     phone: "0900000003",
-    passwordHash: "$2b$10$KbQi8YV7czHxVn9Yx8RJ4e7hKMuquMNFcQJUO2cSAB1ytY1/6V2vG",
+    passwordHash: "$2b$10$14/MOZ5I5VgxcxcCgtnXK.KsMGQm5Lz0/4MfqMS.IsrVv7bE.Zgn.",
     avatarUrl: null,
     bio: "Student who enjoys self-care and mindfulness activities.",
     savedPosts: [],
     role: "user",
     status: "active",
+    forumBannedUntil: null,
     gender: "female",
     dateOfBirth: null,
     isEmailVerified: true,
@@ -489,16 +492,17 @@ db.posts.insertMany([
     _id: post1Id,
     authorId: user1Id,
     content: "Mọi người làm gì khi cảm thấy mất động lực?",
-    images: [
+    mediaUrls: [
       {
         url: "https://example.com/images/motivation-support.jpg",
         type: "image"
       }
     ],
+    emotionStatus: "stress",
+    hashtags: ["stress", "student-life"],
     isAnonymous: true,
-    tags: ["stress", "student-life"],
     visibility: "public",
-    status: "active",
+    status: "approved",
     statistics: {
       likeCount: 0,
       supportCount: 1,
@@ -515,19 +519,23 @@ db.posts.insertMany([
         createdAt: now
       }
     ],
+    editedAt: null,
+    approvedAt: now,
+    approvedBy: adminId,
+    rejectedReason: null,
     createdAt: now,
-    updatedAt: now,
-    editedAt: null
+    updatedAt: now
   },
   {
     _id: post2Id,
     authorId: user2Id,
     content: "Có ai từng bị burnout vì học tập chưa?",
-    images: [],
+    mediaUrls: [],
+    emotionStatus: "stress",
+    hashtags: ["stress"],
     isAnonymous: true,
-    tags: ["stress"],
     visibility: "public",
-    status: "active",
+    status: "approved",
     statistics: {
       likeCount: 0,
       supportCount: 1,
@@ -544,24 +552,28 @@ db.posts.insertMany([
         createdAt: now
       }
     ],
+    editedAt: null,
+    approvedAt: now,
+    approvedBy: adminId,
+    rejectedReason: null,
     createdAt: now,
-    updatedAt: now,
-    editedAt: null
+    updatedAt: now
   },
   {
     _id: post3Id,
     authorId: user1Id,
     content: "Mình đang cố gắng ngủ sớm hơn để cải thiện tâm trạng.",
-    images: [
+    mediaUrls: [
       {
         url: "https://example.com/images/self-care-sleep.jpg",
         type: "image"
       }
     ],
+    emotionStatus: "happy",
+    hashtags: ["self-care"],
     isAnonymous: false,
-    tags: ["self-care"],
     visibility: "public",
-    status: "active",
+    status: "approved",
     statistics: {
       likeCount: 1,
       supportCount: 0,
@@ -578,9 +590,12 @@ db.posts.insertMany([
         createdAt: now
       }
     ],
+    editedAt: null,
+    approvedAt: now,
+    approvedBy: adminId,
+    rejectedReason: null,
     createdAt: now,
-    updatedAt: now,
-    editedAt: null
+    updatedAt: now
   }
 ]);
 
@@ -602,8 +617,12 @@ db.comments.insertMany([
     content: "Mình thường nghe nhạc và nghỉ ngơi một chút.",
     isAnonymous: false,
     status: "active",
-    likeCount: 1,
-    reportCount: 1,
+    statistics: {
+      likeCount: 1,
+      supportCount: 0,
+      hugCount: 0,
+      reportCount: 1
+    },
     toxicityLevel: "low",
     reactions: [
       {
@@ -612,6 +631,7 @@ db.comments.insertMany([
         createdAt: now
       }
     ],
+    editedAt: null,
     createdAt: now,
     updatedAt: now
   },
@@ -623,8 +643,12 @@ db.comments.insertMany([
     content: "Mình từng như vậy, nghỉ ngơi một chút sẽ giúp hơn.",
     isAnonymous: false,
     status: "active",
-    likeCount: 0,
-    reportCount: 0,
+    statistics: {
+      likeCount: 0,
+      supportCount: 1,
+      hugCount: 0,
+      reportCount: 0
+    },
     toxicityLevel: "low",
     reactions: [
       {
@@ -633,6 +657,7 @@ db.comments.insertMany([
         createdAt: now
       }
     ],
+    editedAt: null,
     createdAt: now,
     updatedAt: now
   },
@@ -644,10 +669,15 @@ db.comments.insertMany([
     content: "Ngủ đủ thật sự giúp mood ổn hơn nhiều.",
     isAnonymous: false,
     status: "active",
-    likeCount: 0,
-    reportCount: 0,
+    statistics: {
+      likeCount: 0,
+      supportCount: 0,
+      hugCount: 0,
+      reportCount: 0
+    },
     toxicityLevel: "low",
     reactions: [],
+    editedAt: null,
     createdAt: now,
     updatedAt: now
   },
@@ -659,10 +689,15 @@ db.comments.insertMany([
     content: "Cảm ơn bạn, mình sẽ thử nghỉ ngơi nhiều hơn.",
     isAnonymous: false,
     status: "active",
-    likeCount: 0,
-    reportCount: 0,
+    statistics: {
+      likeCount: 0,
+      supportCount: 0,
+      hugCount: 0,
+      reportCount: 0
+    },
     toxicityLevel: "low",
     reactions: [],
+    editedAt: null,
     createdAt: now,
     updatedAt: now
   }
@@ -678,33 +713,25 @@ const report2Id = new ObjectId();
 db.reports.insertMany([
   {
     _id: report1Id,
+    targetType: "post",
+    targetId: post1Id,
     reporterId: user2Id,
-    target: {
-      type: "post",
-      id: post1Id
-    },
+    reportedUserId: user1Id,
     reason: "Sensitive content",
     description: "Post may contain emotional distress.",
     status: "pending",
-    handledBy: null,
-    adminNote: null,
-    resolvedAt: null,
     createdAt: now,
     updatedAt: now
   },
   {
     _id: report2Id,
+    targetType: "comment",
+    targetId: comment1Id,
     reporterId: user1Id,
-    target: {
-      type: "comment",
-      id: comment1Id
-    },
+    reportedUserId: user2Id,
     reason: "Potential harmful advice",
     description: "Comment may negatively affect emotional state.",
-    status: "reviewed",
-    handledBy: adminId,
-    adminNote: "Reviewed. Content is supportive and does not violate community guidelines.",
-    resolvedAt: now,
+    status: "dismissed",
     createdAt: now,
     updatedAt: now
   }
@@ -717,15 +744,15 @@ db.reports.insertMany([
 db.moderation_logs.insertMany([
   {
     target: {
-      type: "comment",
-      id: comment1Id
+      type: "report",
+      id: report2Id
     },
-    action: "resolve_report",
+    action: "reject_report",
     reason: "Potential harmful advice",
     note: "Admin reviewed the comment and found no harmful content.",
     performedBy: adminId,
     previousStatus: "pending",
-    newStatus: "reviewed",
+    newStatus: "dismissed",
     createdAt: now
   },
   {
@@ -733,12 +760,12 @@ db.moderation_logs.insertMany([
       type: "post",
       id: post1Id
     },
-    action: "resolve_report",
+    action: "hide_content",
     reason: "Sensitive content",
     note: "Post flagged for emotional distress. Pending further review.",
     performedBy: adminId,
-    previousStatus: "active",
-    newStatus: "active",
+    previousStatus: "approved",
+    newStatus: "approved",
     createdAt: now
   }
 ]);
