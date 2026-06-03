@@ -253,11 +253,7 @@ webPreview: {
   marginTop: 12,
 },
 
-postLink: {
-  color: "#007AFF",
-  textDecorationLine: "underline",
-  fontSize: 14,
-},
+
 mediaPlaceholder: {
   height: 220,
   justifyContent: "center",
