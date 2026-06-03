@@ -199,6 +199,23 @@ export default function AdminEventDetail() {
           </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.registrationManageButton}
+          activeOpacity={0.82}
+          onPress={() => router.push(`/(admin)/events/registrations/${id}`)}
+        >
+          <View style={styles.registrationManageIcon}>
+            <MaterialCommunityIcons name="account-multiple-check" size={24} color={colors.dark} />
+          </View>
+          <View style={styles.registrationManageTextWrap}>
+            <Text style={styles.registrationManageTitle}>Quản lý người đăng ký</Text>
+            <Text style={styles.registrationManageSub}>
+              Xem danh sách và cập nhật trạng thái tham gia
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={24} color="#9CA3AF" />
+        </TouchableOpacity>
+
         <View style={styles.detailSection}>
           <Text style={styles.detailTitle}>Mô tả chi tiết</Text>
           <Text style={styles.descText}>{event.description || "Chưa có mô tả."}</Text>
