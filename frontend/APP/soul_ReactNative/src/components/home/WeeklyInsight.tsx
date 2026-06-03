@@ -13,10 +13,6 @@ export function WeeklyInsight() {
         <Text style={styles.suggestionText}>
           Take 5 minutes to breathe{"\n"}and relax your mind.
         </Text>
-
-        <TouchableOpacity style={styles.startButton}>
-          <Text style={styles.startButtonText}>Start Now ▶</Text>
-        </TouchableOpacity>
       </View>
     </View>
   );
