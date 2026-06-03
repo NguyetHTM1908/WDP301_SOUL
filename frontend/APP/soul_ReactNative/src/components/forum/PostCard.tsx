@@ -12,7 +12,6 @@ type Props = {
   commentInputs: Record<string, string>;
   replyInputs: Record<string, string>;
   openReplyCommentId: string | null;
-  currentUserId: string | null;
   setCommentInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setReplyInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setOpenReplyCommentId: React.Dispatch<React.SetStateAction<string | null>>;
@@ -20,18 +19,12 @@ type Props = {
   onReportPost: (postId: string) => void;
   onToggleComments: (postId: string) => void;
   onSendComment: (postId: string) => void;
-  onReplyComment: (
-    postId: string,
-    parentCommentId: string,
-    inputCommentId?: string
-  ) => void;
+  onReplyComment: (postId: string, parentCommentId: string) => void;
   onReactComment: (
     postId: string,
     commentId: string,
     type: "like" | "support" | "hug"
   ) => void;
-  onEditComment: (postId: string, commentId: string, content: string) => void;
-  onDeleteComment: (postId: string, commentId: string) => void;
 };
 
 export function PostCard({
@@ -43,7 +36,6 @@ export function PostCard({
   commentInputs,
   replyInputs,
   openReplyCommentId,
-  currentUserId,
   setCommentInputs,
   setReplyInputs,
   setOpenReplyCommentId,
@@ -53,8 +45,6 @@ export function PostCard({
   onSendComment,
   onReplyComment,
   onReactComment,
-  onEditComment,
-  onDeleteComment,
 }: Props) {
   const authorName = item.isAnonymous
     ? "Anonymous Soul"
@@ -69,7 +59,6 @@ export function PostCard({
       <View style={s.postHeader}>
         <View style={s.authorRow}>
           <Image source={{ uri: avatar }} style={s.avatar} />
-
           <View>
             <View style={s.nameRow}>
               <Text style={s.authorName}>{authorName}</Text>
@@ -79,7 +68,6 @@ export function PostCard({
                 color="#00866B"
               />
             </View>
-
             <Text style={s.postMeta}>
               Just now · {moodLabel(item.emotionStatus)}
             </Text>
@@ -106,11 +94,7 @@ export function PostCard({
       </View>
 
       {item.mediaUrls?.[0]?.url ? (
-        <Image
-          source={{ uri: item.mediaUrls[0].url }}
-          style={s.postImage}
-          resizeMode="contain"
-        />
+        <Image source={{ uri: item.mediaUrls[0].url }} style={s.postImage} />
       ) : null}
 
       <View style={s.actionRow}>
@@ -119,10 +103,7 @@ export function PostCard({
           <Text style={s.actionText}>{item.statistics?.likeCount || 0}</Text>
         </Pressable>
 
-        <Pressable
-          style={s.actionItem}
-          onPress={() => onReactPost(item._id, "support")}
-        >
+        <Pressable style={s.actionItem} onPress={() => onReactPost(item._id, "support")}>
           <MaterialCommunityIcons name="hand-heart" size={24} color="#00866B" />
           <Text style={s.actionText}>{item.statistics?.supportCount || 0}</Text>
         </Pressable>
@@ -149,15 +130,12 @@ export function PostCard({
           commentInput={commentInputs[item._id] || ""}
           replyInputs={replyInputs}
           openReplyCommentId={openReplyCommentId}
-          currentUserId={currentUserId}
           setCommentInputs={setCommentInputs}
           setReplyInputs={setReplyInputs}
           setOpenReplyCommentId={setOpenReplyCommentId}
           onSendComment={onSendComment}
           onReplyComment={onReplyComment}
           onReactComment={onReactComment}
-          onEditComment={onEditComment}
-          onDeleteComment={onDeleteComment}
         />
       )}
     </View>
