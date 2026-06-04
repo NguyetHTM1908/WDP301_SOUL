@@ -9,7 +9,7 @@ const participantSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["registered", "cancelled"],
+      enum: ["registered", "cancelled", "attended"],
       required: true,
       default: "registered",
     },
