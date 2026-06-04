@@ -2,7 +2,7 @@ const Event = require("../models/Event");
 
 const EVENT_TYPES = ["workshop", "talkshow", "webinar", "community_event", null];
 const EVENT_STATUSES = ["upcoming", "ongoing", "completed", "cancelled"];
-const REGISTRATION_STATUSES = ["registered", "cancelled"];
+const REGISTRATION_STATUSES = ["registered", "cancelled", "attended"];
 
 const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
 
@@ -332,17 +332,7 @@ const getEventRegistrations = async (req, res) => {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    const allRegistrations = event.participants;
-    const registeredTotal = allRegistrations.filter(
-      (participant) => participant.status === "registered"
-    ).length;
-    const cancelledTotal = allRegistrations.filter(
-      (participant) => participant.status === "cancelled"
-    ).length;
-    const remainingSlots =
-      event.capacity === null ? null : Math.max(event.capacity - registeredTotal, 0);
-
-    const registrations = allRegistrations
+    const registrations = event.participants
       .filter((participant) => status === "all" || participant.status === status)
       .sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
 
@@ -360,12 +350,6 @@ const getEventRegistrations = async (req, res) => {
           capacity: event.capacity,
           registeredCount: event.registeredCount,
         },
-        summary: {
-          registered: registeredTotal,
-          cancelled: cancelledTotal,
-          capacity: event.capacity,
-          remainingSlots,
-        },
         registrations: paginatedRegistrations,
       },
       pagination: {
@@ -382,13 +366,14 @@ const getEventRegistrations = async (req, res) => {
 };
 
 /**
- * @route   DELETE /api/events/:id/registrations/:userId
- * @desc    Remove event registration
+ * @route   PATCH /api/events/:id/registrations/:userId
+ * @desc    Update event registration status
  * @access  Private (Admin)
  */
-const removeEventRegistration = async (req, res) => {
+const updateEventRegistration = async (req, res) => {
   try {
     const { id, userId } = req.params;
+    const { status } = req.body;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json({ success: false, message: "Invalid event ID" });
@@ -398,23 +383,47 @@ const removeEventRegistration = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid user ID" });
     }
 
+    if (!REGISTRATION_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid registration status",
+      });
+    }
+
     const event = await Event.findById(id);
     if (!event) {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    const participantIndex = event.participants.findIndex(
+    const participant = event.participants.find(
       (item) => item.userId.toString() === userId
     );
 
-    if (participantIndex === -1) {
+    if (!participant) {
       return res.status(404).json({
         success: false,
         message: "Registration not found",
       });
     }
 
-    const [removedRegistration] = event.participants.splice(participantIndex, 1);
+    if (
+      status === "registered" &&
+      event.capacity !== null &&
+      participant.status !== "registered" &&
+      event.registeredCount >= event.capacity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Event capacity has been reached",
+      });
+    }
+
+    participant.status = status;
+    participant.cancelledAt = status === "cancelled" ? new Date() : null;
+
+    if (status === "registered" && !participant.registeredAt) {
+      participant.registeredAt = new Date();
+    }
 
     event.registeredCount = event.participants.filter(
       (item) => item.status === "registered"
@@ -422,18 +431,26 @@ const removeEventRegistration = async (req, res) => {
 
     await event.save();
 
+    const updatedEvent = await Event.findById(id)
+      .populate("participants.userId", "fullName email phone avatarUrl role status")
+      .select("title registeredCount participants");
+
+    const updatedRegistration = updatedEvent.participants.find(
+      (item) => item.userId._id.toString() === userId
+    );
+
     res.status(200).json({
       success: true,
-      message: "Registration removed successfully",
+      message: "Registration updated successfully",
       data: {
         eventId: event._id,
         title: event.title,
         registeredCount: event.registeredCount,
-        removedRegistration,
+        registration: updatedRegistration,
       },
     });
   } catch (error) {
-    console.error("Error removing event registration:", error);
+    console.error("Error updating event registration:", error);
     res.status(500).json({ success: false, message: "Server Error" });
   }
 };
@@ -452,7 +469,8 @@ const getRegisteredEvents = async (req, res) => {
     const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
     const skip = (pageNumber - 1) * limitNumber;
 
-    if (status !== "all" && !REGISTRATION_STATUSES.includes(status)) {
+    const validStatuses = ["registered", "cancelled", "attended"];
+    if (status !== "all" && !validStatuses.includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid registration status",
@@ -676,7 +694,7 @@ module.exports = {
   updateEvent,
   deleteEvent,
   getEventRegistrations,
-  removeEventRegistration,
+  updateEventRegistration,
   getRegisteredEvents,
   registerEvent,
   cancelRegistration,

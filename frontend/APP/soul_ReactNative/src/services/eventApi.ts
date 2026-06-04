@@ -71,39 +71,4 @@ export const eventAdminService = {
       throw new Error(errMsg);
     }
   },
-
-  getEventRegistrations: async (
-    id: string,
-    params?: { status?: string; page?: number; limit?: number }
-  ) => {
-    try {
-      const response = await apiClient.get(`/events/${id}/registrations`, {
-        params,
-      });
-      return response.data;
-    } catch (error: any) {
-      const errMsg =
-        error.response?.data?.message ||
-        error.message ||
-        "Khong the tai danh sach nguoi dang ky";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] getEventRegistrations error ${errStatus}:`, errMsg);
-      throw new Error(errMsg);
-    }
-  },
-
-  removeEventRegistration: async (eventId: string, userId: string) => {
-    try {
-      const response = await apiClient.delete(`/events/${eventId}/registrations/${userId}`);
-      return response.data;
-    } catch (error: any) {
-      const errMsg =
-        error.response?.data?.message ||
-        error.message ||
-        "Khong the xoa dang ky khoi su kien";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] removeEventRegistration error ${errStatus}:`, errMsg);
-      throw new Error(errMsg);
-    }
-  },
 };
