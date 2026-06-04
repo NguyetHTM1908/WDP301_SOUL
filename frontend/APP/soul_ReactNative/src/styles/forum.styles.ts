@@ -8,106 +8,97 @@ export const forumStyles = StyleSheet.create({
 
   header: {
     backgroundColor: "#E4F8F1",
-    paddingTop: 58,
-    paddingHorizontal: 22,
+    paddingTop: 48,
+    paddingHorizontal: 18,
     paddingBottom: 14,
-    borderBottomLeftRadius: 34,
-    borderBottomRightRadius: 34,
-    overflow: "hidden",
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
   },
 
-  decorHeart: {
-    position: "absolute",
-    right: 110,
-    top: 72,
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
   },
 
   headerTop: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: 14,
+  },
+
+  headerTitleWrap: {
+    flex: 1,
   },
 
   title: {
-    fontSize: 34,
+    fontSize: 30,
     fontWeight: "900",
     color: "#064D3D",
-    letterSpacing: -0.8,
   },
 
   subtitle: {
-    marginTop: 8,
+    marginTop: 6,
     color: "#385E56",
-    fontSize: 17,
-    lineHeight: 24,
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   headerActions: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 10,
   },
 
   bellButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-  },
-
-  redDot: {
-    position: "absolute",
-    top: 6,
-    right: 5,
-    width: 9,
-    height: 9,
-    borderRadius: 99,
-    backgroundColor: "#EF4444",
   },
 
   plusButton: {
-    width: 54,
-    height: 54,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#00866B",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#00866B",
-    shadowOpacity: 0.28,
-    shadowRadius: 13,
-    elevation: 6,
   },
 
   searchBox: {
-    marginTop: 28,
-    height: 58,
-    borderRadius: 30,
+    marginTop: 22,
+    height: 54,
+    borderRadius: 28,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    shadowColor: "#0B3D35",
-    shadowOpacity: 0.06,
-    shadowRadius: 15,
-    elevation: 3,
   },
 
   searchInput: {
     flex: 1,
     color: "#1C3430",
-    fontSize: 16,
+    fontSize: 15,
   },
 
   filterRow: {
-    paddingTop: 18,
-    paddingBottom: 4,
-    gap: 12,
+    paddingTop: 16,
+    paddingBottom: 2,
+    gap: 10,
   },
 
   filterChip: {
-    paddingHorizontal: 20,
-    paddingVertical: 13,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: "#EAF6F2",
   },
@@ -118,7 +109,7 @@ export const forumStyles = StyleSheet.create({
 
   filterText: {
     color: "#064D3D",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
   },
 
@@ -127,40 +118,42 @@ export const forumStyles = StyleSheet.create({
   },
 
   list: {
-    paddingHorizontal: 18,
-    paddingTop: 18,
-    paddingBottom: 140,
+    paddingHorizontal: 14,
+    paddingTop: 16,
+    paddingBottom: 130,
   },
 
   postCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 22,
-    padding: 18,
+    padding: 16,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: "#E3ECE9",
-    shadowColor: "#0B3D35",
-    shadowOpacity: 0.06,
-    shadowRadius: 14,
-    elevation: 3,
   },
 
   postHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: 10,
   },
 
   authorRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
+    flex: 1,
+  },
+
+  authorInfo: {
+    flex: 1,
   },
 
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: "#D7F2EA",
   },
 
@@ -168,10 +161,11 @@ export const forumStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
+    flexWrap: "wrap",
   },
 
   authorName: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "900",
     color: "#073E34",
   },
@@ -183,81 +177,118 @@ export const forumStyles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  mineActions: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+
+  ownerActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
   statusBadge: {
     backgroundColor: "#FFF4D6",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: 999,
   },
 
   statusText: {
     color: "#A16207",
     fontWeight: "800",
-    fontSize: 12,
+    fontSize: 11,
     textTransform: "capitalize",
   },
 
   postContent: {
-    marginTop: 16,
+    marginTop: 14,
     color: "#172F2B",
-    fontSize: 17,
-    lineHeight: 26,
+    fontSize: 16,
+    lineHeight: 24,
   },
 
   tagRow: {
-    marginTop: 14,
+    marginTop: 12,
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 9,
+    gap: 8,
   },
 
   tag: {
     backgroundColor: "#EAF7F3",
     borderRadius: 999,
-    paddingHorizontal: 13,
-    paddingVertical: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
   },
 
   tagText: {
     color: "#064D3D",
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: "800",
   },
 
   postImage: {
-    marginTop: 18,
-    height: 152,
-    width: "100%",
-    borderRadius: 17,
-    backgroundColor: "#E8F5F1",
-  },
+  marginTop: 16,
+  height: 270,
+  width: "100%",
+  borderRadius: 16,
+  backgroundColor: "#E8F5F1",
+},
 
   actionRow: {
-    marginTop: 18,
+    marginTop: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
+    flexWrap: "wrap",
+    rowGap: 10,
   },
+webPreview: {
+  width: "100%",
+  height: 260,
+  borderRadius: 16,
+  overflow: "hidden",
+  backgroundColor: "#F3F4F6",
+  marginTop: 12,
+},
 
+
+mediaPlaceholder: {
+  height: 220,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#F3F4F6",
+  borderRadius: 16,
+  marginTop: 12,
+},
+
+mediaPlaceholderText: {
+  marginTop: 8,
+  color: "#6B7280",
+  fontSize: 14,
+},
   actionItem: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
+    minWidth: 48,
+  },
+
+  actionEmoji: {
+    fontSize: 20,
   },
 
   actionText: {
     color: "#36534D",
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
-  },
-
-  hugIcon: {
-    fontSize: 22,
   },
 
   emptyBox: {
     alignItems: "center",
     paddingVertical: 70,
+    paddingHorizontal: 20,
   },
 
   emptyIcon: {
@@ -269,12 +300,14 @@ export const forumStyles = StyleSheet.create({
     fontSize: 22,
     fontWeight: "900",
     color: "#064D3D",
+    textAlign: "center",
   },
 
   emptyText: {
     marginTop: 6,
     color: "#6A807B",
     fontSize: 15,
+    textAlign: "center",
   },
 
   modalBackdrop: {
@@ -284,34 +317,35 @@ export const forumStyles = StyleSheet.create({
   },
 
   createModal: {
+    maxHeight: "92%",
     backgroundColor: "#FFFFFF",
-    borderTopLeftRadius: 34,
-    borderTopRightRadius: 34,
-    paddingHorizontal: 24,
-    paddingTop: 22,
-    paddingBottom: 26,
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 24,
   },
 
   modalHandle: {
     alignSelf: "center",
     width: 55,
-    height: 7,
+    height: 6,
     borderRadius: 99,
     backgroundColor: "#D4DAD8",
-    marginBottom: 22,
+    marginBottom: 20,
   },
 
   closeButton: {
     position: "absolute",
-    right: 22,
-    top: 34,
+    right: 20,
+    top: 28,
     zIndex: 5,
   },
 
   modalTitle: {
     textAlign: "center",
     color: "#064D3D",
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: "900",
   },
 
@@ -319,16 +353,16 @@ export const forumStyles = StyleSheet.create({
     textAlign: "center",
     marginTop: 8,
     color: "#6D7D79",
-    fontSize: 16,
+    fontSize: 15,
   },
 
   bigInputWrap: {
-    marginTop: 26,
-    height: 175,
+    marginTop: 22,
+    height: 150,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#DDE7E4",
-    padding: 16,
+    padding: 14,
   },
 
   bigInput: {
@@ -341,50 +375,50 @@ export const forumStyles = StyleSheet.create({
   counter: {
     textAlign: "right",
     color: "#7D8B88",
-    fontSize: 13,
+    fontSize: 12,
   },
 
   formInput: {
-    marginTop: 16,
-    height: 64,
+    marginTop: 14,
+    minHeight: 58,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#DDE7E4",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 14,
+    gap: 12,
   },
 
   formTextInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: "#1C3430",
   },
 
   hashIcon: {
-    fontSize: 34,
+    fontSize: 30,
     color: "#7A8A87",
     fontWeight: "500",
   },
 
   feelingLabel: {
-    marginTop: 24,
+    marginTop: 20,
     color: "#064D3D",
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: "800",
   },
 
   emotionGrid: {
     marginTop: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
+    flexWrap: "wrap",
     gap: 8,
   },
 
   emotionCard: {
-    flex: 1,
-    height: 82,
+    width: "31%",
+    height: 78,
     borderRadius: 15,
     borderWidth: 1,
     borderColor: "#E1E9E7",
@@ -400,120 +434,89 @@ export const forumStyles = StyleSheet.create({
   },
 
   emotionEmoji: {
-    fontSize: 28,
+    fontSize: 26,
   },
 
   emotionName: {
-    marginTop: 6,
+    marginTop: 5,
     fontSize: 11,
     color: "#263C37",
     fontWeight: "700",
   },
 
   anonymousRow: {
-    marginTop: 18,
-    height: 64,
+    marginTop: 16,
+    minHeight: 58,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: "#E1E9E7",
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  commentThread: {
-  marginBottom: 10,
-},
-
-replyList: {
-  marginLeft: 28,
-  marginTop: 8,
-  paddingLeft: 14,
-  borderLeftWidth: 2,
-  borderLeftColor: "#CFE5DE",
-},
-
-replyCard: {
-  backgroundColor: "#F7FCFA",
-  borderRadius: 16,
-  padding: 12,
-  marginBottom: 8,
-},
-
 
   anonLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
+    flex: 1,
   },
 
   anonText: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#173B34",
     fontWeight: "700",
   },
 
   submitButton: {
-    marginTop: 22,
-    height: 64,
+    marginTop: 20,
+    minHeight: 58,
     borderRadius: 18,
     backgroundColor: "#00866B",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 12,
+    gap: 10,
+    paddingHorizontal: 16,
   },
 
   submitText: {
     color: "#FFFFFF",
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: "900",
   },
 
   cancelText: {
-    marginTop: 20,
+    marginTop: 18,
     textAlign: "center",
     color: "#6F7E7B",
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
   },
 
   bottomSwitcher: {
     position: "absolute",
-    bottom: 24,
-    left: 20,
-    right: 20,
-    height: 72,
-
+    bottom: 22,
+    left: 16,
+    right: 16,
+    height: 68,
     backgroundColor: "#FFFFFF",
     borderRadius: 999,
-
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-
-    paddingHorizontal: 10,
-
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 10,
-
+    paddingHorizontal: 8,
     elevation: 10,
   },
 
   bottomTab: {
     flex: 1,
-    height: 54,
+    height: 52,
     borderRadius: 999,
-
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-
     gap: 8,
   },
 
@@ -522,7 +525,7 @@ replyCard: {
   },
 
   bottomTabText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: "800",
     color: "#40657D",
   },
@@ -530,93 +533,353 @@ replyCard: {
   bottomTabTextActive: {
     color: "#FFFFFF",
   },
+
   inlineCommentBox: {
-  marginTop: 16,
-  paddingTop: 14,
-  borderTopWidth: 1,
-  borderTopColor: "#E3ECE9",
-},
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#E3ECE9",
+  },
 
-inlineCommentCard: {
-  backgroundColor: "#F0FBF7",
-  borderRadius: 16,
-  padding: 12,
-  marginBottom: 10,
-},
+  commentThread: {
+    marginBottom: 10,
+  },
 
-inlineCommentAuthor: {
-  fontSize: 13,
-  fontWeight: "900",
-  color: "#064D3D",
-},
+  inlineCommentCard: {
+    backgroundColor: "#F0FBF7",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+  },
 
-inlineCommentText: {
-  marginTop: 4,
-  fontSize: 14,
-  color: "#1C3430",
-  lineHeight: 20,
-},
+  inlineCommentAuthor: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#064D3D",
+    flex: 1,
+  },
 
-inlineCommentInputRow: {
-  marginTop: 8,
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 10,
-},
+  inlineCommentText: {
+    marginTop: 4,
+    fontSize: 14,
+    color: "#1C3430",
+    lineHeight: 20,
+  },
 
-inlineCommentInput: {
-  flex: 1,
-  height: 46,
-  borderRadius: 999,
-  backgroundColor: "#EEF5F3",
-  paddingHorizontal: 16,
-  fontSize: 14,
-  color: "#1C3430",
-},
+  commentActionRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 14,
+    rowGap: 8,
+  },
 
-inlineCommentSend: {
-  width: 46,
-  height: 46,
-  borderRadius: 999,
-  backgroundColor: "#00866B",
-  alignItems: "center",
-  justifyContent: "center",
-},
-commentActionRow: {
-  marginTop: 8,
-  flexDirection: "row",
-  gap: 18,
-},
+  commentActionText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#00866B",
+  },
 
-commentActionText: {
-  fontSize: 13,
-  fontWeight: "800",
-  color: "#00866B",
-},
+  commentTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
 
-replyInputRow: {
-  marginTop: 10,
-  flexDirection: "row",
-  alignItems: "center",
-  gap: 8,
-},
+  commentMenuButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
 
-replyInput: {
-  flex: 1,
-  height: 40,
-  borderRadius: 999,
-  backgroundColor: "#FFFFFF",
-  paddingHorizontal: 14,
-  fontSize: 13,
-  color: "#1C3430",
-},
+  commentMenu: {
+    marginTop: 10,
+    alignSelf: "flex-end",
+    width: 138,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#E3ECE9",
+    elevation: 8,
+    shadowColor: "#0B3D35",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
 
-replySend: {
-  width: 40,
-  height: 40,
-  borderRadius: 999,
-  backgroundColor: "#00866B",
-  alignItems: "center",
-  justifyContent: "center",
-},
+  commentMenuItem: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  commentMenuText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#064D3D",
+  },
+
+  commentMenuDeleteText: {
+    color: "#EF4444",
+  },
+
+  replyList: {
+    marginLeft: 22,
+    marginTop: 4,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: "#CFE5DE",
+  },
+
+  replyCard: {
+    backgroundColor: "#F7FCFA",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 8,
+  },
+
+  inlineCommentInputRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  inlineCommentInput: {
+    flex: 1,
+    height: 46,
+    borderRadius: 999,
+    backgroundColor: "#EEF5F3",
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: "#1C3430",
+  },
+
+  inlineCommentSend: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  replyInputRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  replyInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    fontSize: 13,
+    color: "#1C3430",
+  },
+
+  replySend: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  replySendCancel: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  reportBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(28, 47, 43, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  reportModal: {
+    width: "100%",
+    maxWidth: 390,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 22,
+    maxHeight: "84%",
+  },
+
+  reportTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#064D3D",
+    textAlign: "center",
+  },
+
+  reportSub: {
+    marginTop: 8,
+    color: "#6D7D79",
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: "center",
+  },
+
+  reasonList: {
+    marginTop: 18,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  reasonChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: "#EAF7F3",
+  },
+
+  reasonChipActive: {
+    backgroundColor: "#00866B",
+  },
+
+  reasonText: {
+    color: "#064D3D",
+    fontWeight: "800",
+    fontSize: 12,
+    textTransform: "capitalize",
+  },
+
+  reasonTextActive: {
+    color: "#FFFFFF",
+  },
+
+  reportInput: {
+    marginTop: 16,
+    minHeight: 100,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#DDE7E4",
+    padding: 14,
+    textAlignVertical: "top",
+    color: "#1C3430",
+    fontSize: 14,
+    backgroundColor: "#FFFFFF",
+  },
+
+  myReportList: {
+    marginTop: 16,
+    maxHeight: 360,
+  },
+
+  myReportCard: {
+    backgroundColor: "#F0FBF7",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  myReportReason: {
+    color: "#064D3D",
+    fontWeight: "900",
+    fontSize: 15,
+    textTransform: "capitalize",
+  },
+
+  myReportMeta: {
+    marginTop: 6,
+    color: "#6A807B",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+
+  myReportDescription: {
+    marginTop: 8,
+    color: "#1C3430",
+    lineHeight: 20,
+  },
+
+  emptyReportText: {
+    textAlign: "center",
+    color: "#6A807B",
+    paddingVertical: 30,
+  },
+
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+
+  confirmBox: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 22,
+  },
+
+  confirmTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#064D3D",
+    textAlign: "center",
+  },
+
+  confirmText: {
+    marginTop: 12,
+    textAlign: "center",
+    color: "#60706C",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+
+  confirmActions: {
+    marginTop: 22,
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#EAF7F3",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  deleteButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cancelButtonText: {
+    color: "#064D3D",
+    fontWeight: "800",
+    fontSize: 15,
+  },
+
+  deleteButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 15,
+  },
 });

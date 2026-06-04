@@ -15,7 +15,7 @@ export function EmptyForum({ mode }: Props) {
       <Text style={s.emptyText}>
         {mode === "mine"
           ? "Your pending and approved posts will appear here."
-          : "Be the first to share something gentle today."}
+          : "Approved community posts will appear here."}
       </Text>
     </View>
   );

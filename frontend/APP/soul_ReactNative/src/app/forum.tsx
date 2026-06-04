@@ -1,30 +1,45 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, FlatList, View } from "react-native";
+import {
+  Alert,
+  FlatList,
+  Modal,
+  Pressable,
+  RefreshControl,
+  Text,
+  View,
+} from "react-native";
 import { useAuthStore } from "@/store";
 
 import {
   createComment,
   createPost,
   deleteComment,
+  deletePost,
   getApprovedPosts,
   getComments,
   getMyPosts,
+  getMyReports,
+  getTags,
   reactToComment,
   reactToPost,
+  reportComment,
   reportPost,
   updateComment,
+  updatePost,
 } from "@/api/forumApi";
 
 import { forumStyles as s } from "@/styles/forum.styles";
-
 import { ForumHeader } from "@/components/forum/ForumHeader";
 import { PostCard } from "@/components/forum/PostCard";
 import { CreatePostModal } from "@/components/forum/CreatePostModal";
 import { ForumBottomSwitcher } from "@/components/forum/ForumBottomSwitcher";
 import { EmptyForum } from "@/components/forum/EmptyForum";
+import { ReportModal } from "@/components/forum/ReportModal";
+import { MyReportsModal } from "@/components/forum/MyReportsModal";
 
-const filters = ["all", "stress", "self-care", "student-life", "deadline"];
+const defaultFilters = ["all", "stress", "self-care", "student-life", "deadline"];
 
 const emotions = [
   { value: "happy", label: "😊", text: "Happy" },
@@ -35,29 +50,25 @@ const emotions = [
   { value: "neutral", label: "🌱", text: "Neutral" },
 ];
 
-function moodLabel(mood: string) {
-  const found = emotions.find((item) => item.value === mood);
-  return found ? `${found.label} ${found.text}` : "🌱 Neutral";
-}
-
-function normalizePosts(res: any) {
+function normalizeList(res: any) {
   if (Array.isArray(res)) return res;
   if (Array.isArray(res?.data)) return res.data;
   if (Array.isArray(res?.posts)) return res.posts;
-  if (Array.isArray(res?.data?.posts)) return res.data.posts;
-  return [];
-}
-
-function normalizeComments(res: any) {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.data)) return res.data;
   if (Array.isArray(res?.comments)) return res.comments;
+  if (Array.isArray(res?.reports)) return res.reports;
+  if (Array.isArray(res?.data?.posts)) return res.data.posts;
   if (Array.isArray(res?.data?.comments)) return res.data.comments;
+  if (Array.isArray(res?.data?.reports)) return res.data.reports;
   return [];
 }
 
 function isApiSuccess(res: any) {
-  return res?.success === true || res?.status === "success" || res?.message;
+  return res?.success === true || res?.status === "success" || !!res?.message;
+}
+
+function moodLabel(mood: string) {
+  const found = emotions.find((item) => item.value === mood);
+  return found ? `${found.label} ${found.text}` : "🌱 Neutral";
 }
 
 function getUserIdFromToken(token: string | null) {
@@ -82,8 +93,7 @@ function getUserIdFromToken(token: string | null) {
       parsed.user?.id ||
       null
     );
-  } catch (error) {
-    console.log("Cannot decode token:", error);
+  } catch {
     return null;
   }
 }
@@ -92,15 +102,21 @@ export default function ForumScreen() {
   const user = useAuthStore((state: any) => state.user);
 
   const [token, setToken] = useState<string | null>(null);
-  const currentUserId =
-    user?._id || user?.id || getUserIdFromToken(token);
+  const currentUserId = user?._id || user?.id || getUserIdFromToken(token);
 
   const [posts, setPosts] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [filters, setFilters] = useState(defaultFilters);
+
   const [mode, setMode] = useState<"community" | "mine">("community");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const [showCreate, setShowCreate] = useState(false);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
+
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
   const [hashtags, setHashtags] = useState("stress, deadline");
@@ -113,72 +129,141 @@ export default function ForumScreen() {
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [openReplyCommentId, setOpenReplyCommentId] = useState<string | null>(null);
 
+  const [reportTarget, setReportTarget] = useState<{
+    type: "post" | "comment";
+    id: string;
+  } | null>(null);
+
+  const [deleteTarget, setDeleteTarget] = useState<{
+    postId: string;
+    commentId: string;
+  } | null>(null);
+
+  const [showMyReports, setShowMyReports] = useState(false);
+
   const requireLogin = () => {
     if (!token) {
       Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để dùng chức năng này.");
       return false;
     }
+
     return true;
+  };
+
+  const loadTags = async () => {
+    try {
+      const res = await getTags();
+      const tags = normalizeList(res).map((tag: any) => tag.name).filter(Boolean);
+      setFilters(["all", ...new Set([...defaultFilters.slice(1), ...tags])]);
+    } catch {
+      setFilters(defaultFilters);
+    }
   };
 
   const loadPosts = async (
     nextMode: "community" | "mine" = mode,
     currentToken: string | null = token
   ) => {
-    try {
-      if (nextMode === "mine") {
-        if (!currentToken) return;
-        const res = await getMyPosts(currentToken);
-        setPosts(normalizePosts(res));
-        return;
-      }
+    if (nextMode === "mine") {
+      if (!currentToken) return;
 
-      const res = await getApprovedPosts();
-      setPosts(normalizePosts(res));
-    } catch (error: any) {
-      Alert.alert("Lỗi", error?.message || "Không tải được bài viết.");
+      const res = await getMyPosts(currentToken);
+      setPosts(normalizeList(res));
+      return;
     }
+
+    const res = await getApprovedPosts({
+      search,
+      hashtag: filter,
+    });
+
+    setPosts(normalizeList(res));
+  };
+
+  const loadReports = async () => {
+    if (!token) return;
+
+    const res = await getMyReports(token);
+    setReports(normalizeList(res));
   };
 
   const reloadComments = async (postId: string) => {
-    const updated = await getComments(postId);
+    const res = await getComments(postId);
 
     setCommentsByPost((prev) => ({
       ...prev,
-      [postId]: normalizeComments(updated),
+      [postId]: normalizeList(res),
     }));
   };
 
+  const init = async () => {
+    try {
+      const savedToken = await AsyncStorage.getItem("token");
+      setToken(savedToken);
+
+      await loadTags();
+
+      const res = await getApprovedPosts();
+      setPosts(normalizeList(res));
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không tải được forum.");
+    }
+  };
+
   useEffect(() => {
-    const init = async () => {
-      try {
-        const savedToken = await AsyncStorage.getItem("token");
-        setToken(savedToken);
-
-        const res = await getApprovedPosts();
-        setPosts(normalizePosts(res));
-      } catch (error: any) {
-        Alert.alert("Lỗi", error?.message || "Không tải được bài viết cộng đồng.");
-      }
-    };
-
     init();
   }, []);
 
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (mode === "community") {
+        loadPosts("community", token).catch(() => {});
+      }
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [search, filter]);
+
   const visiblePosts = useMemo(() => {
-    return posts.filter((post) => {
-      const matchFilter =
-        filter === "all" || post.hashtags?.some((tag: string) => tag === filter);
+    return posts;
+  }, [posts]);
 
-      const matchSearch =
-        search.trim() === "" ||
-        post.content?.toLowerCase().includes(search.toLowerCase());
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadPosts(mode, token);
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể làm mới dữ liệu.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
-      return matchFilter && matchSearch;
-    });
-  }, [posts, filter, search]);
+  const resetPostForm = () => {
+    setEditingPost(null);
+    setContent("");
+    setMediaUrl("");
+    setHashtags("stress, deadline");
+    setEmotionStatus("stress");
+    setIsAnonymous(true);
+  };
 
-  const handleCreatePost = async () => {
+  const openCreateModal = () => {
+    resetPostForm();
+    setShowCreate(true);
+  };
+
+  const openEditPost = (post: any) => {
+    setEditingPost(post);
+    setContent(post.content || "");
+    setMediaUrl(post.mediaUrls?.[0]?.url || "");
+    setHashtags((post.hashtags || []).join(", "));
+    setEmotionStatus(post.emotionStatus || "neutral");
+    setIsAnonymous(!!post.isAnonymous);
+    setShowCreate(true);
+  };
+
+  const handleSubmitPost = async () => {
     if (!requireLogin()) return;
 
     if (!content.trim()) {
@@ -206,53 +291,58 @@ export default function ForumScreen() {
     };
 
     try {
-      const res = await createPost(token as string, body);
+      const res = editingPost
+        ? await updatePost(token as string, editingPost._id, body)
+        : await createPost(token as string, body);
 
       if (isApiSuccess(res)) {
-        Alert.alert("Đã gửi bài thành công 🌿", "Bài viết đang chờ Admin duyệt.");
+        Alert.alert(
+          editingPost ? "Đã cập nhật bài viết" : "Đã gửi bài thành công 🌿",
+          "Bài viết đang chờ Admin duyệt."
+        );
 
         setShowCreate(false);
-        setContent("");
-        setMediaUrl("");
-        setHashtags("stress, deadline");
-        setEmotionStatus("stress");
-        setIsAnonymous(true);
+        resetPostForm();
 
-        loadPosts(mode, token);
+        setMode("mine");
+        await loadPosts("mine", token);
       }
     } catch (error: any) {
-      Alert.alert("Không thể đăng bài", error?.message || "Đã có lỗi xảy ra.");
+      Alert.alert("Không thể lưu bài", error?.message || "Đã có lỗi xảy ra.");
     }
   };
 
-  const handleReact = async (postId: string, type: "like" | "support" | "hug") => {
+  const handleDeletePost = async (postId: string) => {
+    if (!requireLogin()) return;
+
+    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài này không?", [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deletePost(token as string, postId);
+            await loadPosts(mode, token);
+          } catch (error: any) {
+            Alert.alert("Không thể xóa bài", error?.message || "Đã có lỗi xảy ra.");
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleReactPost = async (
+    postId: string,
+    type: "like" | "support" | "hug"
+  ) => {
     if (!requireLogin()) return;
 
     try {
-      const res = await reactToPost(token as string, postId, type);
-      if (isApiSuccess(res)) loadPosts(mode, token);
+      await reactToPost(token as string, postId, type);
+      await loadPosts(mode, token);
     } catch (error: any) {
       Alert.alert("Lỗi", error?.message || "Không thể react bài viết.");
-    }
-  };
-
-  const handleReport = async (postId: string) => {
-    if (!requireLogin()) return;
-
-    try {
-      const res = await reportPost(
-        token as string,
-        postId,
-        "negative_content",
-        "Nội dung có thể không phù hợp với cộng đồng."
-      );
-
-      Alert.alert(
-        isApiSuccess(res) ? "Đã gửi report" : "Không thể report",
-        res?.message || "Admin sẽ xem xét nội dung này."
-      );
-    } catch (error: any) {
-      Alert.alert("Không thể report", error?.message || "Đã có lỗi xảy ra.");
     }
   };
 
@@ -282,21 +372,19 @@ export default function ForumScreen() {
     }
 
     try {
-      const res = await createComment(token as string, {
+      await createComment(token as string, {
         postId,
         content: text,
         isAnonymous: false,
       });
 
-      if (isApiSuccess(res)) {
-        setCommentInputs((prev) => ({
-          ...prev,
-          [postId]: "",
-        }));
+      setCommentInputs((prev) => ({
+        ...prev,
+        [postId]: "",
+      }));
 
-        await reloadComments(postId);
-        loadPosts(mode, token);
-      }
+      await reloadComments(postId);
+      await loadPosts(mode, token);
     } catch (error: any) {
       Alert.alert("Không thể bình luận", error?.message || "Đã có lỗi xảy ra.");
     }
@@ -318,24 +406,22 @@ export default function ForumScreen() {
     }
 
     try {
-      const res = await createComment(token as string, {
+      await createComment(token as string, {
         postId,
         parentCommentId,
         content: text,
         isAnonymous: false,
       });
 
-      if (isApiSuccess(res)) {
-        setReplyInputs((prev) => ({
-          ...prev,
-          [inputKey]: "",
-        }));
+      setReplyInputs((prev) => ({
+        ...prev,
+        [inputKey]: "",
+      }));
 
-        setOpenReplyCommentId(null);
+      setOpenReplyCommentId(null);
 
-        await reloadComments(postId);
-        loadPosts(mode, token);
-      }
+      await reloadComments(postId);
+      await loadPosts(mode, token);
     } catch (error: any) {
       Alert.alert("Không thể trả lời", error?.message || "Đã có lỗi xảy ra.");
     }
@@ -349,11 +435,8 @@ export default function ForumScreen() {
     if (!requireLogin()) return;
 
     try {
-      const res = await reactToComment(token as string, commentId, type);
-
-      if (isApiSuccess(res)) {
-        await reloadComments(postId);
-      }
+      await reactToComment(token as string, commentId, type);
+      await reloadComments(postId);
     } catch (error: any) {
       Alert.alert("Không thể react comment", error?.message || "Đã có lỗi xảy ra.");
     }
@@ -362,38 +445,41 @@ export default function ForumScreen() {
   const handleEditComment = async (
     postId: string,
     commentId: string,
-    content: string
+    text: string
   ) => {
     if (!requireLogin()) return;
 
-    if (!content.trim()) {
+    if (!text.trim()) {
       Alert.alert("Thiếu nội dung", "Nội dung bình luận không được để trống.");
       return;
     }
 
     try {
-      const res = await updateComment(token as string, commentId, content.trim());
-
-      if (isApiSuccess(res)) {
-        await reloadComments(postId);
-        Alert.alert("Thành công", "Đã cập nhật bình luận.");
-      }
+      await updateComment(token as string, commentId, text.trim());
+      await reloadComments(postId);
     } catch (error: any) {
       Alert.alert("Không thể sửa bình luận", error?.message || "Đã có lỗi xảy ra.");
     }
   };
 
-  const handleDeleteComment = async (postId: string, commentId: string) => {
-  if (!requireLogin()) return;
+  const handleDeleteComment = (postId: string, commentId: string) => {
+    if (!requireLogin()) return;
 
-  const doDelete = async () => {
+    setDeleteTarget({
+      postId,
+      commentId,
+    });
+  };
+
+  const confirmDeleteComment = async () => {
+    if (!deleteTarget || !token) return;
+
     try {
-      const res = await deleteComment(token as string, commentId);
+      await deleteComment(token, deleteTarget.commentId);
+      await reloadComments(deleteTarget.postId);
+      await loadPosts(mode, token);
 
-      if (isApiSuccess(res)) {
-        await reloadComments(postId);
-        loadPosts(mode, token);
-      }
+      setDeleteTarget(null);
     } catch (error: any) {
       Alert.alert(
         "Không thể xóa bình luận",
@@ -402,32 +488,50 @@ export default function ForumScreen() {
     }
   };
 
-  if (typeof window !== "undefined") {
-    const ok = window.confirm("Bạn có chắc muốn xóa bình luận này không?");
-    if (ok) await doDelete();
-    return;
-  }
+  const openReport = (type: "post" | "comment", id: string) => {
+    if (!requireLogin()) return;
+    setReportTarget({ type, id });
+  };
 
-  Alert.alert("Xóa bình luận", "Bạn có chắc muốn xóa bình luận này không?", [
-    { text: "Hủy", style: "cancel" },
-    {
-      text: "Xóa",
-      style: "destructive",
-      onPress: doDelete,
-    },
-  ]);
-};
+  const submitReport = async (reason: string, description: string) => {
+    if (!token || !reportTarget) return;
+
+    try {
+      if (reportTarget.type === "post") {
+        await reportPost(token, reportTarget.id, reason, description);
+      } else {
+        await reportComment(token, reportTarget.id, reason, description);
+      }
+
+      Alert.alert("Đã gửi report", "Admin sẽ xem xét nội dung này.");
+      setReportTarget(null);
+    } catch (error: any) {
+      Alert.alert("Không thể report", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const openMyReports = async () => {
+    if (!requireLogin()) return;
+
+    try {
+      await loadReports();
+      setShowMyReports(true);
+    } catch (error: any) {
+      Alert.alert("Không thể tải report", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
 
   return (
     <View style={s.page}>
       <ForumHeader
-        search={search}
-        setSearch={setSearch}
-        filter={filter}
-        setFilter={setFilter}
-        filters={filters}
-        onCreatePress={() => setShowCreate(true)}
-      />
+  search={search}
+  setSearch={setSearch}
+  filter={filter}
+  setFilter={setFilter}
+  filters={filters}
+  onCreatePress={openCreateModal}
+  onReportsPress={openMyReports}
+onBackPress={() => router.replace("/(tabs)" as any)}/>
 
       <FlatList
         data={visiblePosts}
@@ -446,23 +550,30 @@ export default function ForumScreen() {
             setCommentInputs={setCommentInputs}
             setReplyInputs={setReplyInputs}
             setOpenReplyCommentId={setOpenReplyCommentId}
-            onReactPost={handleReact}
-            onReportPost={handleReport}
+            onReactPost={handleReactPost}
+            onReportPost={(postId) => openReport("post", postId)}
             onToggleComments={toggleComments}
             onSendComment={handleSendComment}
             onReplyComment={handleReplyComment}
             onReactComment={handleReactComment}
             onEditComment={handleEditComment}
             onDeleteComment={handleDeleteComment}
+            onReportComment={(commentId) => openReport("comment", commentId)}
+            onEditPost={openEditPost}
+            onDeletePost={handleDeletePost}
           />
         )}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={<EmptyForum mode={mode} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
 
       <CreatePostModal
         visible={showCreate}
+        isEditing={!!editingPost}
         content={content}
         mediaUrl={mediaUrl}
         hashtags={hashtags}
@@ -474,9 +585,49 @@ export default function ForumScreen() {
         setHashtags={setHashtags}
         setEmotionStatus={setEmotionStatus}
         setIsAnonymous={setIsAnonymous}
-        onClose={() => setShowCreate(false)}
-        onSubmit={handleCreatePost}
+        onClose={() => {
+          setShowCreate(false);
+          resetPostForm();
+        }}
+        onSubmit={handleSubmitPost}
       />
+
+      <ReportModal
+        visible={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        onSubmit={submitReport}
+      />
+
+      <MyReportsModal
+        visible={showMyReports}
+        reports={reports}
+        onClose={() => setShowMyReports(false)}
+      />
+
+      <Modal visible={!!deleteTarget} transparent animationType="fade">
+        <View style={s.confirmBackdrop}>
+          <View style={s.confirmBox}>
+            <Text style={s.confirmTitle}>Delete Comment</Text>
+
+            <Text style={s.confirmText}>
+              Are you sure you want to delete this comment?
+            </Text>
+
+            <View style={s.confirmActions}>
+              <Pressable
+                style={s.cancelButton}
+                onPress={() => setDeleteTarget(null)}
+              >
+                <Text style={s.cancelButtonText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable style={s.deleteButton} onPress={confirmDeleteComment}>
+                <Text style={s.deleteButtonText}>Delete</Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <ForumBottomSwitcher
         mode={mode}

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { API_BASE_URL } from "@/config/env";
+import { API_BASE_URL } from "@/api/config";
 
 // Khởi tạo instance Axios với cấu hình cơ bản
 const apiClient = axios.create({

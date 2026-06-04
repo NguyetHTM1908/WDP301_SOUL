@@ -9,6 +9,8 @@ type Props = {
   setFilter: (value: string) => void;
   filters: string[];
   onCreatePress: () => void;
+  onReportsPress?: () => void;
+  onBackPress?: () => void;
 };
 
 export function ForumHeader({
@@ -18,33 +20,40 @@ export function ForumHeader({
   setFilter,
   filters,
   onCreatePress,
+  onReportsPress,
+  onBackPress,
 }: Props) {
   return (
     <View style={s.header}>
-      <View style={s.decorHeart}>
-        <MaterialCommunityIcons
-          name="heart-outline"
-          size={42}
-          color="rgba(0,134,107,0.08)"
-        />
-      </View>
+      {onBackPress ? (
+        <Pressable style={s.backButton} onPress={onBackPress}>
+          <MaterialCommunityIcons
+            name="arrow-left"
+            size={24}
+            color="#064D3D"
+          />
+        </Pressable>
+      ) : null}
 
       <View style={s.headerTop}>
-        <View>
+        <View style={s.headerTitleWrap}>
           <Text style={s.title}>Healing Forum</Text>
           <Text style={s.subtitle}>
-            A safe space to share, support{"\n"}and grow together 🌿
+            A safe space to share, support and grow together 🌿
           </Text>
         </View>
 
         <View style={s.headerActions}>
-          <Pressable style={s.bellButton}>
-            <MaterialCommunityIcons name="bell-outline" size={26} color="#083D34" />
-            <View style={s.redDot} />
+          <Pressable style={s.bellButton} onPress={onReportsPress}>
+            <MaterialCommunityIcons
+              name="flag-outline"
+              size={24}
+              color="#083D34"
+            />
           </Pressable>
 
           <Pressable style={s.plusButton} onPress={onCreatePress}>
-            <MaterialCommunityIcons name="plus" size={30} color="#FFFFFF" />
+            <MaterialCommunityIcons name="plus" size={28} color="#FFFFFF" />
           </Pressable>
         </View>
       </View>

@@ -3,6 +3,8 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
 
+type ReactionType = "like" | "support" | "hug";
+
 type Props = {
   postId: string;
   comments: any[];
@@ -22,10 +24,11 @@ type Props = {
   onReactComment: (
     postId: string,
     commentId: string,
-    type: "like" | "support" | "hug"
+    type: ReactionType
   ) => void;
   onEditComment: (postId: string, commentId: string, content: string) => void;
   onDeleteComment: (postId: string, commentId: string) => void;
+  onReportComment: (commentId: string) => void;
 };
 
 export function CommentThread({
@@ -43,26 +46,41 @@ export function CommentThread({
   onReactComment,
   onEditComment,
   onDeleteComment,
+  onReportComment,
 }: Props) {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState("");
+  const [menuOpenCommentId, setMenuOpenCommentId] = useState<string | null>(null);
 
-  const getCommentId = (comment: any) => comment._id?.toString();
+  const getCommentId = (comment: any) =>
+    comment?._id?.toString?.() || comment?._id || "";
 
   const getAuthorId = (comment: any) => {
-    if (!comment.authorId) return null;
-    if (typeof comment.authorId === "string") return comment.authorId;
-    return comment.authorId._id?.toString();
+    if (!comment?.authorId) return null;
+
+    if (typeof comment.authorId === "string") {
+      return comment.authorId;
+    }
+
+    return (
+      comment.authorId._id?.toString?.() ||
+      comment.authorId.id?.toString?.() ||
+      null
+    );
   };
 
   const getParentId = (comment: any) => {
-    if (!comment.parentCommentId) return null;
-    if (typeof comment.parentCommentId === "string") return comment.parentCommentId;
-    return comment.parentCommentId._id?.toString();
+    if (!comment?.parentCommentId) return null;
+
+    if (typeof comment.parentCommentId === "string") {
+      return comment.parentCommentId;
+    }
+
+    return comment.parentCommentId._id?.toString?.() || null;
   };
 
   const getCommentAuthorName = (comment: any) =>
-    comment.authorId?.fullName || "Anonymous";
+    comment?.authorId?.fullName || "Anonymous";
 
   const parentComments = comments.filter((comment) => !getParentId(comment));
 
@@ -85,6 +103,7 @@ export function CommentThread({
   const getAllRepliesOfRoot = (rootParentId: string) => {
     return comments.filter((comment) => {
       const parentId = getParentId(comment);
+
       if (!parentId) return false;
 
       return getRootParentId(comment) === rootParentId;
@@ -95,6 +114,7 @@ export function CommentThread({
     const commentId = getCommentId(comment);
     const authorName = getCommentAuthorName(comment);
 
+    setMenuOpenCommentId(null);
     setOpenReplyCommentId(openReplyCommentId === commentId ? null : commentId);
 
     setReplyInputs((prev) => ({
@@ -105,8 +125,10 @@ export function CommentThread({
 
   const openEdit = (comment: any) => {
     const commentId = getCommentId(comment);
+
+    setMenuOpenCommentId(null);
     setEditingCommentId(commentId);
-    setEditingContent(comment.content || "");
+    setEditingContent(comment?.content || "");
   };
 
   const cancelEdit = () => {
@@ -115,8 +137,26 @@ export function CommentThread({
   };
 
   const saveEdit = (commentId: string) => {
-    onEditComment(postId, commentId, editingContent);
+    const value = editingContent.trim();
+
+    if (!value) return;
+
+    onEditComment(postId, commentId, value);
     cancelEdit();
+  };
+
+  const toggleMenu = (commentId: string) => {
+    setMenuOpenCommentId((prev) => (prev === commentId ? null : commentId));
+  };
+
+  const handleReport = (commentId: string) => {
+    setMenuOpenCommentId(null);
+    onReportComment(commentId);
+  };
+
+  const handleDelete = (commentId: string) => {
+    setMenuOpenCommentId(null);
+    onDeleteComment(postId, commentId);
   };
 
   const renderContent = (comment: any) => {
@@ -137,14 +177,63 @@ export function CommentThread({
             <MaterialCommunityIcons name="check" size={18} color="#FFFFFF" />
           </Pressable>
 
-          <Pressable style={s.replySend} onPress={cancelEdit}>
+          <Pressable style={s.replySendCancel} onPress={cancelEdit}>
             <MaterialCommunityIcons name="close" size={18} color="#FFFFFF" />
           </Pressable>
         </View>
       );
     }
 
-    return <Text style={s.inlineCommentText}>{comment.content}</Text>;
+    return <Text style={s.inlineCommentText}>{comment?.content}</Text>;
+  };
+
+  const renderMenu = (comment: any, isOwner: boolean) => {
+    const commentId = getCommentId(comment);
+
+    if (menuOpenCommentId !== commentId) return null;
+
+    return (
+      <View style={s.commentMenu}>
+        {isOwner ? (
+          <>
+            <Pressable style={s.commentMenuItem} onPress={() => openEdit(comment)}>
+              <MaterialCommunityIcons
+                name="pencil-outline"
+                size={17}
+                color="#064D3D"
+              />
+              <Text style={s.commentMenuText}>Edit</Text>
+            </Pressable>
+
+            <Pressable
+              style={s.commentMenuItem}
+              onPress={() => handleDelete(commentId)}
+            >
+              <MaterialCommunityIcons
+                name="trash-can-outline"
+                size={17}
+                color="#EF4444"
+              />
+              <Text style={[s.commentMenuText, s.commentMenuDeleteText]}>
+                Delete
+              </Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        <Pressable
+          style={s.commentMenuItem}
+          onPress={() => handleReport(commentId)}
+        >
+          <MaterialCommunityIcons
+            name="flag-outline"
+            size={17}
+            color="#064D3D"
+          />
+          <Text style={s.commentMenuText}>Report</Text>
+        </Pressable>
+      </View>
+    );
   };
 
   const renderActions = (comment: any, rootParentId?: string) => {
@@ -162,42 +251,28 @@ export function CommentThread({
         <View style={s.commentActionRow}>
           <Pressable onPress={() => onReactComment(postId, commentId, "like")}>
             <Text style={s.commentActionText}>
-              ❤️ {comment.statistics?.likeCount || 0}
+              ❤️ {comment?.statistics?.likeCount || 0}
             </Text>
           </Pressable>
 
           <Pressable onPress={() => onReactComment(postId, commentId, "support")}>
             <Text style={s.commentActionText}>
-              💚 {comment.statistics?.supportCount || 0}
+              💚 {comment?.statistics?.supportCount || 0}
             </Text>
           </Pressable>
 
           <Pressable onPress={() => onReactComment(postId, commentId, "hug")}>
             <Text style={s.commentActionText}>
-              🤗 {comment.statistics?.hugCount || 0}
+              🤗 {comment?.statistics?.hugCount || 0}
             </Text>
           </Pressable>
 
           <Pressable onPress={() => openReplyInput(comment)}>
             <Text style={s.commentActionText}>Reply</Text>
           </Pressable>
-
-          {isOwner && (
-            <>
-              <Pressable onPress={() => openEdit(comment)}>
-                <Text style={s.commentActionText}>Edit</Text>
-              </Pressable>
-
-              <Pressable onPress={() => onDeleteComment(postId, commentId)}>
-                <Text style={[s.commentActionText, { color: "#EF4444" }]}>
-                  Delete
-                </Text>
-              </Pressable>
-            </>
-          )}
         </View>
 
-        {openReplyCommentId === commentId && (
+        {openReplyCommentId === commentId ? (
           <View style={s.replyInputRow}>
             <TextInput
               style={s.replyInput}
@@ -219,8 +294,39 @@ export function CommentThread({
               <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
             </Pressable>
           </View>
-        )}
+        ) : null}
+
+        {renderMenu(comment, isOwner)}
       </>
+    );
+  };
+
+  const renderCommentCard = (comment: any, rootParentId?: string) => {
+    const commentId = getCommentId(comment);
+    const isReply = !!rootParentId;
+
+    return (
+      <View key={commentId} style={isReply ? s.replyCard : s.inlineCommentCard}>
+        <View style={s.commentTopRow}>
+          <Text style={s.inlineCommentAuthor}>
+            {getCommentAuthorName(comment)}
+          </Text>
+
+          <Pressable
+            style={s.commentMenuButton}
+            onPress={() => toggleMenu(commentId)}
+          >
+            <MaterialCommunityIcons
+              name="dots-vertical"
+              size={20}
+              color="#60706C"
+            />
+          </Pressable>
+        </View>
+
+        {renderContent(comment)}
+        {renderActions(comment, rootParentId)}
+      </View>
     );
   };
 
@@ -232,35 +338,13 @@ export function CommentThread({
 
         return (
           <View key={commentId} style={s.commentThread}>
-            <View style={s.inlineCommentCard}>
-              <Text style={s.inlineCommentAuthor}>
-                {getCommentAuthorName(comment)}
-              </Text>
+            {renderCommentCard(comment)}
 
-              {renderContent(comment)}
-
-              {renderActions(comment)}
-            </View>
-
-            {replies.length > 0 && (
+            {replies.length > 0 ? (
               <View style={s.replyList}>
-                {replies.map((reply) => {
-                  const replyId = getCommentId(reply);
-
-                  return (
-                    <View key={replyId} style={s.replyCard}>
-                      <Text style={s.inlineCommentAuthor}>
-                        {getCommentAuthorName(reply)}
-                      </Text>
-
-                      {renderContent(reply)}
-
-                      {renderActions(reply, commentId)}
-                    </View>
-                  );
-                })}
+                {replies.map((reply) => renderCommentCard(reply, commentId))}
               </View>
-            )}
+            ) : null}
           </View>
         );
       })}
