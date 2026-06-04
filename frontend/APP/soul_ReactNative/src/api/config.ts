@@ -1,5 +1,5 @@
 import { Platform } from "react-native";
-
+// chạy 
 export const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL ||
   Platform.select({
