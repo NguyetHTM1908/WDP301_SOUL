@@ -16,7 +16,7 @@ const reportRoutes = require("./src/routes/reportRoutes");
 const adminForumRoutes = require("./src/routes/adminForumRoutes");
 const journalRoutes = require("./src/routes/journalRoutes");
 const eventRoutes = require("./src/routes/eventRoutes");
-
+const tagRoutes = require("./src/routes/tagRoutes");
 const app = express();
 const aiRoutes = require("./src/routes/aiRoutes");
 
@@ -38,6 +38,7 @@ app.use("/api/admin/forum", adminForumRoutes);
 app.use("/api/journals", journalRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/tags", tagRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({
@@ -45,5 +46,4 @@ app.get("/", (req, res) => {
     message: "SOUL API Running",
   });
 });
-
 module.exports = app;

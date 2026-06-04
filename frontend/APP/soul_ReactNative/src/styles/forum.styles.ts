@@ -3,56 +3,82 @@ import { StyleSheet } from "react-native";
 export const forumStyles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: "#F5FBF9",
+    backgroundColor: "#F0FBF7",
   },
 
   header: {
-    paddingTop: 56,
-    paddingHorizontal: 22,
-    paddingBottom: 22,
-    backgroundColor: "#DFF7EF",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
+    backgroundColor: "#E4F8F1",
+    paddingTop: 48,
+    paddingHorizontal: 18,
+    paddingBottom: 14,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+
+  backButton: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
   },
 
   headerTop: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 14,
+  },
+
+  headerTitleWrap: {
+    flex: 1,
   },
 
   title: {
     fontSize: 30,
-    fontWeight: "800",
-    color: "#123D36",
+    fontWeight: "900",
+    color: "#064D3D",
   },
 
   subtitle: {
-    marginTop: 8,
-    color: "#4B7D73",
-    fontSize: 15,
-    lineHeight: 22,
+    marginTop: 6,
+    color: "#385E56",
+    fontSize: 14,
+    lineHeight: 20,
   },
 
-  createButton: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: "#2A9D8F",
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#2A9D8F",
-    shadowOpacity: 0.28,
-    shadowRadius: 12,
-    elevation: 5,
+  },
+
+  plusButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   searchBox: {
     marginTop: 22,
-    height: 52,
-    borderRadius: 18,
+    height: 54,
+    borderRadius: 28,
     backgroundColor: "#FFFFFF",
-    paddingHorizontal: 18,
+    paddingHorizontal: 16,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -60,213 +86,800 @@ export const forumStyles = StyleSheet.create({
 
   searchInput: {
     flex: 1,
+    color: "#1C3430",
     fontSize: 15,
-    color: "#123D36",
   },
 
   filterRow: {
-    paddingVertical: 18,
-    paddingLeft: 20,
+    paddingTop: 16,
+    paddingBottom: 2,
     gap: 10,
   },
 
-  chip: {
+  filterChip: {
     paddingHorizontal: 16,
-    paddingVertical: 9,
+    paddingVertical: 10,
     borderRadius: 999,
-    backgroundColor: "#FFFFFF",
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "#D8EFE8",
+    backgroundColor: "#EAF6F2",
   },
 
-  chipActive: {
-    backgroundColor: "#2A9D8F",
-    borderColor: "#2A9D8F",
+  filterChipActive: {
+    backgroundColor: "#00866B",
   },
 
-  chipText: {
-    color: "#4B7D73",
-    fontWeight: "700",
+  filterText: {
+    color: "#064D3D",
+    fontSize: 14,
+    fontWeight: "800",
   },
 
-  chipTextActive: {
+  filterTextActive: {
     color: "#FFFFFF",
   },
 
   list: {
-    paddingHorizontal: 18,
-    paddingBottom: 120,
+    paddingHorizontal: 14,
+    paddingTop: 16,
+    paddingBottom: 130,
   },
 
-  card: {
+  postCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 28,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: "#0B3D35",
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
+    borderRadius: 22,
+    padding: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#E3ECE9",
   },
 
-  cardTop: {
+  postHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
+    gap: 10,
   },
 
-  userRow: {
+  authorRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+  },
+
+  authorInfo: {
+    flex: 1,
+  },
+
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#D7F2EA",
+  },
+
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    flexWrap: "wrap",
+  },
+
+  authorName: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#073E34",
+  },
+
+  postMeta: {
+    color: "#758783",
+    marginTop: 3,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+
+  mineActions: {
+    alignItems: "flex-end",
+    gap: 8,
+  },
+
+  ownerActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  statusBadge: {
+    backgroundColor: "#FFF4D6",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+  },
+
+  statusText: {
+    color: "#A16207",
+    fontWeight: "800",
+    fontSize: 11,
+    textTransform: "capitalize",
+  },
+
+  postContent: {
+    marginTop: 14,
+    color: "#172F2B",
+    fontSize: 16,
+    lineHeight: 24,
+  },
+
+  tagRow: {
+    marginTop: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  tag: {
+    backgroundColor: "#EAF7F3",
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+  },
+
+  tagText: {
+    color: "#064D3D",
+    fontSize: 12,
+    fontWeight: "800",
+  },
+
+  postImage: {
+  marginTop: 16,
+  height: 270,
+  width: "100%",
+  borderRadius: 16,
+  backgroundColor: "#E8F5F1",
+},
+
+  actionRow: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    flexWrap: "wrap",
+    rowGap: 10,
+  },
+webPreview: {
+  width: "100%",
+  height: 260,
+  borderRadius: 16,
+  overflow: "hidden",
+  backgroundColor: "#F3F4F6",
+  marginTop: 12,
+},
+
+
+mediaPlaceholder: {
+  height: 220,
+  justifyContent: "center",
+  alignItems: "center",
+  backgroundColor: "#F3F4F6",
+  borderRadius: 16,
+  marginTop: 12,
+},
+
+mediaPlaceholderText: {
+  marginTop: 8,
+  color: "#6B7280",
+  fontSize: 14,
+},
+  actionItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    minWidth: 48,
+  },
+
+  actionEmoji: {
+    fontSize: 20,
+  },
+
+  actionText: {
+    color: "#36534D",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  emptyBox: {
+    alignItems: "center",
+    paddingVertical: 70,
+    paddingHorizontal: 20,
+  },
+
+  emptyIcon: {
+    fontSize: 52,
+  },
+
+  emptyTitle: {
+    marginTop: 10,
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#064D3D",
+    textAlign: "center",
+  },
+
+  emptyText: {
+    marginTop: 6,
+    color: "#6A807B",
+    fontSize: 15,
+    textAlign: "center",
+  },
+
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(28, 47, 43, 0.48)",
+    justifyContent: "flex-end",
+  },
+
+  createModal: {
+    maxHeight: "92%",
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 32,
+    borderTopRightRadius: 32,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 24,
+  },
+
+  modalHandle: {
+    alignSelf: "center",
+    width: 55,
+    height: 6,
+    borderRadius: 99,
+    backgroundColor: "#D4DAD8",
+    marginBottom: 20,
+  },
+
+  closeButton: {
+    position: "absolute",
+    right: 20,
+    top: 28,
+    zIndex: 5,
+  },
+
+  modalTitle: {
+    textAlign: "center",
+    color: "#064D3D",
+    fontSize: 24,
+    fontWeight: "900",
+  },
+
+  modalSub: {
+    textAlign: "center",
+    marginTop: 8,
+    color: "#6D7D79",
+    fontSize: 15,
+  },
+
+  bigInputWrap: {
+    marginTop: 22,
+    height: 150,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DDE7E4",
+    padding: 14,
+  },
+
+  bigInput: {
+    flex: 1,
+    textAlignVertical: "top",
+    color: "#1C3430",
+    fontSize: 16,
+  },
+
+  counter: {
+    textAlign: "right",
+    color: "#7D8B88",
+    fontSize: 12,
+  },
+
+  formInput: {
+    marginTop: 14,
+    minHeight: 58,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#DDE7E4",
+    paddingHorizontal: 14,
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
 
-  avatar: {
-    width: 46,
-    height: 46,
-    borderRadius: 18,
-    backgroundColor: "#DFF7EF",
+  formTextInput: {
+    flex: 1,
+    fontSize: 15,
+    color: "#1C3430",
   },
 
-  userName: {
+  hashIcon: {
+    fontSize: 30,
+    color: "#7A8A87",
+    fontWeight: "500",
+  },
+
+  feelingLabel: {
+    marginTop: 20,
+    color: "#064D3D",
     fontSize: 15,
     fontWeight: "800",
-    color: "#123D36",
   },
 
-  time: {
-    marginTop: 3,
-    color: "#8AA7A0",
-    fontSize: 12,
-  },
-
-  moodPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: "#FFF4D8",
-  },
-
-  moodText: {
-    color: "#A86B00",
-    fontWeight: "800",
-    fontSize: 12,
-  },
-
-  content: {
-    marginTop: 16,
-    fontSize: 16,
-    lineHeight: 24,
-    color: "#263F3A",
-  },
-
-  media: {
-    marginTop: 14,
-    width: "100%",
-    height: 190,
-    borderRadius: 22,
-    backgroundColor: "#EDF8F5",
-  },
-
-  tagRow: {
+  emotionGrid: {
+    marginTop: 12,
     flexDirection: "row",
     flexWrap: "wrap",
-    marginTop: 14,
     gap: 8,
   },
 
-  tag: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: "#EEF9F6",
+  emotionCard: {
+    width: "31%",
+    height: 78,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "#E1E9E7",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
   },
 
-  tagText: {
-    color: "#2A9D8F",
+  emotionCardActive: {
+    borderColor: "#00866B",
+    borderWidth: 2,
+    backgroundColor: "#F0FBF7",
+  },
+
+  emotionEmoji: {
+    fontSize: 26,
+  },
+
+  emotionName: {
+    marginTop: 5,
+    fontSize: 11,
+    color: "#263C37",
     fontWeight: "700",
-    fontSize: 12,
   },
 
-  actionRow: {
-    marginTop: 18,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: "#EEF3F1",
+  anonymousRow: {
+    marginTop: 16,
+    minHeight: 58,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: "#E1E9E7",
+    paddingHorizontal: 14,
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
   },
 
-  action: {
+  anonLeft: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 10,
+    flex: 1,
   },
 
-  actionText: {
-    color: "#55736D",
+  anonText: {
+    fontSize: 15,
+    color: "#173B34",
     fontWeight: "700",
   },
 
-  modalBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(18,61,54,0.35)",
-    justifyContent: "flex-end",
-  },
-
-  modal: {
-    backgroundColor: "#FFFFFF",
-    padding: 22,
-    borderTopLeftRadius: 32,
-    borderTopRightRadius: 32,
-  },
-
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: "900",
-    color: "#123D36",
-    marginBottom: 16,
-  },
-
-  input: {
-    backgroundColor: "#F4FAF8",
-    borderRadius: 18,
-    padding: 14,
-    minHeight: 110,
-    textAlignVertical: "top",
-    color: "#123D36",
-    fontSize: 15,
-  },
-
-  smallInput: {
-    marginTop: 12,
-    backgroundColor: "#F4FAF8",
-    borderRadius: 16,
-    paddingHorizontal: 14,
-    height: 48,
-    color: "#123D36",
-  },
-
   submitButton: {
-    marginTop: 18,
-    height: 54,
+    marginTop: 20,
+    minHeight: 58,
     borderRadius: 18,
-    backgroundColor: "#2A9D8F",
+    backgroundColor: "#00866B",
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 10,
+    paddingHorizontal: 16,
   },
 
   submitText: {
     color: "#FFFFFF",
+    fontSize: 17,
     fontWeight: "900",
-    fontSize: 16,
   },
 
   cancelText: {
+    marginTop: 18,
     textAlign: "center",
-    marginTop: 14,
-    color: "#78958E",
+    color: "#6F7E7B",
+    fontSize: 16,
     fontWeight: "700",
+  },
+
+  bottomSwitcher: {
+    position: "absolute",
+    bottom: 22,
+    left: 16,
+    right: 16,
+    height: 68,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 8,
+    elevation: 10,
+  },
+
+  bottomTab: {
+    flex: 1,
+    height: 52,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  bottomTabActive: {
+    backgroundColor: "#00866B",
+  },
+
+  bottomTabText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#40657D",
+  },
+
+  bottomTabTextActive: {
+    color: "#FFFFFF",
+  },
+
+  inlineCommentBox: {
+    marginTop: 16,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#E3ECE9",
+  },
+
+  commentThread: {
+    marginBottom: 10,
+  },
+
+  inlineCommentCard: {
+    backgroundColor: "#F0FBF7",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 10,
+  },
+
+  inlineCommentAuthor: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#064D3D",
+    flex: 1,
+  },
+
+  inlineCommentText: {
+    marginTop: 4,
+    fontSize: 14,
+    color: "#1C3430",
+    lineHeight: 20,
+  },
+
+  commentActionRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    columnGap: 14,
+    rowGap: 8,
+  },
+
+  commentActionText: {
+    fontSize: 13,
+    fontWeight: "800",
+    color: "#00866B",
+  },
+
+  commentTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+
+  commentMenuButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  commentMenu: {
+    marginTop: 10,
+    alignSelf: "flex-end",
+    width: 138,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#E3ECE9",
+    elevation: 8,
+    shadowColor: "#0B3D35",
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+  },
+
+  commentMenuItem: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  commentMenuText: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#064D3D",
+  },
+
+  commentMenuDeleteText: {
+    color: "#EF4444",
+  },
+
+  replyList: {
+    marginLeft: 22,
+    marginTop: 4,
+    paddingLeft: 12,
+    borderLeftWidth: 2,
+    borderLeftColor: "#CFE5DE",
+  },
+
+  replyCard: {
+    backgroundColor: "#F7FCFA",
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 8,
+  },
+
+  inlineCommentInputRow: {
+    marginTop: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  inlineCommentInput: {
+    flex: 1,
+    height: 46,
+    borderRadius: 999,
+    backgroundColor: "#EEF5F3",
+    paddingHorizontal: 16,
+    fontSize: 14,
+    color: "#1C3430",
+  },
+
+  inlineCommentSend: {
+    width: 46,
+    height: 46,
+    borderRadius: 999,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  replyInputRow: {
+    marginTop: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+
+  replyInput: {
+    flex: 1,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 14,
+    fontSize: 13,
+    color: "#1C3430",
+  },
+
+  replySend: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  replySendCancel: {
+    width: 40,
+    height: 40,
+    borderRadius: 999,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  reportBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(28, 47, 43, 0.55)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+
+  reportModal: {
+    width: "100%",
+    maxWidth: 390,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 22,
+    maxHeight: "84%",
+  },
+
+  reportTitle: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#064D3D",
+    textAlign: "center",
+  },
+
+  reportSub: {
+    marginTop: 8,
+    color: "#6D7D79",
+    fontSize: 15,
+    lineHeight: 21,
+    textAlign: "center",
+  },
+
+  reasonList: {
+    marginTop: 18,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  reasonChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 999,
+    backgroundColor: "#EAF7F3",
+  },
+
+  reasonChipActive: {
+    backgroundColor: "#00866B",
+  },
+
+  reasonText: {
+    color: "#064D3D",
+    fontWeight: "800",
+    fontSize: 12,
+    textTransform: "capitalize",
+  },
+
+  reasonTextActive: {
+    color: "#FFFFFF",
+  },
+
+  reportInput: {
+    marginTop: 16,
+    minHeight: 100,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#DDE7E4",
+    padding: 14,
+    textAlignVertical: "top",
+    color: "#1C3430",
+    fontSize: 14,
+    backgroundColor: "#FFFFFF",
+  },
+
+  myReportList: {
+    marginTop: 16,
+    maxHeight: 360,
+  },
+
+  myReportCard: {
+    backgroundColor: "#F0FBF7",
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 10,
+  },
+
+  myReportReason: {
+    color: "#064D3D",
+    fontWeight: "900",
+    fontSize: 15,
+    textTransform: "capitalize",
+  },
+
+  myReportMeta: {
+    marginTop: 6,
+    color: "#6A807B",
+    fontWeight: "700",
+    fontSize: 13,
+  },
+
+  myReportDescription: {
+    marginTop: 8,
+    color: "#1C3430",
+    lineHeight: 20,
+  },
+
+  emptyReportText: {
+    textAlign: "center",
+    color: "#6A807B",
+    paddingVertical: 30,
+  },
+
+  confirmBackdrop: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.45)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+  },
+
+  confirmBox: {
+    width: "100%",
+    maxWidth: 380,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 22,
+  },
+
+  confirmTitle: {
+    fontSize: 22,
+    fontWeight: "900",
+    color: "#064D3D",
+    textAlign: "center",
+  },
+
+  confirmText: {
+    marginTop: 12,
+    textAlign: "center",
+    color: "#60706C",
+    fontSize: 15,
+    lineHeight: 22,
+  },
+
+  confirmActions: {
+    marginTop: 22,
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  cancelButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#EAF7F3",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  deleteButton: {
+    flex: 1,
+    height: 50,
+    borderRadius: 14,
+    backgroundColor: "#EF4444",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cancelButtonText: {
+    color: "#064D3D",
+    fontWeight: "800",
+    fontSize: 15,
+  },
+
+  deleteButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "900",
+    fontSize: 15,
   },
 });

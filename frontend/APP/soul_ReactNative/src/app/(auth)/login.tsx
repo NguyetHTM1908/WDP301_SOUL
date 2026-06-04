@@ -18,7 +18,7 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/store";
 import { authStyles as styles } from "@/styles/auth.styles";
 import { WebView } from "react-native-webview";
-import { API_BASE_URL } from "@/config/env";
+import { API_BASE_URL } from "@/api/config";
 
 
 export default function LoginScreen() {

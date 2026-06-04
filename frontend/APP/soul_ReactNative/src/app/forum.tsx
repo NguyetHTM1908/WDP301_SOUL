@@ -1,105 +1,273 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
   FlatList,
-  Image,
   Modal,
   Pressable,
-  ScrollView,
-  Switch,
+  RefreshControl,
   Text,
-  TextInput,
   View,
 } from "react-native";
+import { useAuthStore } from "@/store";
 
 import {
+  createComment,
   createPost,
+  deleteComment,
+  deletePost,
   getApprovedPosts,
+  getComments,
+  getMyPosts,
+  getMyReports,
+  getTags,
+  reactToComment,
   reactToPost,
+  reportComment,
   reportPost,
+  updateComment,
+  updatePost,
 } from "@/api/forumApi";
-import { forumStyles as s } from "@/styles/forum.styles";
 
-const filters = ["all", "stress", "self-care", "student-life", "deadline"];
+import { forumStyles as s } from "@/styles/forum.styles";
+import { ForumHeader } from "@/components/forum/ForumHeader";
+import { PostCard } from "@/components/forum/PostCard";
+import { CreatePostModal } from "@/components/forum/CreatePostModal";
+import { ForumBottomSwitcher } from "@/components/forum/ForumBottomSwitcher";
+import { EmptyForum } from "@/components/forum/EmptyForum";
+import { ReportModal } from "@/components/forum/ReportModal";
+import { MyReportsModal } from "@/components/forum/MyReportsModal";
+
+const defaultFilters = ["all", "stress", "self-care", "student-life", "deadline"];
+
+const emotions = [
+  { value: "happy", label: "😊", text: "Happy" },
+  { value: "sad", label: "😔", text: "Sad" },
+  { value: "stress", label: "😵", text: "Stress" },
+  { value: "anxious", label: "😟", text: "Anxious" },
+  { value: "angry", label: "😤", text: "Angry" },
+  { value: "neutral", label: "🌱", text: "Neutral" },
+];
+
+function normalizeList(res: any) {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.posts)) return res.posts;
+  if (Array.isArray(res?.comments)) return res.comments;
+  if (Array.isArray(res?.reports)) return res.reports;
+  if (Array.isArray(res?.data?.posts)) return res.data.posts;
+  if (Array.isArray(res?.data?.comments)) return res.data.comments;
+  if (Array.isArray(res?.data?.reports)) return res.data.reports;
+  return [];
+}
+
+function isApiSuccess(res: any) {
+  return res?.success === true || res?.status === "success" || !!res?.message;
+}
 
 function moodLabel(mood: string) {
-  const map: Record<string, string> = {
-    happy: "😊 Happy",
-    sad: "😔 Sad",
-    stress: "😵 Stress",
-    anxious: "😟 Anxious",
-    angry: "😤 Angry",
-    neutral: "🌿 Neutral",
-  };
+  const found = emotions.find((item) => item.value === mood);
+  return found ? `${found.label} ${found.text}` : "🌱 Neutral";
+}
 
-  return map[mood] || "🌿 Neutral";
+function getUserIdFromToken(token: string | null) {
+  if (!token) return null;
+
+  try {
+    const payload = token.split(".")[1];
+    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+
+    const decoded =
+      typeof atob !== "undefined"
+        ? atob(base64)
+        : Buffer.from(base64, "base64").toString("utf-8");
+
+    const parsed = JSON.parse(decoded);
+
+    return (
+      parsed._id ||
+      parsed.id ||
+      parsed.userId ||
+      parsed.user?._id ||
+      parsed.user?.id ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }
 
 export default function ForumScreen() {
+  const user = useAuthStore((state: any) => state.user);
+
   const [token, setToken] = useState<string | null>(null);
+  const currentUserId = user?._id || user?.id || getUserIdFromToken(token);
+
   const [posts, setPosts] = useState<any[]>([]);
+  const [reports, setReports] = useState<any[]>([]);
+  const [filters, setFilters] = useState(defaultFilters);
+
+  const [mode, setMode] = useState<"community" | "mine">("community");
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
 
+  const [refreshing, setRefreshing] = useState(false);
+
   const [showCreate, setShowCreate] = useState(false);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
+
   const [content, setContent] = useState("");
   const [mediaUrl, setMediaUrl] = useState("");
-  const [hashtags, setHashtags] = useState("stress");
+  const [hashtags, setHashtags] = useState("stress, deadline");
   const [emotionStatus, setEmotionStatus] = useState("stress");
   const [isAnonymous, setIsAnonymous] = useState(true);
 
-  const loadToken = async () => {
-    const savedToken = await AsyncStorage.getItem("token");
-    setToken(savedToken);
-  };
+  const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
+  const [commentsByPost, setCommentsByPost] = useState<Record<string, any[]>>({});
+  const [commentInputs, setCommentInputs] = useState<Record<string, string>>({});
+  const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
+  const [openReplyCommentId, setOpenReplyCommentId] = useState<string | null>(null);
 
-  const loadPosts = async () => {
-    const res = await getApprovedPosts();
+  const [reportTarget, setReportTarget] = useState<{
+    type: "post" | "comment";
+    id: string;
+  } | null>(null);
 
-    if (res.success) {
-      setPosts(res.data || []);
-    } else {
-      Alert.alert("Lỗi", res.message || "Không tải được danh sách bài viết.");
-    }
-  };
+  const [deleteTarget, setDeleteTarget] = useState<{
+    postId: string;
+    commentId: string;
+  } | null>(null);
 
-  useEffect(() => {
-    loadToken();
-    loadPosts();
-  }, []);
+  const [showMyReports, setShowMyReports] = useState(false);
 
   const requireLogin = () => {
     if (!token) {
-      Alert.alert(
-        "Bạn cần đăng nhập",
-        "Vui lòng đăng nhập để sử dụng chức năng này."
-      );
+      Alert.alert("Bạn cần đăng nhập", "Vui lòng đăng nhập để dùng chức năng này.");
       return false;
     }
 
     return true;
   };
 
-  const visiblePosts = useMemo(() => {
-    return posts.filter((post) => {
-      const matchFilter =
-        filter === "all" || post.hashtags?.some((tag: string) => tag === filter);
+  const loadTags = async () => {
+    try {
+      const res = await getTags();
+      const tags = normalizeList(res).map((tag: any) => tag.name).filter(Boolean);
+      setFilters(["all", ...new Set([...defaultFilters.slice(1), ...tags])]);
+    } catch {
+      setFilters(defaultFilters);
+    }
+  };
 
-      const matchSearch =
-        search.trim() === "" ||
-        post.content?.toLowerCase().includes(search.toLowerCase());
+  const loadPosts = async (
+    nextMode: "community" | "mine" = mode,
+    currentToken: string | null = token
+  ) => {
+    if (nextMode === "mine") {
+      if (!currentToken) return;
 
-      return matchFilter && matchSearch;
+      const res = await getMyPosts(currentToken);
+      setPosts(normalizeList(res));
+      return;
+    }
+
+    const res = await getApprovedPosts({
+      search,
+      hashtag: filter,
     });
-  }, [posts, filter, search]);
 
-  const handleCreatePost = async () => {
+    setPosts(normalizeList(res));
+  };
+
+  const loadReports = async () => {
+    if (!token) return;
+
+    const res = await getMyReports(token);
+    setReports(normalizeList(res));
+  };
+
+  const reloadComments = async (postId: string) => {
+    const res = await getComments(postId);
+
+    setCommentsByPost((prev) => ({
+      ...prev,
+      [postId]: normalizeList(res),
+    }));
+  };
+
+  const init = async () => {
+    try {
+      const savedToken = await AsyncStorage.getItem("token");
+      setToken(savedToken);
+
+      await loadTags();
+
+      const res = await getApprovedPosts();
+      setPosts(normalizeList(res));
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không tải được forum.");
+    }
+  };
+
+  useEffect(() => {
+    init();
+  }, []);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      if (mode === "community") {
+        loadPosts("community", token).catch(() => {});
+      }
+    }, 350);
+
+    return () => clearTimeout(timeout);
+  }, [search, filter]);
+
+  const visiblePosts = useMemo(() => {
+    return posts;
+  }, [posts]);
+
+  const onRefresh = async () => {
+    try {
+      setRefreshing(true);
+      await loadPosts(mode, token);
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể làm mới dữ liệu.");
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const resetPostForm = () => {
+    setEditingPost(null);
+    setContent("");
+    setMediaUrl("");
+    setHashtags("stress, deadline");
+    setEmotionStatus("stress");
+    setIsAnonymous(true);
+  };
+
+  const openCreateModal = () => {
+    resetPostForm();
+    setShowCreate(true);
+  };
+
+  const openEditPost = (post: any) => {
+    setEditingPost(post);
+    setContent(post.content || "");
+    setMediaUrl(post.mediaUrls?.[0]?.url || "");
+    setHashtags((post.hashtags || []).join(", "));
+    setEmotionStatus(post.emotionStatus || "neutral");
+    setIsAnonymous(!!post.isAnonymous);
+    setShowCreate(true);
+  };
+
+  const handleSubmitPost = async () => {
     if (!requireLogin()) return;
 
     if (!content.trim()) {
-      Alert.alert("Thiếu nội dung", "Vy nhập nội dung bài viết trước nha.");
+      Alert.alert("Thiếu nội dung", "Nhập nội dung bài viết trước nha.");
       return;
     }
 
@@ -122,264 +290,357 @@ export default function ForumScreen() {
       visibility: "public",
     };
 
-    const res = await createPost(token as string, body);
+    try {
+      const res = editingPost
+        ? await updatePost(token as string, editingPost._id, body)
+        : await createPost(token as string, body);
 
-    if (res.success) {
-      Alert.alert("Thành công", "Bài viết đang chờ admin duyệt.");
-      setShowCreate(false);
-      setContent("");
-      setMediaUrl("");
-      setHashtags("stress");
-      setEmotionStatus("stress");
-      setIsAnonymous(true);
-      loadPosts();
-    } else {
-      Alert.alert("Lỗi", res.message || "Không tạo được bài viết.");
+      if (isApiSuccess(res)) {
+        Alert.alert(
+          editingPost ? "Đã cập nhật bài viết" : "Đã gửi bài thành công 🌿",
+          "Bài viết đang chờ Admin duyệt."
+        );
+
+        setShowCreate(false);
+        resetPostForm();
+
+        setMode("mine");
+        await loadPosts("mine", token);
+      }
+    } catch (error: any) {
+      Alert.alert("Không thể lưu bài", error?.message || "Đã có lỗi xảy ra.");
     }
   };
 
-  const handleReact = async (postId: string, type: "like" | "support" | "hug") => {
+  const handleDeletePost = async (postId: string) => {
     if (!requireLogin()) return;
 
-    const res = await reactToPost(token as string, postId, type);
+    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài này không?", [
+      { text: "Hủy", style: "cancel" },
+      {
+        text: "Xóa",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await deletePost(token as string, postId);
+            await loadPosts(mode, token);
+          } catch (error: any) {
+            Alert.alert("Không thể xóa bài", error?.message || "Đã có lỗi xảy ra.");
+          }
+        },
+      },
+    ]);
+  };
 
-    if (res.success) {
-      loadPosts();
-    } else {
-      Alert.alert("Lỗi", res.message || "Không react được bài viết.");
+  const handleReactPost = async (
+    postId: string,
+    type: "like" | "support" | "hug"
+  ) => {
+    if (!requireLogin()) return;
+
+    try {
+      await reactToPost(token as string, postId, type);
+      await loadPosts(mode, token);
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không thể react bài viết.");
     }
   };
 
-  const handleReport = async (postId: string) => {
+  const toggleComments = async (postId: string) => {
+    if (openCommentPostId === postId) {
+      setOpenCommentPostId(null);
+      return;
+    }
+
+    setOpenCommentPostId(postId);
+
+    try {
+      await reloadComments(postId);
+    } catch (error: any) {
+      Alert.alert("Lỗi", error?.message || "Không tải được bình luận.");
+    }
+  };
+
+  const handleSendComment = async (postId: string) => {
     if (!requireLogin()) return;
 
-    const res = await reportPost(
-      token as string,
+    const text = commentInputs[postId]?.trim();
+
+    if (!text) {
+      Alert.alert("Thiếu nội dung", "Nhập bình luận trước nha.");
+      return;
+    }
+
+    try {
+      await createComment(token as string, {
+        postId,
+        content: text,
+        isAnonymous: false,
+      });
+
+      setCommentInputs((prev) => ({
+        ...prev,
+        [postId]: "",
+      }));
+
+      await reloadComments(postId);
+      await loadPosts(mode, token);
+    } catch (error: any) {
+      Alert.alert("Không thể bình luận", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const handleReplyComment = async (
+    postId: string,
+    parentCommentId: string,
+    inputCommentId?: string
+  ) => {
+    if (!requireLogin()) return;
+
+    const inputKey = inputCommentId || parentCommentId;
+    const text = replyInputs[inputKey]?.trim();
+
+    if (!text) {
+      Alert.alert("Thiếu nội dung", "Nhập nội dung trả lời trước nha.");
+      return;
+    }
+
+    try {
+      await createComment(token as string, {
+        postId,
+        parentCommentId,
+        content: text,
+        isAnonymous: false,
+      });
+
+      setReplyInputs((prev) => ({
+        ...prev,
+        [inputKey]: "",
+      }));
+
+      setOpenReplyCommentId(null);
+
+      await reloadComments(postId);
+      await loadPosts(mode, token);
+    } catch (error: any) {
+      Alert.alert("Không thể trả lời", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const handleReactComment = async (
+    postId: string,
+    commentId: string,
+    type: "like" | "support" | "hug"
+  ) => {
+    if (!requireLogin()) return;
+
+    try {
+      await reactToComment(token as string, commentId, type);
+      await reloadComments(postId);
+    } catch (error: any) {
+      Alert.alert("Không thể react comment", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const handleEditComment = async (
+    postId: string,
+    commentId: string,
+    text: string
+  ) => {
+    if (!requireLogin()) return;
+
+    if (!text.trim()) {
+      Alert.alert("Thiếu nội dung", "Nội dung bình luận không được để trống.");
+      return;
+    }
+
+    try {
+      await updateComment(token as string, commentId, text.trim());
+      await reloadComments(postId);
+    } catch (error: any) {
+      Alert.alert("Không thể sửa bình luận", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
+
+  const handleDeleteComment = (postId: string, commentId: string) => {
+    if (!requireLogin()) return;
+
+    setDeleteTarget({
       postId,
-      "negative_content",
-      "Nội dung có thể gây tiêu cực hoặc không phù hợp."
-    );
+      commentId,
+    });
+  };
 
-    if (res.success) {
-      Alert.alert("Đã gửi report", "Admin sẽ xem xét nội dung này.");
-    } else {
-      Alert.alert("Không thể report", res.message || "Bạn đã report rồi.");
+  const confirmDeleteComment = async () => {
+    if (!deleteTarget || !token) return;
+
+    try {
+      await deleteComment(token, deleteTarget.commentId);
+      await reloadComments(deleteTarget.postId);
+      await loadPosts(mode, token);
+
+      setDeleteTarget(null);
+    } catch (error: any) {
+      Alert.alert(
+        "Không thể xóa bình luận",
+        error?.message || "Đã có lỗi xảy ra."
+      );
     }
   };
 
-  const renderPost = ({ item }: { item: any }) => {
-    const authorName = item.isAnonymous
-      ? "Anonymous Soul"
-      : item.authorId?.fullName || "SOUL User";
+  const openReport = (type: "post" | "comment", id: string) => {
+    if (!requireLogin()) return;
+    setReportTarget({ type, id });
+  };
 
-    const avatar = item.isAnonymous
-      ? "https://i.pravatar.cc/100?img=12"
-      : item.authorId?.avatarUrl || "https://i.pravatar.cc/100?img=32";
+  const submitReport = async (reason: string, description: string) => {
+    if (!token || !reportTarget) return;
 
-    return (
-      <View style={s.card}>
-        <View style={s.cardTop}>
-          <View style={s.userRow}>
-            <Image source={{ uri: avatar }} style={s.avatar} />
-            <View>
-              <Text style={s.userName}>{authorName}</Text>
-              <Text style={s.time}>Just now · Community Forum</Text>
-            </View>
-          </View>
+    try {
+      if (reportTarget.type === "post") {
+        await reportPost(token, reportTarget.id, reason, description);
+      } else {
+        await reportComment(token, reportTarget.id, reason, description);
+      }
 
-          <View style={s.moodPill}>
-            <Text style={s.moodText}>{moodLabel(item.emotionStatus)}</Text>
-          </View>
-        </View>
+      Alert.alert("Đã gửi report", "Admin sẽ xem xét nội dung này.");
+      setReportTarget(null);
+    } catch (error: any) {
+      Alert.alert("Không thể report", error?.message || "Đã có lỗi xảy ra.");
+    }
+  };
 
-        <Text style={s.content}>{item.content}</Text>
+  const openMyReports = async () => {
+    if (!requireLogin()) return;
 
-        {item.mediaUrls?.[0]?.url ? (
-          <Image source={{ uri: item.mediaUrls[0].url }} style={s.media} />
-        ) : null}
-
-        <View style={s.tagRow}>
-          {item.hashtags?.map((tag: string) => (
-            <View key={tag} style={s.tag}>
-              <Text style={s.tagText}>#{tag}</Text>
-            </View>
-          ))}
-        </View>
-
-        <View style={s.actionRow}>
-          <Pressable
-            style={s.action}
-            onPress={() => handleReact(item._id, "like")}
-          >
-            <MaterialCommunityIcons name="heart-outline" size={22} color="#E76F51" />
-            <Text style={s.actionText}>{item.statistics?.likeCount || 0}</Text>
-          </Pressable>
-
-          <Pressable
-            style={s.action}
-            onPress={() => handleReact(item._id, "support")}
-          >
-            <MaterialCommunityIcons
-              name="hand-heart-outline"
-              size={22}
-              color="#2A9D8F"
-            />
-            <Text style={s.actionText}>{item.statistics?.supportCount || 0}</Text>
-          </Pressable>
-
-          <Pressable
-            style={s.action}
-            onPress={() => handleReact(item._id, "hug")}
-          >
-            <MaterialCommunityIcons
-              name="emoticon-happy-outline"
-              size={22}
-              color="#F4A261"
-            />
-            <Text style={s.actionText}>{item.statistics?.hugCount || 0}</Text>
-          </Pressable>
-
-          <View style={s.action}>
-            <MaterialCommunityIcons
-              name="comment-outline"
-              size={22}
-              color="#55736D"
-            />
-            <Text style={s.actionText}>{item.statistics?.commentCount || 0}</Text>
-          </View>
-
-          <Pressable style={s.action} onPress={() => handleReport(item._id)}>
-            <MaterialCommunityIcons
-              name="flag-outline"
-              size={22}
-              color="#9CA3AF"
-            />
-          </Pressable>
-        </View>
-      </View>
-    );
+    try {
+      await loadReports();
+      setShowMyReports(true);
+    } catch (error: any) {
+      Alert.alert("Không thể tải report", error?.message || "Đã có lỗi xảy ra.");
+    }
   };
 
   return (
     <View style={s.page}>
-      <View style={s.header}>
-        <View style={s.headerTop}>
-          <View>
-            <Text style={s.title}>Healing Forum</Text>
-            <Text style={s.subtitle}>
-              A safe space to share emotions, support each other, and grow gently.
-            </Text>
-          </View>
-
-          <Pressable style={s.createButton} onPress={() => setShowCreate(true)}>
-            <MaterialCommunityIcons name="plus" size={30} color="#FFFFFF" />
-          </Pressable>
-        </View>
-
-        <View style={s.searchBox}>
-          <MaterialCommunityIcons name="magnify" size={22} color="#7DA59C" />
-          <TextInput
-            placeholder="Search stories, feelings, hashtags..."
-            placeholderTextColor="#9AB7B0"
-            style={s.searchInput}
-            value={search}
-            onChangeText={setSearch}
-          />
-        </View>
-      </View>
-
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filterRow}
-      >
-        {filters.map((item) => {
-          const active = item === filter;
-
-          return (
-            <Pressable
-              key={item}
-              style={[s.chip, active && s.chipActive]}
-              onPress={() => setFilter(item)}
-            >
-              <Text style={[s.chipText, active && s.chipTextActive]}>
-                {item === "all" ? "All" : `#${item}`}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
+      <ForumHeader
+  search={search}
+  setSearch={setSearch}
+  filter={filter}
+  setFilter={setFilter}
+  filters={filters}
+  onCreatePress={openCreateModal}
+  onReportsPress={openMyReports}
+onBackPress={() => router.replace("/(tabs)" as any)}/>
 
       <FlatList
         data={visiblePosts}
         keyExtractor={(item) => item._id}
-        renderItem={renderPost}
+        renderItem={({ item }) => (
+          <PostCard
+            item={item}
+            mode={mode}
+            moodLabel={moodLabel}
+            openCommentPostId={openCommentPostId}
+            commentsByPost={commentsByPost}
+            commentInputs={commentInputs}
+            replyInputs={replyInputs}
+            openReplyCommentId={openReplyCommentId}
+            currentUserId={currentUserId}
+            setCommentInputs={setCommentInputs}
+            setReplyInputs={setReplyInputs}
+            setOpenReplyCommentId={setOpenReplyCommentId}
+            onReactPost={handleReactPost}
+            onReportPost={(postId) => openReport("post", postId)}
+            onToggleComments={toggleComments}
+            onSendComment={handleSendComment}
+            onReplyComment={handleReplyComment}
+            onReactComment={handleReactComment}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
+            onReportComment={(commentId) => openReport("comment", commentId)}
+            onEditPost={openEditPost}
+            onDeletePost={handleDeletePost}
+          />
+        )}
         contentContainerStyle={s.list}
         showsVerticalScrollIndicator={false}
+        ListEmptyComponent={<EmptyForum mode={mode} />}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
       />
 
-      <Modal visible={showCreate} transparent animationType="slide">
-        <View style={s.modalBackdrop}>
-          <View style={s.modal}>
-            <Text style={s.modalTitle}>Share your feeling ✨</Text>
+      <CreatePostModal
+        visible={showCreate}
+        isEditing={!!editingPost}
+        content={content}
+        mediaUrl={mediaUrl}
+        hashtags={hashtags}
+        emotionStatus={emotionStatus}
+        isAnonymous={isAnonymous}
+        emotions={emotions}
+        setContent={setContent}
+        setMediaUrl={setMediaUrl}
+        setHashtags={setHashtags}
+        setEmotionStatus={setEmotionStatus}
+        setIsAnonymous={setIsAnonymous}
+        onClose={() => {
+          setShowCreate(false);
+          resetPostForm();
+        }}
+        onSubmit={handleSubmitPost}
+      />
 
-            <TextInput
-              style={s.input}
-              multiline
-              placeholder="What is on your mind today?"
-              placeholderTextColor="#9AB7B0"
-              value={content}
-              onChangeText={setContent}
-            />
+      <ReportModal
+        visible={!!reportTarget}
+        onClose={() => setReportTarget(null)}
+        onSubmit={submitReport}
+      />
 
-            <TextInput
-              style={s.smallInput}
-              placeholder="Image/video URL"
-              placeholderTextColor="#9AB7B0"
-              value={mediaUrl}
-              onChangeText={setMediaUrl}
-            />
+      <MyReportsModal
+        visible={showMyReports}
+        reports={reports}
+        onClose={() => setShowMyReports(false)}
+      />
 
-            <TextInput
-              style={s.smallInput}
-              placeholder="Hashtags: stress, self-care"
-              placeholderTextColor="#9AB7B0"
-              value={hashtags}
-              onChangeText={setHashtags}
-            />
+      <Modal visible={!!deleteTarget} transparent animationType="fade">
+        <View style={s.confirmBackdrop}>
+          <View style={s.confirmBox}>
+            <Text style={s.confirmTitle}>Delete Comment</Text>
 
-            <TextInput
-              style={s.smallInput}
-              placeholder="Emotion: happy, sad, stress, anxious, angry, neutral"
-              placeholderTextColor="#9AB7B0"
-              value={emotionStatus}
-              onChangeText={setEmotionStatus}
-            />
+            <Text style={s.confirmText}>
+              Are you sure you want to delete this comment?
+            </Text>
 
-            <View
-              style={{
-                marginTop: 14,
-                flexDirection: "row",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <Text style={{ color: "#123D36", fontWeight: "800" }}>
-                Post anonymously
-              </Text>
-              <Switch value={isAnonymous} onValueChange={setIsAnonymous} />
+            <View style={s.confirmActions}>
+              <Pressable
+                style={s.cancelButton}
+                onPress={() => setDeleteTarget(null)}
+              >
+                <Text style={s.cancelButtonText}>Cancel</Text>
+              </Pressable>
+
+              <Pressable style={s.deleteButton} onPress={confirmDeleteComment}>
+                <Text style={s.deleteButtonText}>Delete</Text>
+              </Pressable>
             </View>
-
-            <Pressable style={s.submitButton} onPress={handleCreatePost}>
-              <Text style={s.submitText}>Submit for Review</Text>
-            </Pressable>
-
-            <Pressable onPress={() => setShowCreate(false)}>
-              <Text style={s.cancelText}>Cancel</Text>
-            </Pressable>
           </View>
         </View>
       </Modal>
+
+      <ForumBottomSwitcher
+        mode={mode}
+        onCommunityPress={() => {
+          setMode("community");
+          loadPosts("community", token);
+        }}
+        onMinePress={() => {
+          if (!requireLogin()) return;
+          setMode("mine");
+          loadPosts("mine", token);
+        }}
+      />
     </View>
   );
 }
