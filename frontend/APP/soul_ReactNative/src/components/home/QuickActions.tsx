@@ -1,28 +1,67 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { router } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import { styles } from "@/styles/home.styles";
 
 const features = [
-  ["brain", "AI Companion", "Emotion-aware chat", "#D8F8EC", "#009688"],
-  ["book-outline", "Diary", "Private reflection", "#DFF1FF", "#2196F3"],
-  ["head-heart-outline", "Emotional Test", "Check your state", "#E1F9E8", "#2BC56D"],
-  ["calendar-month-outline", "Events", "Healing workshop", "#FFF1E2", "#FF7A00"],
+  {
+    icon: "brain",
+    title: "AI Companion",
+    sub: "Emotion-aware chat",
+    bg: "#D8F8EC",
+    color: "#009688",
+  },
+  {
+    icon: "book-outline",
+    title: "Diary",
+    sub: "Private reflection",
+    bg: "#DFF1FF",
+    color: "#2196F3",
+  },
+  {
+    icon: "head-heart-outline",
+    title: "Emotional Test",
+    sub: "Check your state",
+    bg: "#E1F9E8",
+    color: "#2BC56D",
+  },
+  {
+    icon: "calendar-month-outline",
+    title: "Events",
+    sub: "Healing workshop",
+    bg: "#FFF1E2",
+    color: "#FF7A00",
+    route: "/user-events",
+  },
 ];
 
 export function QuickActions() {
   return (
     <View style={styles.featureGrid}>
-      {features.map(([icon, title, sub, bg, color]) => (
-        <TouchableOpacity key={title} style={[styles.featureCard, { backgroundColor: bg }]}>
+      {features.map((feature) => (
+        <TouchableOpacity
+          key={feature.title}
+          style={[styles.featureCard, { backgroundColor: feature.bg }]}
+          onPress={() => feature.route && router.push(feature.route as any)}
+          activeOpacity={0.78}
+        >
           <View style={styles.featureIcon}>
-            <MaterialCommunityIcons name={icon as any} size={34} color={color} />
+            <MaterialCommunityIcons
+              name={feature.icon as any}
+              size={34}
+              color={feature.color}
+            />
           </View>
 
-          <Text style={styles.featureTitle}>{title}</Text>
-          <Text style={styles.featureSub}>{sub}</Text>
+          <Text style={styles.featureTitle}>{feature.title}</Text>
+          <Text style={styles.featureSub}>{feature.sub}</Text>
 
           <View style={styles.arrowCircle}>
-            <MaterialCommunityIcons name="arrow-right" size={24} color={color} />
+            <MaterialCommunityIcons
+              name="arrow-right"
+              size={24}
+              color={feature.color}
+            />
           </View>
         </TouchableOpacity>
       ))}
