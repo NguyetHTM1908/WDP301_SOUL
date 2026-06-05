@@ -106,6 +106,63 @@ export const styles = StyleSheet.create({
     color: "#6B7280",
     flex: 1,
   },
+  eventStatsGrid: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 10,
+  },
+  eventStatBox: {
+    flex: 1,
+    minHeight: 66,
+    borderRadius: 12,
+    backgroundColor: "#F8FFFC",
+    borderWidth: 1,
+    borderColor: "#E5F3EF",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+  eventStatValue: {
+    color: colors.dark,
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  eventStatLabel: {
+    marginTop: 3,
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  eventProgressBlock: {
+    marginTop: 12,
+  },
+  eventProgressHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 7,
+  },
+  eventProgressText: {
+    color: "#31576C",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  eventProgressPercent: {
+    color: colors.darkTeal,
+    fontSize: 12,
+    fontWeight: "800",
+  },
+  eventProgressTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#DFF7EF",
+    overflow: "hidden",
+  },
+  eventProgressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: colors.primary,
+  },
   emptyState: {
     flex: 1,
     alignItems: "center",
