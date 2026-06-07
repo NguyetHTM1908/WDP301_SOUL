@@ -6,7 +6,7 @@ const maskAnonymousComment = (comment) => {
 
   if (obj.isAnonymous) {
     obj.authorId = {
-      fullName: "Anonymous",
+      fullName: obj.anonymousName || "Anonymous",
       email: null,
       avatarUrl: null,
     };
@@ -17,7 +17,8 @@ const maskAnonymousComment = (comment) => {
 
 exports.createComment = async (req, res) => {
   try {
-    const { postId, parentCommentId, content, isAnonymous } = req.body;
+    const { postId, parentCommentId, content, isAnonymous, anonymousName } =
+      req.body;
 
     if (!postId) {
       return res.status(400).json({
@@ -63,11 +64,20 @@ exports.createComment = async (req, res) => {
       parentCommentId: parentCommentId || null,
       content: content.trim(),
       isAnonymous: isAnonymous || false,
+      anonymousName: isAnonymous
+        ? anonymousName || req.user.anonymousAlias || "Anonymous"
+        : null,
     });
 
     await Post.findByIdAndUpdate(postId, {
       $inc: { "statistics.commentCount": 1 },
     });
+
+    if (parentCommentId) {
+      await Comment.findByIdAndUpdate(parentCommentId, {
+        $inc: { "statistics.replyCount": 1 },
+      });
+    }
 
     return res.status(201).json({
       success: true,
@@ -88,7 +98,7 @@ exports.getCommentsByPost = async (req, res) => {
       postId: req.params.postId,
       status: "active",
     })
-      .populate("authorId", "fullName email avatarUrl")
+      .populate("authorId", "fullName email avatarUrl anonymousAlias")
       .sort({ createdAt: 1 });
 
     const data = comments.map(maskAnonymousComment);
@@ -108,7 +118,7 @@ exports.getCommentsByPost = async (req, res) => {
 
 exports.updateMyComment = async (req, res) => {
   try {
-    const { content } = req.body;
+    const { content, isAnonymous, anonymousName } = req.body;
 
     if (!content || content.trim() === "") {
       return res.status(400).json({
@@ -134,6 +144,14 @@ exports.updateMyComment = async (req, res) => {
     }
 
     comment.content = content.trim();
+
+    if (isAnonymous !== undefined) {
+      comment.isAnonymous = isAnonymous;
+      comment.anonymousName = isAnonymous
+        ? anonymousName || req.user.anonymousAlias || comment.anonymousName || "Anonymous"
+        : null;
+    }
+
     comment.editedAt = new Date();
 
     await comment.save();
@@ -175,6 +193,12 @@ exports.deleteMyComment = async (req, res) => {
     await Post.findByIdAndUpdate(comment.postId, {
       $inc: { "statistics.commentCount": -1 },
     });
+
+    if (comment.parentCommentId) {
+      await Comment.findByIdAndUpdate(comment.parentCommentId, {
+        $inc: { "statistics.replyCount": -1 },
+      });
+    }
 
     return res.status(200).json({
       success: true,
