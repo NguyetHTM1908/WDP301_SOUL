@@ -1,3 +1,4 @@
+
 // =========================================
 // SOUL DATABASE SEED - MONGODB / NOSQL
 // =========================================
@@ -13,10 +14,12 @@ const now = new Date();
 //admin@soul.com  → Admin@123
 //user1@soul.com  → User@123
 //user2@soul.com  → User@123
+//organizer@soul.com → User@123
 
 const adminId = new ObjectId();
 const user1Id = new ObjectId();
 const user2Id = new ObjectId();
+const organizerId = new ObjectId();
 
 db.users.insertMany([
   {
@@ -31,6 +34,14 @@ db.users.insertMany([
     role: "admin",
     status: "active",
     forumBannedUntil: null,
+    moodReputation: "neutral",
+    moodReputationScore: 50,
+    moodReputationUpdatedAt: now,
+    anonymousModeEnabled: false,
+    anonymousAlias: null,
+    anonymousModeUpdatedAt: null,
+    lastEmotionalTestAt: null,
+    nextEmotionalTestDueAt: now,
     gender: "male",
     dateOfBirth: null,
     isEmailVerified: true,
@@ -53,6 +64,14 @@ db.users.insertMany([
     role: "user",
     status: "active",
     forumBannedUntil: null,
+    moodReputation: "neutral",
+    moodReputationScore: 50,
+    moodReputationUpdatedAt: now,
+    anonymousModeEnabled: false,
+    anonymousAlias: null,
+    anonymousModeUpdatedAt: null,
+    lastEmotionalTestAt: null,
+    nextEmotionalTestDueAt: now,
     gender: "male",
     dateOfBirth: null,
     isEmailVerified: true,
@@ -75,7 +94,45 @@ db.users.insertMany([
     role: "user",
     status: "active",
     forumBannedUntil: null,
+    moodReputation: "neutral",
+    moodReputationScore: 50,
+    moodReputationUpdatedAt: now,
+    anonymousModeEnabled: false,
+    anonymousAlias: null,
+    anonymousModeUpdatedAt: null,
+    lastEmotionalTestAt: null,
+    nextEmotionalTestDueAt: now,
     gender: "female",
+    dateOfBirth: null,
+    isEmailVerified: true,
+    emailVerifiedAt: now,
+    lastLoginAt: null,
+    failedLoginAttempts: 0,
+    passwordChangedAt: now,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    _id: organizerId,
+    fullName: "SOUL Event Organizer",
+    email: "organizer@soul.com",
+    phone: "0900000004",
+    passwordHash: "$2b$10$14/MOZ5I5VgxcxcCgtnXK.KsMGQm5Lz0/4MfqMS.IsrVv7bE.Zgn.",
+    avatarUrl: null,
+    bio: "Event organizer account for managing SOUL workshops and talkshows.",
+    savedPosts: [],
+    role: "event_organizer",
+    status: "active",
+    forumBannedUntil: null,
+    moodReputation: null,
+    moodReputationScore: null,
+    moodReputationUpdatedAt: null,
+    anonymousModeEnabled: false,
+    anonymousAlias: null,
+    anonymousModeUpdatedAt: null,
+    lastEmotionalTestAt: null,
+    nextEmotionalTestDueAt: null,
+    gender: "other",
     dateOfBirth: null,
     isEmailVerified: true,
     emailVerifiedAt: now,
@@ -86,6 +143,27 @@ db.users.insertMany([
     updatedAt: now
   }
 ]);
+db.users.updateOne(
+  { _id: user1Id },
+  {
+    $set: {
+      moodReputation: "negative",
+      moodReputationScore: 35,
+      anonymousModeEnabled: true,
+      anonymousAlias: "Anonymous Soul",
+      anonymousModeUpdatedAt: now
+    }
+  }
+);
+db.users.updateOne(
+  { _id: user2Id },
+  {
+    $set: {
+      moodReputation: "positive",
+      moodReputationScore: 82
+    }
+  }
+);
 
 // =========================================
 // DIARIES
@@ -138,6 +216,42 @@ db.diaries.insertMany([
       summary: "User is worried about upcoming academic results.",
       suggestion: "Focus on what can be controlled and talk to someone trusted."
     },
+    createdAt: now,
+    updatedAt: now
+  }
+]);
+
+
+// =========================================
+// WEEKLY EMOTIONAL INSIGHTS
+// =========================================
+
+db.weekly_emotional_insights.insertMany([
+  {
+    userId: user1Id,
+    weekStartDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6),
+    weekEndDate: now,
+    averageMoodScore: 3.5,
+    dominantEmotion: "stress",
+    moodTrend: "declining",
+    summary: "User showed stress and anxiety across multiple diary entries this week.",
+    advice: "Try small daily breaks, write down controllable tasks, and reach out to trusted people when feeling overwhelmed.",
+    sourceDiaryIds: [diary1Id, diary3Id],
+    generatedBy: "ai",
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    userId: user2Id,
+    weekStartDate: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6),
+    weekEndDate: now,
+    averageMoodScore: 8,
+    dominantEmotion: "relief",
+    moodTrend: "stable",
+    summary: "User maintained a mostly positive emotional state this week.",
+    advice: "Maintain healthy routines and consider supporting others in the community when appropriate.",
+    sourceDiaryIds: [diary2Id],
+    generatedBy: "ai",
     createdAt: now,
     updatedAt: now
   }
@@ -365,15 +479,21 @@ db.emotional_tests.insertOne({
   description: "Simple emotional stress assessment for self-reflection. This test is not a medical diagnosis.",
   questions: [
     {
-      question: "How often do you feel tired or mentally exhausted?",
+      question: "This face is expressing which emotion?",
+      imageUrl: "https://example.com/images/emotion-fear.jpg",
+      correctAnswer: "Fear",
+      explanation: "Fear is often shown through widened eyes, raised eyebrows, and tense facial muscles.",
       options: [
-        { label: "Rarely", score: 1 },
-        { label: "Sometimes", score: 2 },
-        { label: "Often", score: 3 }
+        { label: "Happiness", score: 1 },
+        { label: "Fear", score: 3 },
+        { label: "Politeness", score: 1 }
       ]
     },
     {
       question: "How often do you feel overwhelmed by study or work?",
+      imageUrl: null,
+      correctAnswer: null,
+      explanation: "This question helps estimate current stress frequency.",
       options: [
         { label: "Rarely", score: 1 },
         { label: "Sometimes", score: 2 },
@@ -382,6 +502,9 @@ db.emotional_tests.insertOne({
     },
     {
       question: "How difficult is it for you to relax recently?",
+      imageUrl: null,
+      correctAnswer: null,
+      explanation: "Difficulty relaxing may indicate stress or anxiety.",
       options: [
         { label: "Easy", score: 1 },
         { label: "Moderate", score: 2 },
@@ -431,6 +554,7 @@ db.test_results.insertMany([
     totalScore: 7,
     resultLevel: "medium",
     suggestion: "You may be experiencing some stress. Try resting and sharing with someone trusted.",
+    nextTestDueAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()),
     createdAt: now
   },
   {
@@ -444,9 +568,19 @@ db.test_results.insertMany([
     totalScore: 4,
     resultLevel: "low",
     suggestion: "Your stress level seems low. Maintain healthy routines.",
+    nextTestDueAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()),
     createdAt: now
   }
 ]);
+db.users.updateMany(
+  { _id: { $in: [user1Id, user2Id] } },
+  {
+    $set: {
+      lastEmotionalTestAt: now,
+      nextEmotionalTestDueAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate())
+    }
+  }
+);
 
 // =========================================
 // TAGS
@@ -800,7 +934,12 @@ db.events.insertMany([
     capacity: 100,
     registeredCount: 1,
     status: "upcoming",
-    createdBy: adminId,
+    createdBy: organizerId,
+    approvalStatus: "approved",
+    approvedBy: adminId,
+    approvedAt: now,
+    rejectedReason: null,
+    lockAfterApproval: true,
     createdAt: now,
     updatedAt: now
   },
@@ -826,7 +965,12 @@ db.events.insertMany([
     capacity: 200,
     registeredCount: 1,
     status: "upcoming",
-    createdBy: adminId,
+    createdBy: organizerId,
+    approvalStatus: "approved",
+    approvedBy: adminId,
+    approvedAt: now,
+    rejectedReason: null,
+    lockAfterApproval: true,
     createdAt: now,
     updatedAt: now
   }
@@ -892,6 +1036,32 @@ db.notifications.insertMany([
     related: {
       type: "safety_event",
       id: safetyEvent1Id
+    },
+    isRead: false,
+    readAt: null,
+    createdAt: now
+  },
+  {
+    userId: user1Id,
+    type: "emotional_test_reminder",
+    title: "Monthly Emotional Test Reminder",
+    content: "It is time to retake your Emotional Test to track your emotional state this month.",
+    related: {
+      type: "test_result",
+      id: test1Id
+    },
+    isRead: false,
+    readAt: null,
+    createdAt: now
+  },
+  {
+    userId: user2Id,
+    type: "positive_support_request",
+    title: "Community Support Request",
+    content: "A community member may need encouragement. Consider leaving a supportive comment if you feel comfortable.",
+    related: {
+      type: "post",
+      id: post1Id
     },
     isRead: false,
     readAt: null,

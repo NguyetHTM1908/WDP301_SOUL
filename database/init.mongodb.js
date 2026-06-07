@@ -10,6 +10,7 @@ use("soul_db");
 
 db.users.drop();
 db.diaries.drop();
+db.weekly_emotional_insights.drop();
 db.chat_sessions.drop();
 db.ai_analyses.drop();
 db.safety_events.drop();
@@ -45,9 +46,20 @@ db.createCollection("users", {
           items: { bsonType: "objectId" }
         },
 
-        role: { enum: ["user", "admin"] },
+        role: { enum: ["user", "admin", "event_organizer"] },
         status: { enum: ["active", "inactive", "blocked"] },
         forumBannedUntil: { bsonType: ["date", "null"] },
+
+        moodReputation: { enum: ["positive", "neutral", "negative", null] },
+        moodReputationScore: { bsonType: ["int", "null"] },
+        moodReputationUpdatedAt: { bsonType: ["date", "null"] },
+
+        anonymousModeEnabled: { bsonType: "bool" },
+        anonymousAlias: { bsonType: ["string", "null"] },
+        anonymousModeUpdatedAt: { bsonType: ["date", "null"] },
+
+        lastEmotionalTestAt: { bsonType: ["date", "null"] },
+        nextEmotionalTestDueAt: { bsonType: ["date", "null"] },
         gender: { enum: ["male", "female", "other", null] },
         dateOfBirth: { bsonType: ["date", "null"] },
         isEmailVerified: { bsonType: "bool" },
@@ -66,6 +78,8 @@ db.users.createIndex({ email: 1 }, { unique: true });
 db.users.createIndex({ phone: 1 }, { unique: true, sparse: true });
 db.users.createIndex({ role: 1 });
 db.users.createIndex({ status: 1 });
+db.users.createIndex({ moodReputation: 1 });
+db.users.createIndex({ nextEmotionalTestDueAt: 1 });
 
 // =========================================
 // DIARIES
@@ -101,6 +115,45 @@ db.createCollection("diaries", {
 
 db.diaries.createIndex({ userId: 1 });
 db.diaries.createIndex({ userId: 1, createdAt: -1 });
+
+
+// =========================================
+// WEEKLY EMOTIONAL INSIGHTS
+// =========================================
+
+db.createCollection("weekly_emotional_insights", {
+  validator: {
+    $jsonSchema: {
+      bsonType: "object",
+      required: ["userId", "weekStartDate", "weekEndDate", "createdAt"],
+      properties: {
+        userId: { bsonType: "objectId" },
+        weekStartDate: { bsonType: "date" },
+        weekEndDate: { bsonType: "date" },
+
+        averageMoodScore: { bsonType: ["double", "int", "null"] },
+        dominantEmotion: { bsonType: ["string", "null"] },
+        moodTrend: { enum: ["improving", "stable", "declining", null] },
+
+        summary: { bsonType: ["string", "null"] },
+        advice: { bsonType: ["string", "null"] },
+
+        sourceDiaryIds: {
+          bsonType: "array",
+          items: { bsonType: "objectId" }
+        },
+
+        generatedBy: { enum: ["ai", "system", null] },
+        createdAt: { bsonType: "date" },
+        updatedAt: { bsonType: "date" }
+      }
+    }
+  }
+});
+
+db.weekly_emotional_insights.createIndex({ userId: 1 });
+db.weekly_emotional_insights.createIndex({ userId: 1, weekStartDate: -1 });
+db.weekly_emotional_insights.createIndex({ moodTrend: 1 });
 
 // =========================================
 // CHAT SESSIONS - NOSQL EMBEDDED MESSAGES
@@ -289,6 +342,9 @@ db.createCollection("emotional_tests", {
             required: ["question", "options"],
             properties: {
               question: { bsonType: "string" },
+              imageUrl: { bsonType: ["string", "null"] },
+              correctAnswer: { bsonType: ["string", "null"] },
+              explanation: { bsonType: ["string", "null"] },
               options: {
                 bsonType: "array",
                 items: {
@@ -359,6 +415,7 @@ db.createCollection("test_results", {
         totalScore: { bsonType: "int" },
         resultLevel: { enum: ["low", "medium", "high"] },
         suggestion: { bsonType: ["string", "null"] },
+        nextTestDueAt: { bsonType: ["date", "null"] },
         createdAt: { bsonType: "date" }
       }
     }
@@ -693,6 +750,13 @@ db.createCollection("events", {
         },
 
         status: { enum: ["upcoming", "ongoing", "completed", "cancelled"] },
+
+        approvalStatus: { enum: ["pending", "approved", "rejected", null] },
+        approvedBy: { bsonType: ["objectId", "null"] },
+        approvedAt: { bsonType: ["date", "null"] },
+        rejectedReason: { bsonType: ["string", "null"] },
+        lockAfterApproval: { bsonType: "bool" },
+
         createdBy: { bsonType: "objectId" },
         createdAt: { bsonType: "date" },
         updatedAt: { bsonType: "date" }
@@ -704,6 +768,7 @@ db.createCollection("events", {
 db.events.createIndex({ status: 1 });
 db.events.createIndex({ startDateTime: 1 });
 db.events.createIndex({ createdBy: 1 });
+db.events.createIndex({ approvalStatus: 1 });
 db.events.createIndex({ "participants.userId": 1 });
 
 // =========================================
@@ -723,6 +788,8 @@ db.createCollection("notifications", {
             "mental_insight",
             "safety_alert",
             "report_update",
+            "emotional_test_reminder",
+            "positive_support_request",
             "system"
           ]
         },
