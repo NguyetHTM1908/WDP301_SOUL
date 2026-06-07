@@ -553,7 +553,7 @@ db.createCollection("comments", {
             required: ["userId", "type", "createdAt"],
             properties: {
               userId: { bsonType: "objectId" },
-              type: { enum: ["like", "support", "hug"] },
+              type: { enum: ["support", "hug", "encourage", "thankyou"] },
               createdAt: { bsonType: "date" }
             }
           }
