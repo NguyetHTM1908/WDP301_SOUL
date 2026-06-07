@@ -152,6 +152,22 @@ export default function AdminEventDetail() {
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
 
+        <TouchableOpacity
+          style={styles.registrationManageBtn}
+          onPress={() => router.push(`/(admin)/events/registrations/${id}`)}
+        >
+          <View style={styles.registrationManageIcon}>
+            <MaterialCommunityIcons name="account-group-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.registrationManageTitle}>Quản lý người đăng ký</Text>
+            <Text style={styles.registrationManageSubtitle}>
+              Xem danh sách, trạng thái và xóa đăng ký khỏi sự kiện
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={22} color="#94A3B8" />
+        </TouchableOpacity>
+
         <View style={styles.detailSection}>
           <Text style={styles.detailTitle}>{event.title}</Text>
 

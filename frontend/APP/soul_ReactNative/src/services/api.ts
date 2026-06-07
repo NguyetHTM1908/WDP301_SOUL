@@ -1,5 +1,6 @@
 import axios from "axios";
 import { API_BASE_URL } from "@/api/config";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Khởi tạo instance Axios với cấu hình cơ bản
 const apiClient = axios.create({
@@ -8,6 +9,20 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+});
+
+apiClient.interceptors.request.use(async (config) => {
+  const hasAuthorization = Boolean(config.headers?.Authorization);
+
+  if (!hasAuthorization) {
+    const token = await AsyncStorage.getItem("token");
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  return config;
 });
 
 // Hàm gắn Token JWT vào Header của mọi yêu cầu

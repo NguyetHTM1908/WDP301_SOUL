@@ -1,73 +1,177 @@
 import apiClient from "./api";
 
+type RegistrationStatusFilter = "all" | "registered" | "cancelled";
+type EventStatusFilter = "all" | "upcoming" | "ongoing" | "completed" | "cancelled";
+
+const getErrorMessage = (error: any, fallback: string) =>
+  error.response?.data?.message || error.message || fallback;
+
+const fetchEvents = async (params?: {
+  status?: EventStatusFilter;
+  eventType?: string;
+  page?: number;
+  limit?: number;
+}) => {
+  const query = {
+    ...params,
+    status: params?.status === "all" ? undefined : params?.status,
+  };
+
+  const response = await apiClient.get("/events", { params: query });
+  return response.data;
+};
+
 export const eventAdminService = {
-  // Lấy danh sách sự kiện
   getEvents: async () => {
     try {
-      const response = await apiClient.get("/events");
-      return response.data;
+      return await fetchEvents();
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể tải danh sách sự kiện";
+      const errMsg = getErrorMessage(error, "Khong the tai danh sach su kien");
       const errStatus = error.response?.status;
-      console.error(`[EventAPI] getEvents lỗi ${errStatus}:`, errMsg);
+      console.error(`[EventAPI] getEvents loi ${errStatus}:`, errMsg);
       throw new Error(errMsg);
     }
   },
 
-  // Lấy chi tiết sự kiện theo ID
   getEventById: async (id: string) => {
     try {
       const response = await apiClient.get(`/events/${id}`);
       return response.data;
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể tải chi tiết sự kiện";
+      const errMsg = getErrorMessage(error, "Khong the tai chi tiet su kien");
       const errStatus = error.response?.status;
-      console.error(`[EventAPI] getEventById lỗi ${errStatus}:`, errMsg);
+      console.error(`[EventAPI] getEventById loi ${errStatus}:`, errMsg);
       throw new Error(errMsg);
     }
   },
 
-  // Tạo sự kiện mới
+  getEventRegistrations: async (
+    id: string,
+    status: RegistrationStatusFilter = "all"
+  ) => {
+    try {
+      const response = await apiClient.get(`/events/${id}/registrations`, {
+        params: { status, limit: 100 },
+      });
+      return response.data;
+    } catch (error: any) {
+      const errMsg = getErrorMessage(
+        error,
+        "Khong the tai danh sach nguoi dang ky"
+      );
+      const errStatus = error.response?.status;
+      console.error(`[EventAPI] getEventRegistrations loi ${errStatus}:`, errMsg);
+      throw new Error(errMsg);
+    }
+  },
+
   createEvent: async (eventData: any) => {
     try {
-      console.log("[EventAPI] createEvent - Token header:", apiClient.defaults.headers.common["Authorization"]);
       const response = await apiClient.post("/events", eventData);
-      console.log("[EventAPI] createEvent thành công:", response.status);
       return response.data;
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể tạo sự kiện";
+      const errMsg = getErrorMessage(error, "Khong the tao su kien");
       const errStatus = error.response?.status;
-      console.error(`[EventAPI] createEvent lỗi ${errStatus}:`, errMsg, error.response?.data);
+      console.error(`[EventAPI] createEvent loi ${errStatus}:`, errMsg);
       throw new Error(errMsg);
     }
   },
 
-  // Cập nhật sự kiện
   updateEvent: async (id: string, eventData: any) => {
     try {
-      console.log("[EventAPI] updateEvent - Token header:", apiClient.defaults.headers.common["Authorization"]);
       const response = await apiClient.patch(`/events/${id}`, eventData);
-      console.log("[EventAPI] updateEvent thành công:", response.status);
       return response.data;
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể cập nhật sự kiện";
+      const errMsg = getErrorMessage(error, "Khong the cap nhat su kien");
       const errStatus = error.response?.status;
-      console.error(`[EventAPI] updateEvent lỗi ${errStatus}:`, errMsg, error.response?.data);
+      console.error(`[EventAPI] updateEvent loi ${errStatus}:`, errMsg);
       throw new Error(errMsg);
     }
   },
 
-  // Xóa sự kiện
   deleteEvent: async (id: string) => {
     try {
-      console.log("[EventAPI] deleteEvent id:", id, "- Token:", apiClient.defaults.headers.common["Authorization"]);
       const response = await apiClient.delete(`/events/${id}`);
-      console.log("[EventAPI] deleteEvent thành công:", response.status, response.data);
       return response.data;
     } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể xóa sự kiện";
+      const errMsg = getErrorMessage(error, "Khong the xoa su kien");
       const errStatus = error.response?.status;
-      console.error(`[EventAPI] deleteEvent lỗi ${errStatus}:`, errMsg, error.response?.data);
+      console.error(`[EventAPI] deleteEvent loi ${errStatus}:`, errMsg);
+      throw new Error(errMsg);
+    }
+  },
+};
+
+export const eventUserService = {
+  getEvents: async (params?: {
+    status?: EventStatusFilter;
+    eventType?: string;
+    page?: number;
+    limit?: number;
+  }) => {
+    try {
+      return await fetchEvents(params);
+    } catch (error: any) {
+      const errMsg = getErrorMessage(error, "Khong the tai danh sach su kien");
+      const errStatus = error.response?.status;
+      console.error(`[EventAPI] user getEvents loi ${errStatus}:`, errMsg);
+      throw new Error(errMsg);
+    }
+  },
+
+  getEventById: async (id: string) => {
+    try {
+      const response = await apiClient.get(`/events/${id}`);
+      return response.data;
+    } catch (error: any) {
+      const errMsg = getErrorMessage(error, "Khong the tai chi tiet su kien");
+      const errStatus = error.response?.status;
+      console.error(`[EventAPI] user getEventById loi ${errStatus}:`, errMsg);
+      throw new Error(errMsg);
+    }
+  },
+
+  getRegisteredEvents: async (
+    status: RegistrationStatusFilter = "all",
+    page = 1,
+    limit = 100
+  ) => {
+    try {
+      const response = await apiClient.get("/events/me/registered", {
+        params: { status, page, limit },
+      });
+      return response.data;
+    } catch (error: any) {
+      const errMsg = getErrorMessage(
+        error,
+        "Khong the tai danh sach su kien da dang ky"
+      );
+      const errStatus = error.response?.status;
+      console.error(`[EventAPI] user getRegisteredEvents loi ${errStatus}:`, errMsg);
+      throw new Error(errMsg);
+    }
+  },
+
+  registerEvent: async (id: string) => {
+    try {
+      const response = await apiClient.post(`/events/${id}/register`);
+      return response.data;
+    } catch (error: any) {
+      const errMsg = getErrorMessage(error, "Khong the dang ky su kien");
+      const errStatus = error.response?.status;
+      console.error(`[EventAPI] user registerEvent loi ${errStatus}:`, errMsg);
+      throw new Error(errMsg);
+    }
+  },
+
+  cancelRegistration: async (id: string) => {
+    try {
+      const response = await apiClient.post(`/events/${id}/cancel`);
+      return response.data;
+    } catch (error: any) {
+      const errMsg = getErrorMessage(error, "Khong the huy dang ky su kien");
+      const errStatus = error.response?.status;
+      console.error(`[EventAPI] user cancelRegistration loi ${errStatus}:`, errMsg);
       throw new Error(errMsg);
     }
   },

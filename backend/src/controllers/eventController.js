@@ -1,10 +1,16 @@
+const mongoose = require("mongoose");
 const Event = require("../models/Event");
+const User = require("../models/User");
 
 const EVENT_TYPES = ["workshop", "talkshow", "webinar", "community_event", null];
 const EVENT_STATUSES = ["upcoming", "ongoing", "completed", "cancelled"];
 const REGISTRATION_STATUSES = ["registered", "cancelled", "attended"];
+const ADMIN_REGISTRATION_FILTERS = ["all", "registered", "cancelled"];
 
 const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+const toObjectId = (id) => new mongoose.Types.ObjectId(id.toString());
+const getEventRegistrationCollection = () =>
+  mongoose.connection.collection("event_registrations");
 
 const buildEventPayload = (body) => {
   const allowedFields = [
@@ -101,6 +107,129 @@ const validateEventPayload = (payload, { isCreate = false, currentEvent = null }
   }
 
   return null;
+};
+
+const getExternalEventRegistrations = async (eventId) => {
+  const registrations = await getEventRegistrationCollection()
+    .find({ eventId: new mongoose.Types.ObjectId(eventId) })
+    .toArray();
+
+  if (!registrations.length) {
+    return [];
+  }
+
+  const userIds = registrations.map((registration) => registration.userId);
+  const users = await User.find({ _id: { $in: userIds } })
+    .select("fullName email phone avatarUrl role status")
+    .lean();
+  const userMap = new Map(users.map((user) => [user._id.toString(), user]));
+
+  return registrations.map((registration) => ({
+    userId: userMap.get(registration.userId.toString()) || registration.userId,
+    status: registration.status,
+    registeredAt: registration.registeredAt,
+    cancelledAt: registration.cancelledAt || null,
+  }));
+};
+
+const normalizeEmbeddedRegistration = (participant) => ({
+  userId: participant.userId,
+  status: participant.status,
+  registeredAt: participant.registeredAt,
+  cancelledAt: participant.cancelledAt || null,
+});
+
+const mergeRegistrations = (embeddedRegistrations, externalRegistrations) => {
+  const merged = new Map();
+
+  [...externalRegistrations, ...embeddedRegistrations].forEach((registration) => {
+    const userId =
+      registration.userId && registration.userId._id
+        ? registration.userId._id.toString()
+        : registration.userId && registration.userId.toString();
+
+    if (userId) {
+      merged.set(userId, registration);
+    }
+  });
+
+  return Array.from(merged.values());
+};
+
+const buildRegistrationStats = (registrations, capacity) => {
+  const registered = registrations.filter(
+    (registration) => registration.status === "registered"
+  ).length;
+  const cancelled = registrations.filter(
+    (registration) => registration.status === "cancelled"
+  ).length;
+
+  return {
+    totalRegistrations: registered,
+    totalCancelled: cancelled,
+    capacity,
+    remainingSlots: capacity === null || capacity === undefined
+      ? null
+      : Math.max(capacity - registered, 0),
+  };
+};
+
+const countActiveRegistrations = async (event) => {
+  const externalRegistrations = await getEventRegistrationCollection()
+    .find({ eventId: toObjectId(event._id) })
+    .project({ userId: 1, status: 1 })
+    .toArray();
+
+  const mergedStatuses = new Map();
+
+  externalRegistrations.forEach((registration) => {
+    mergedStatuses.set(registration.userId.toString(), registration.status);
+  });
+
+  event.participants.forEach((participant) => {
+    mergedStatuses.set(participant.userId.toString(), participant.status);
+  });
+
+  return Array.from(mergedStatuses.values()).filter(
+    (status) => status === "registered"
+  ).length;
+};
+
+const countUserUpcomingRegistrations = async (userId) => {
+  const userObjectId = toObjectId(userId);
+  const registeredEventIds = new Set();
+
+  const embeddedEvents = await Event.find({
+    "participants.userId": userObjectId,
+    "participants.status": "registered",
+    status: "upcoming",
+  })
+    .select("_id")
+    .lean();
+
+  embeddedEvents.forEach((event) => registeredEventIds.add(event._id.toString()));
+
+  const externalRegistrations = await getEventRegistrationCollection()
+    .find({ userId: userObjectId, status: "registered" })
+    .project({ eventId: 1 })
+    .toArray();
+
+  const externalEventIds = externalRegistrations.map(
+    (registration) => registration.eventId
+  );
+
+  if (externalEventIds.length) {
+    const externalEvents = await Event.find({
+      _id: { $in: externalEventIds },
+      status: "upcoming",
+    })
+      .select("_id")
+      .lean();
+
+    externalEvents.forEach((event) => registeredEventIds.add(event._id.toString()));
+  }
+
+  return registeredEventIds.size;
 };
 
 /**
@@ -313,7 +442,7 @@ const getEventRegistrations = async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid event ID" });
     }
 
-    if (status !== "all" && !REGISTRATION_STATUSES.includes(status)) {
+    if (!ADMIN_REGISTRATION_FILTERS.includes(status)) {
       return res.status(400).json({
         success: false,
         message: "Invalid registration status",
@@ -332,8 +461,18 @@ const getEventRegistrations = async (req, res) => {
       return res.status(404).json({ success: false, message: "Event not found" });
     }
 
-    const registrations = event.participants
-      .filter((participant) => status === "all" || participant.status === status)
+    const embeddedRegistrations = event.participants.map(normalizeEmbeddedRegistration);
+    const externalRegistrations = await getExternalEventRegistrations(id);
+    const allRegistrations = mergeRegistrations(
+      embeddedRegistrations,
+      externalRegistrations
+    ).filter((registration) =>
+      ADMIN_REGISTRATION_FILTERS.includes(registration.status)
+    );
+    const stats = buildRegistrationStats(allRegistrations, event.capacity);
+
+    const registrations = allRegistrations
+      .filter((registration) => status === "all" || registration.status === status)
       .sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
 
     const paginatedRegistrations = registrations.slice(skip, skip + limitNumber);
@@ -348,9 +487,10 @@ const getEventRegistrations = async (req, res) => {
           endDateTime: event.endDateTime,
           status: event.status,
           capacity: event.capacity,
-          registeredCount: event.registeredCount,
+          registeredCount: stats.totalRegistrations,
         },
         registrations: paginatedRegistrations,
+        stats,
       },
       pagination: {
         total: registrations.length,
@@ -366,96 +506,6 @@ const getEventRegistrations = async (req, res) => {
 };
 
 /**
- * @route   PATCH /api/events/:id/registrations/:userId
- * @desc    Update event registration status
- * @access  Private (Admin)
- */
-const updateEventRegistration = async (req, res) => {
-  try {
-    const { id, userId } = req.params;
-    const { status } = req.body;
-
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
-    }
-
-    if (!isValidObjectId(userId)) {
-      return res.status(400).json({ success: false, message: "Invalid user ID" });
-    }
-
-    if (!REGISTRATION_STATUSES.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid registration status",
-      });
-    }
-
-    const event = await Event.findById(id);
-    if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
-    }
-
-    const participant = event.participants.find(
-      (item) => item.userId.toString() === userId
-    );
-
-    if (!participant) {
-      return res.status(404).json({
-        success: false,
-        message: "Registration not found",
-      });
-    }
-
-    if (
-      status === "registered" &&
-      event.capacity !== null &&
-      participant.status !== "registered" &&
-      event.registeredCount >= event.capacity
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "Event capacity has been reached",
-      });
-    }
-
-    participant.status = status;
-    participant.cancelledAt = status === "cancelled" ? new Date() : null;
-
-    if (status === "registered" && !participant.registeredAt) {
-      participant.registeredAt = new Date();
-    }
-
-    event.registeredCount = event.participants.filter(
-      (item) => item.status === "registered"
-    ).length;
-
-    await event.save();
-
-    const updatedEvent = await Event.findById(id)
-      .populate("participants.userId", "fullName email phone avatarUrl role status")
-      .select("title registeredCount participants");
-
-    const updatedRegistration = updatedEvent.participants.find(
-      (item) => item.userId._id.toString() === userId
-    );
-
-    res.status(200).json({
-      success: true,
-      message: "Registration updated successfully",
-      data: {
-        eventId: event._id,
-        title: event.title,
-        registeredCount: event.registeredCount,
-        registration: updatedRegistration,
-      },
-    });
-  } catch (error) {
-    console.error("Error updating event registration:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
-  }
-};
-
-/**
  * @route   GET /api/events/me/registered
  * @desc    Get events registered by current user
  * @access  Private (User)
@@ -464,6 +514,7 @@ const getRegisteredEvents = async (req, res) => {
   try {
     const userId = req.user._id;
     const { status = "registered", page = 1, limit = 10 } = req.query;
+    const userObjectId = toObjectId(userId);
 
     const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
     const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
@@ -477,16 +528,47 @@ const getRegisteredEvents = async (req, res) => {
       });
     }
 
-    const participantQuery = { userId };
+    const participantQuery = { userId: userObjectId };
     if (status !== "all") {
       participantQuery.status = status;
     }
 
-    const query = {
-      participants: {
-        $elemMatch: participantQuery,
+    const externalFilter = { userId: userObjectId };
+    if (status !== "all") {
+      externalFilter.status = status;
+    }
+
+    const externalRegistrations = await getEventRegistrationCollection()
+      .find(externalFilter)
+      .toArray();
+
+    const externalRegistrationMap = new Map(
+      externalRegistrations.map((registration) => [
+        registration.eventId.toString(),
+        {
+          userId: registration.userId,
+          status: registration.status,
+          registeredAt: registration.registeredAt,
+          cancelledAt: registration.cancelledAt || null,
+        },
+      ])
+    );
+
+    const eventConditions = [
+      {
+        participants: {
+          $elemMatch: participantQuery,
+        },
       },
-    };
+    ];
+
+    if (externalRegistrations.length) {
+      eventConditions.push({
+        _id: { $in: externalRegistrations.map((registration) => registration.eventId) },
+      });
+    }
+
+    const query = { $or: eventConditions };
 
     const events = await Event.find(query)
       .sort({ startDateTime: 1 })
@@ -498,9 +580,13 @@ const getRegisteredEvents = async (req, res) => {
 
     const data = events.map((event) => {
       const eventData = event.toObject();
-      const registration = eventData.participants.find(
-        (participant) => participant.userId.toString() === userId.toString()
+      const embeddedRegistration = eventData.participants.find(
+        (participant) =>
+          participant.userId.toString() === userId.toString() &&
+          (status === "all" || participant.status === status)
       );
+      const externalRegistration = externalRegistrationMap.get(eventData._id.toString());
+      const registration = embeddedRegistration || externalRegistration;
 
       delete eventData.participants;
 
@@ -547,6 +633,11 @@ const registerEvent = async (req, res) => {
     }
 
     // Chỉ cho đăng ký event sắp diễn ra
+    const externalRegistration = await getEventRegistrationCollection().findOne({
+      eventId: toObjectId(event._id),
+      userId: toObjectId(userId),
+    });
+
     if (event.status !== "upcoming") {
       return res.status(400).json({
         success: false,
@@ -570,15 +661,16 @@ const registerEvent = async (req, res) => {
       existingParticipant.status = "registered";
       existingParticipant.registeredAt = new Date();
       existingParticipant.cancelledAt = null;
+    } else if (externalRegistration && externalRegistration.status === "registered") {
+      return res.status(400).json({
+        success: false,
+        message: "Ban da dang ky su kien nay roi",
+      });
     } else {
       // Kiểm tra giới hạn 3 event đồng thời (status = upcoming)
-      const upcomingEventIds = await Event.find({
-        "participants.userId": userId,
-        "participants.status": "registered",
-        status: "upcoming",
-      }).select("_id");
+      const upcomingEventCount = await countUserUpcomingRegistrations(userId);
 
-      if (upcomingEventIds.length >= 3) {
+      if (upcomingEventCount >= 3) {
         return res.status(400).json({
           success: false,
           message: "Bạn chỉ có thể đăng ký tối đa 3 sự kiện cùng lúc",
@@ -601,9 +693,25 @@ const registerEvent = async (req, res) => {
       });
     }
 
-    event.registeredCount = event.participants.filter(
-      (p) => p.status === "registered"
-    ).length;
+    await getEventRegistrationCollection().updateOne(
+      { eventId: toObjectId(event._id), userId: toObjectId(userId) },
+      {
+        $set: {
+          eventId: toObjectId(event._id),
+          userId: toObjectId(userId),
+          status: "registered",
+          registeredAt: new Date(),
+          cancelledAt: null,
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
+    event.registeredCount = await countActiveRegistrations(event);
 
     await event.save();
 
@@ -651,11 +759,19 @@ const cancelRegistration = async (req, res) => {
     }
 
     // Tìm participant
+    const externalRegistration = await getEventRegistrationCollection().findOne({
+      eventId: toObjectId(event._id),
+      userId: toObjectId(userId),
+    });
+
     const participant = event.participants.find(
       (p) => p.userId.toString() === userId.toString()
     );
 
-    if (!participant || participant.status !== "registered") {
+    if (
+      (!participant || participant.status !== "registered") &&
+      (!externalRegistration || externalRegistration.status !== "registered")
+    ) {
       return res.status(400).json({
         success: false,
         message: "Bạn chưa đăng ký sự kiện này",
@@ -663,12 +779,30 @@ const cancelRegistration = async (req, res) => {
     }
 
     // Cập nhật status sang cancelled
-    participant.status = "cancelled";
-    participant.cancelledAt = new Date();
+    if (participant) {
+      participant.status = "cancelled";
+      participant.cancelledAt = new Date();
+    }
 
-    event.registeredCount = event.participants.filter(
-      (p) => p.status === "registered"
-    ).length;
+    await getEventRegistrationCollection().updateOne(
+      { eventId: toObjectId(event._id), userId: toObjectId(userId) },
+      {
+        $set: {
+          eventId: toObjectId(event._id),
+          userId: toObjectId(userId),
+          status: "cancelled",
+          cancelledAt: new Date(),
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          registeredAt: new Date(),
+          createdAt: new Date(),
+        },
+      },
+      { upsert: true }
+    );
+
+    event.registeredCount = await countActiveRegistrations(event);
 
     await event.save();
 
@@ -694,7 +828,6 @@ module.exports = {
   updateEvent,
   deleteEvent,
   getEventRegistrations,
-  updateEventRegistration,
   getRegisteredEvents,
   registerEvent,
   cancelRegistration,
