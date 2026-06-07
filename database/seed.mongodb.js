@@ -1,26 +1,23 @@
 
-// =========================================
-// SOUL DATABASE SEED - MONGODB / NOSQL
-// =========================================
-
 use("soul_db");
-
+ 
 const now = new Date();
-
+const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
+ 
 // =========================================
 // DEMO USERS
 // =========================================
-
-//admin@soul.com  → Admin@123
-//user1@soul.com  → User@123
-//user2@soul.com  → User@123
-//organizer@soul.com → User@123
-
+ 
+// admin@soul.com      -> Admin@123
+// user1@soul.com      -> User@123
+// user2@soul.com      -> User@123
+// organizer@soul.com  -> User@123
+ 
 const adminId = new ObjectId();
 const user1Id = new ObjectId();
 const user2Id = new ObjectId();
 const organizerId = new ObjectId();
-
+ 
 db.users.insertMany([
   {
     _id: adminId,
@@ -64,12 +61,12 @@ db.users.insertMany([
     role: "user",
     status: "active",
     forumBannedUntil: null,
-    moodReputation: "neutral",
-    moodReputationScore: 50,
+    moodReputation: "negative",
+    moodReputationScore: 35,
     moodReputationUpdatedAt: now,
-    anonymousModeEnabled: false,
-    anonymousAlias: null,
-    anonymousModeUpdatedAt: null,
+    anonymousModeEnabled: true,
+    anonymousAlias: "Tho Lem Linh",
+    anonymousModeUpdatedAt: now,
     lastEmotionalTestAt: null,
     nextEmotionalTestDueAt: now,
     gender: "male",
@@ -94,8 +91,8 @@ db.users.insertMany([
     role: "user",
     status: "active",
     forumBannedUntil: null,
-    moodReputation: "neutral",
-    moodReputationScore: 50,
+    moodReputation: "positive",
+    moodReputationScore: 82,
     moodReputationUpdatedAt: now,
     anonymousModeEnabled: false,
     anonymousAlias: null,
@@ -124,9 +121,9 @@ db.users.insertMany([
     role: "event_organizer",
     status: "active",
     forumBannedUntil: null,
-    moodReputation: null,
-    moodReputationScore: null,
-    moodReputationUpdatedAt: null,
+    moodReputation: "neutral",
+    moodReputationScore: 0,
+    moodReputationUpdatedAt: now,
     anonymousModeEnabled: false,
     anonymousAlias: null,
     anonymousModeUpdatedAt: null,
@@ -143,43 +140,22 @@ db.users.insertMany([
     updatedAt: now
   }
 ]);
-db.users.updateOne(
-  { _id: user1Id },
-  {
-    $set: {
-      moodReputation: "negative",
-      moodReputationScore: 35,
-      anonymousModeEnabled: true,
-      anonymousAlias: "Anonymous Soul",
-      anonymousModeUpdatedAt: now
-    }
-  }
-);
-db.users.updateOne(
-  { _id: user2Id },
-  {
-    $set: {
-      moodReputation: "positive",
-      moodReputationScore: 82
-    }
-  }
-);
-
+ 
 // =========================================
 // DIARIES
 // =========================================
-
+ 
 const diary1Id = new ObjectId();
 const diary2Id = new ObjectId();
 const diary3Id = new ObjectId();
-
+ 
 db.diaries.insertMany([
   {
     _id: diary1Id,
     userId: user1Id,
     mood: "stressed",
     moodScore: 3,
-    note: "Hôm nay mình cảm thấy khá áp lực vì deadline.",
+    note: "Hom nay minh cam thay kha ap luc vi deadline.",
     isPrivate: true,
     aiInsight: {
       emotion: "stress",
@@ -194,7 +170,7 @@ db.diaries.insertMany([
     userId: user2Id,
     mood: "happy",
     moodScore: 8,
-    note: "Mình vừa hoàn thành xong bài tập và thấy rất nhẹ nhõm.",
+    note: "Minh vua hoan thanh xong bai tap va thay rat nhe nhom.",
     isPrivate: true,
     aiInsight: {
       emotion: "relief",
@@ -209,7 +185,7 @@ db.diaries.insertMany([
     userId: user1Id,
     mood: "anxious",
     moodScore: 4,
-    note: "Mình lo lắng về kết quả môn học sắp tới.",
+    note: "Minh lo lang ve ket qua mon hoc sap toi.",
     isPrivate: true,
     aiInsight: {
       emotion: "anxiety",
@@ -220,12 +196,11 @@ db.diaries.insertMany([
     updatedAt: now
   }
 ]);
-
-
+ 
 // =========================================
 // WEEKLY EMOTIONAL INSIGHTS
 // =========================================
-
+ 
 db.weekly_emotional_insights.insertMany([
   {
     userId: user1Id,
@@ -256,15 +231,22 @@ db.weekly_emotional_insights.insertMany([
     updatedAt: now
   }
 ]);
-
+ 
 // =========================================
-// CHAT SESSIONS
+// CHAT SESSIONS - EMBEDDED MESSAGES
 // =========================================
-
+ 
 const session1Id = new ObjectId();
 const session2Id = new ObjectId();
 const session3Id = new ObjectId();
-
+ 
+const message1Id = new ObjectId();
+const message2Id = new ObjectId();
+const message3Id = new ObjectId();
+const message4Id = new ObjectId();
+const message5Id = new ObjectId();
+const message6Id = new ObjectId();
+ 
 db.chat_sessions.insertMany([
   {
     _id: session1Id,
@@ -273,6 +255,22 @@ db.chat_sessions.insertMany([
     overallSentiment: "negative",
     highestRiskLevel: "medium",
     isArchived: false,
+    messages: [
+      {
+        _id: message1Id,
+        sender: "user",
+        content: "Dao nay minh cam thay rat met moi va ap luc.",
+        isSafetyResponse: false,
+        createdAt: now
+      },
+      {
+        _id: message2Id,
+        sender: "ai",
+        content: "Minh nghe thay rang ban dang trai qua kha nhieu ap luc gan day. Ban co muon chia se dieu gi khien ban met nhat luc nay khong?",
+        isSafetyResponse: false,
+        createdAt: now
+      }
+    ],
     createdAt: now,
     updatedAt: now
   },
@@ -283,6 +281,22 @@ db.chat_sessions.insertMany([
     overallSentiment: "negative",
     highestRiskLevel: "low",
     isArchived: false,
+    messages: [
+      {
+        _id: message3Id,
+        sender: "user",
+        content: "Dao nay minh cam thay kha co don.",
+        isSafetyResponse: false,
+        createdAt: now
+      },
+      {
+        _id: message4Id,
+        sender: "ai",
+        content: "Minh nghe thay rang ban dang cam thay thieu ket noi voi moi nguoi gan day. Mot buoc nho co the la nhan tin cho mot nguoi ban ma ban tin tuong.",
+        isSafetyResponse: false,
+        createdAt: now
+      }
+    ],
     createdAt: now,
     updatedAt: now
   },
@@ -293,90 +307,35 @@ db.chat_sessions.insertMany([
     overallSentiment: "negative",
     highestRiskLevel: "high",
     isArchived: false,
+    messages: [
+      {
+        _id: message5Id,
+        sender: "user",
+        content: "Doi khi minh chi muon bien mat khoi moi thu.",
+        isSafetyResponse: false,
+        createdAt: now
+      },
+      {
+        _id: message6Id,
+        sender: "ai",
+        content: "Minh rat tiec vi ban dang trai qua cam giac nay. Ban khong can doi mat mot minh. Hay lien he voi nguoi than, ban be dang tin cay hoac dich vu ho tro khan cap tai noi ban song neu ban dang gap nguy hiem.",
+        isSafetyResponse: true,
+        createdAt: now
+      }
+    ],
     createdAt: now,
     updatedAt: now
   }
 ]);
-
-// =========================================
-// CHAT MESSAGES
-// =========================================
-
-const message1Id = new ObjectId();
-const message2Id = new ObjectId();
-const message3Id = new ObjectId();
-const message4Id = new ObjectId();
-const message5Id = new ObjectId();
-const message6Id = new ObjectId();
-
-db.chat_messages.insertMany([
-  {
-    _id: message1Id,
-    sessionId: session1Id,
-    userId: user1Id,
-    sender: "user",
-    content: "Dạo này mình cảm thấy rất mệt mỏi và áp lực.",
-    isSafetyResponse: false,
-    createdAt: now
-  },
-  {
-    _id: message2Id,
-    sessionId: session1Id,
-    userId: user1Id,
-    sender: "ai",
-    content: "Mình nghe thấy rằng bạn đang trải qua khá nhiều áp lực gần đây. Bạn có muốn chia sẻ điều gì khiến bạn mệt nhất lúc này không?",
-    isSafetyResponse: false,
-    createdAt: now
-  },
-  {
-    _id: message3Id,
-    sessionId: session2Id,
-    userId: user2Id,
-    sender: "user",
-    content: "Dạo này mình cảm thấy khá cô đơn.",
-    isSafetyResponse: false,
-    createdAt: now
-  },
-  {
-    _id: message4Id,
-    sessionId: session2Id,
-    userId: user2Id,
-    sender: "ai",
-    content: "Mình nghe thấy rằng bạn đang cảm thấy thiếu kết nối với mọi người gần đây. Một bước nhỏ có thể là nhắn tin cho một người bạn mà bạn tin tưởng.",
-    isSafetyResponse: false,
-    createdAt: now
-  },
-  {
-    _id: message5Id,
-    sessionId: session3Id,
-    userId: user1Id,
-    sender: "user",
-    content: "Đôi khi mình chỉ muốn biến mất khỏi mọi thứ.",
-    isSafetyResponse: false,
-    createdAt: now
-  },
-  {
-    _id: message6Id,
-    sessionId: session3Id,
-    userId: user1Id,
-    sender: "ai",
-    content: "Mình rất tiếc vì bạn đang trải qua cảm giác này. Bạn không cần đối mặt một mình. Hãy liên hệ với người thân, bạn bè đáng tin cậy hoặc dịch vụ hỗ trợ khẩn cấp tại nơi bạn sống nếu bạn đang gặp nguy hiểm.",
-    isSafetyResponse: true,
-    createdAt: now
-  }
-]);
-
+ 
 // =========================================
 // AI ANALYSES
 // =========================================
-
+ 
 db.ai_analyses.insertMany([
   {
     userId: user1Id,
-    target: {
-      type: "chat_message",
-      id: message1Id
-    },
+    target: { type: "chat_message", id: message1Id },
     sentiment: "negative",
     emotion: "stress",
     riskLevel: "medium",
@@ -390,10 +349,7 @@ db.ai_analyses.insertMany([
   },
   {
     userId: user2Id,
-    target: {
-      type: "chat_message",
-      id: message3Id
-    },
+    target: { type: "chat_message", id: message3Id },
     sentiment: "negative",
     emotion: "loneliness",
     riskLevel: "low",
@@ -407,10 +363,7 @@ db.ai_analyses.insertMany([
   },
   {
     userId: user1Id,
-    target: {
-      type: "chat_message",
-      id: message5Id
-    },
+    target: { type: "chat_message", id: message5Id },
     sentiment: "negative",
     emotion: "hopelessness",
     riskLevel: "high",
@@ -424,10 +377,7 @@ db.ai_analyses.insertMany([
   },
   {
     userId: user1Id,
-    target: {
-      type: "diary",
-      id: diary1Id
-    },
+    target: { type: "diary", id: diary1Id },
     sentiment: "negative",
     emotion: "stress",
     riskLevel: "low",
@@ -440,25 +390,22 @@ db.ai_analyses.insertMany([
     createdAt: now
   }
 ]);
-
+ 
 // =========================================
 // SAFETY EVENTS
 // =========================================
-
+ 
 const safetyEvent1Id = new ObjectId();
-
+ 
 db.safety_events.insertOne({
   _id: safetyEvent1Id,
   userId: user1Id,
-  source: {
-    type: "chat_message",
-    id: message5Id
-  },
+  source: { type: "chat_message", id: message5Id },
   riskLevel: "high",
   safetyType: "self_harm_risk",
-  detectedText: "Đôi khi mình chỉ muốn biến mất khỏi mọi thứ.",
+  detectedText: "Doi khi minh chi muon bien mat khoi moi thu.",
   systemAction: "show_safety_response",
-  safetyMessage: "Bạn không cần đối mặt một mình. Hãy liên hệ với người thân, bạn bè đáng tin cậy hoặc dịch vụ hỗ trợ khẩn cấp tại nơi bạn sống nếu bạn đang gặp nguy hiểm.",
+  safetyMessage: "Ban khong can doi mat mot minh. Hay lien he voi nguoi than, ban be dang tin cay hoac dich vu ho tro khan cap tai noi ban song neu ban dang gap nguy hiem.",
   isResolved: false,
   resolvedBy: null,
   resolvedAt: null,
@@ -466,13 +413,13 @@ db.safety_events.insertOne({
   createdAt: now,
   updatedAt: now
 });
-
+ 
 // =========================================
 // EMOTIONAL TESTS
 // =========================================
-
+ 
 const test1Id = new ObjectId();
-
+ 
 db.emotional_tests.insertOne({
   _id: test1Id,
   title: "Stress Level Test",
@@ -537,55 +484,56 @@ db.emotional_tests.insertOne({
   createdAt: now,
   updatedAt: now
 });
-
+ 
 // =========================================
 // TEST RESULTS
 // =========================================
-
+ 
 db.test_results.insertMany([
   {
     userId: user1Id,
     testId: test1Id,
     answers: [
-      { questionIndex: 0, answer: "Often", score: 3 },
+      { questionIndex: 0, answer: "Fear", score: 3 },
       { questionIndex: 1, answer: "Sometimes", score: 2 },
       { questionIndex: 2, answer: "Moderate", score: 2 }
     ],
     totalScore: 7,
     resultLevel: "medium",
     suggestion: "You may be experiencing some stress. Try resting and sharing with someone trusted.",
-    nextTestDueAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()),
+    nextTestDueAt: nextMonth,
     createdAt: now
   },
   {
     userId: user2Id,
     testId: test1Id,
     answers: [
-      { questionIndex: 0, answer: "Sometimes", score: 2 },
+      { questionIndex: 0, answer: "Happiness", score: 1 },
       { questionIndex: 1, answer: "Rarely", score: 1 },
       { questionIndex: 2, answer: "Easy", score: 1 }
     ],
-    totalScore: 4,
+    totalScore: 3,
     resultLevel: "low",
     suggestion: "Your stress level seems low. Maintain healthy routines.",
-    nextTestDueAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate()),
+    nextTestDueAt: nextMonth,
     createdAt: now
   }
 ]);
+ 
 db.users.updateMany(
   { _id: { $in: [user1Id, user2Id] } },
   {
     $set: {
       lastEmotionalTestAt: now,
-      nextEmotionalTestDueAt: new Date(now.getFullYear(), now.getMonth() + 1, now.getDate())
+      nextEmotionalTestDueAt: nextMonth
     }
   }
 );
-
+ 
 // =========================================
 // TAGS
 // =========================================
-
+ 
 db.tags.insertMany([
   {
     name: "stress",
@@ -612,46 +560,42 @@ db.tags.insertMany([
     updatedAt: now
   }
 ]);
-
+ 
 // =========================================
 // POSTS
 // =========================================
-
+ 
 const post1Id = new ObjectId();
 const post2Id = new ObjectId();
 const post3Id = new ObjectId();
-
+ 
 db.posts.insertMany([
   {
     _id: post1Id,
     authorId: user1Id,
-    content: "Mọi người làm gì khi cảm thấy mất động lực?",
+    content: "Moi nguoi lam gi khi cam thay mat dong luc?",
     mediaUrls: [
-      {
-        url: "https://example.com/images/motivation-support.jpg",
-        type: "image"
-      }
+      { url: "https://example.com/images/motivation-support.jpg", type: "image" }
     ],
     emotionStatus: "stress",
     hashtags: ["stress", "student-life"],
     isAnonymous: true,
+    anonymousName: "Tho Lem Linh",
     visibility: "public",
     status: "approved",
     statistics: {
-      likeCount: 0,
       supportCount: 1,
-      hugCount: 0,
+      hugCount: 1,
+      encourageCount: 0,
+      thankyouCount: 0,
       commentCount: 1,
       reportCount: 1
     },
     isFlagged: true,
     toxicityLevel: "low",
     reactions: [
-      {
-        userId: user2Id,
-        type: "support",
-        createdAt: now
-      }
+      { userId: user2Id, type: "support", createdAt: now },
+      { userId: adminId, type: "hug", createdAt: now }
     ],
     editedAt: null,
     approvedAt: now,
@@ -663,28 +607,27 @@ db.posts.insertMany([
   {
     _id: post2Id,
     authorId: user2Id,
-    content: "Có ai từng bị burnout vì học tập chưa?",
+    content: "Co ai tung bi burnout vi hoc tap chua?",
     mediaUrls: [],
     emotionStatus: "stress",
     hashtags: ["stress"],
     isAnonymous: true,
+    anonymousName: "Cao Thong Minh",
     visibility: "public",
     status: "approved",
     statistics: {
-      likeCount: 0,
       supportCount: 1,
       hugCount: 0,
-      commentCount: 1,
+      encourageCount: 1,
+      thankyouCount: 0,
+      commentCount: 2,
       reportCount: 0
     },
     isFlagged: false,
     toxicityLevel: "low",
     reactions: [
-      {
-        userId: user1Id,
-        type: "support",
-        createdAt: now
-      }
+      { userId: user1Id, type: "support", createdAt: now },
+      { userId: adminId, type: "encourage", createdAt: now }
     ],
     editedAt: null,
     approvedAt: now,
@@ -696,33 +639,28 @@ db.posts.insertMany([
   {
     _id: post3Id,
     authorId: user1Id,
-    content: "Mình đang cố gắng ngủ sớm hơn để cải thiện tâm trạng.",
+    content: "Minh dang co gang ngu som hon de cai thien tam trang.",
     mediaUrls: [
-      {
-        url: "https://example.com/images/self-care-sleep.jpg",
-        type: "image"
-      }
+      { url: "https://example.com/images/self-care-sleep.jpg", type: "image" }
     ],
     emotionStatus: "happy",
     hashtags: ["self-care"],
     isAnonymous: false,
+    anonymousName: null,
     visibility: "public",
     status: "approved",
     statistics: {
-      likeCount: 1,
       supportCount: 0,
       hugCount: 0,
+      encourageCount: 1,
+      thankyouCount: 0,
       commentCount: 1,
       reportCount: 0
     },
     isFlagged: false,
     toxicityLevel: "low",
     reactions: [
-      {
-        userId: user2Id,
-        type: "like",
-        createdAt: now
-      }
+      { userId: user2Id, type: "encourage", createdAt: now }
     ],
     editedAt: null,
     approvedAt: now,
@@ -732,38 +670,37 @@ db.posts.insertMany([
     updatedAt: now
   }
 ]);
-
+ 
 // =========================================
 // COMMENTS
 // =========================================
-
+ 
 const comment1Id = new ObjectId();
 const comment2Id = new ObjectId();
 const comment3Id = new ObjectId();
 const comment4Id = new ObjectId();
-
+ 
 db.comments.insertMany([
   {
     _id: comment1Id,
     postId: post1Id,
     authorId: user2Id,
     parentCommentId: null,
-    content: "Mình thường nghe nhạc và nghỉ ngơi một chút.",
+    content: "Minh thuong nghe nhac va nghi ngoi mot chut.",
     isAnonymous: false,
+    anonymousName: null,
     status: "active",
     statistics: {
-      likeCount: 1,
-      supportCount: 0,
+      supportCount: 1,
       hugCount: 0,
+      encourageCount: 0,
+      thankyouCount: 0,
+      replyCount: 0,
       reportCount: 1
     },
     toxicityLevel: "low",
     reactions: [
-      {
-        userId: user1Id,
-        type: "like",
-        createdAt: now
-      }
+      { userId: user1Id, type: "support", createdAt: now }
     ],
     editedAt: null,
     createdAt: now,
@@ -774,22 +711,22 @@ db.comments.insertMany([
     postId: post2Id,
     authorId: user1Id,
     parentCommentId: null,
-    content: "Mình từng như vậy, nghỉ ngơi một chút sẽ giúp hơn.",
+    content: "Minh tung nhu vay, nghi ngoi mot chut se giup hon.",
     isAnonymous: false,
+    anonymousName: null,
     status: "active",
     statistics: {
-      likeCount: 0,
       supportCount: 1,
       hugCount: 0,
+      encourageCount: 0,
+      thankyouCount: 1,
+      replyCount: 1,
       reportCount: 0
     },
     toxicityLevel: "low",
     reactions: [
-      {
-        userId: user2Id,
-        type: "support",
-        createdAt: now
-      }
+      { userId: user2Id, type: "support", createdAt: now },
+      { userId: adminId, type: "thankyou", createdAt: now }
     ],
     editedAt: null,
     createdAt: now,
@@ -800,17 +737,22 @@ db.comments.insertMany([
     postId: post3Id,
     authorId: user2Id,
     parentCommentId: null,
-    content: "Ngủ đủ thật sự giúp mood ổn hơn nhiều.",
+    content: "Ngu du that su giup mood on hon nhieu.",
     isAnonymous: false,
+    anonymousName: null,
     status: "active",
     statistics: {
-      likeCount: 0,
       supportCount: 0,
       hugCount: 0,
+      encourageCount: 1,
+      thankyouCount: 0,
+      replyCount: 0,
       reportCount: 0
     },
     toxicityLevel: "low",
-    reactions: [],
+    reactions: [
+      { userId: user1Id, type: "encourage", createdAt: now }
+    ],
     editedAt: null,
     createdAt: now,
     updatedAt: now
@@ -820,13 +762,16 @@ db.comments.insertMany([
     postId: post2Id,
     authorId: user2Id,
     parentCommentId: comment2Id,
-    content: "Cảm ơn bạn, mình sẽ thử nghỉ ngơi nhiều hơn.",
+    content: "Cam on ban, minh se thu nghi ngoi nhieu hon.",
     isAnonymous: false,
+    anonymousName: null,
     status: "active",
     statistics: {
-      likeCount: 0,
       supportCount: 0,
       hugCount: 0,
+      encourageCount: 0,
+      thankyouCount: 0,
+      replyCount: 0,
       reportCount: 0
     },
     toxicityLevel: "low",
@@ -836,14 +781,14 @@ db.comments.insertMany([
     updatedAt: now
   }
 ]);
-
+ 
 // =========================================
 // REPORTS
 // =========================================
-
+ 
 const report1Id = new ObjectId();
 const report2Id = new ObjectId();
-
+ 
 db.reports.insertMany([
   {
     _id: report1Id,
@@ -870,17 +815,14 @@ db.reports.insertMany([
     updatedAt: now
   }
 ]);
-
+ 
 // =========================================
 // MODERATION LOGS
 // =========================================
-
+ 
 db.moderation_logs.insertMany([
   {
-    target: {
-      type: "report",
-      id: report2Id
-    },
+    target: { type: "report", id: report2Id },
     action: "reject_report",
     reason: "Potential harmful advice",
     note: "Admin reviewed the comment and found no harmful content.",
@@ -890,27 +832,24 @@ db.moderation_logs.insertMany([
     createdAt: now
   },
   {
-    target: {
-      type: "post",
-      id: post1Id
-    },
-    action: "hide_content",
+    target: { type: "post", id: post1Id },
+    action: "warn_user",
     reason: "Sensitive content",
-    note: "Post flagged for emotional distress. Pending further review.",
+    note: "Post flagged for emotional distress. User should receive supportive monitoring, not automatic punishment.",
     performedBy: adminId,
     previousStatus: "approved",
     newStatus: "approved",
     createdAt: now
   }
 ]);
-
+ 
 // =========================================
-// EVENTS
+// EVENTS - EMBEDDED PARTICIPANTS
 // =========================================
-
+ 
 const event1Id = new ObjectId();
 const event2Id = new ObjectId();
-
+ 
 db.events.insertMany([
   {
     _id: event1Id,
@@ -921,18 +860,23 @@ db.events.insertMany([
     contactEmail: "events@soul.com",
     bannerImage: "https://example.com/images/mental-wellness-workshop.jpg",
     images: [
-      {
-        url: "https://example.com/images/workshop-room.jpg",
-        type: "image"
-      }
+      { url: "https://example.com/images/workshop-room.jpg", type: "image" }
     ],
     eventType: "workshop",
-    startDateTime: new Date("2025-08-01T09:00:00"),
-    endDateTime: new Date("2025-08-01T11:00:00"),
+    startDateTime: new Date("2026-08-01T09:00:00"),
+    endDateTime: new Date("2026-08-01T11:00:00"),
     location: "FPT University Hall",
     meetingLink: null,
     capacity: 100,
     registeredCount: 1,
+    participants: [
+      {
+        userId: user1Id,
+        status: "registered",
+        registeredAt: now,
+        cancelledAt: null
+      }
+    ],
     status: "upcoming",
     createdBy: organizerId,
     approvalStatus: "approved",
@@ -952,18 +896,23 @@ db.events.insertMany([
     contactEmail: "talkshow@soul.com",
     bannerImage: "https://example.com/images/stress-management-talkshow.jpg",
     images: [
-      {
-        url: "https://example.com/images/online-talkshow.jpg",
-        type: "image"
-      }
+      { url: "https://example.com/images/online-talkshow.jpg", type: "image" }
     ],
     eventType: "talkshow",
-    startDateTime: new Date("2025-09-15T18:00:00"),
-    endDateTime: new Date("2025-09-15T20:00:00"),
+    startDateTime: new Date("2026-09-15T18:00:00"),
+    endDateTime: new Date("2026-09-15T20:00:00"),
     location: "Online Zoom",
     meetingLink: "https://zoom.example.com/soul-talkshow",
     capacity: 200,
     registeredCount: 1,
+    participants: [
+      {
+        userId: user2Id,
+        status: "registered",
+        registeredAt: now,
+        cancelledAt: null
+      }
+    ],
     status: "upcoming",
     createdBy: organizerId,
     approvalStatus: "approved",
@@ -975,42 +924,18 @@ db.events.insertMany([
     updatedAt: now
   }
 ]);
-
-// =========================================
-// EVENT REGISTRATIONS
-// =========================================
-
-db.event_registrations.insertMany([
-  {
-    eventId: event1Id,
-    userId: user1Id,
-    status: "registered",
-    registeredAt: now,
-    cancelledAt: null
-  },
-  {
-    eventId: event2Id,
-    userId: user2Id,
-    status: "registered",
-    registeredAt: now,
-    cancelledAt: null
-  }
-]);
-
+ 
 // =========================================
 // NOTIFICATIONS
 // =========================================
-
+ 
 db.notifications.insertMany([
   {
     userId: user1Id,
     type: "event_reminder",
     title: "Workshop Reminder",
     content: "Your workshop starts tomorrow.",
-    related: {
-      type: "event",
-      id: event1Id
-    },
+    related: { type: "event", id: event1Id },
     isRead: false,
     readAt: null,
     createdAt: now
@@ -1020,10 +945,7 @@ db.notifications.insertMany([
     type: "mental_insight",
     title: "Weekly Emotional Insight",
     content: "This week you showed signs of stress on multiple days.",
-    related: {
-      type: "diary",
-      id: diary2Id
-    },
+    related: { type: "diary", id: diary2Id },
     isRead: false,
     readAt: null,
     createdAt: now
@@ -1033,10 +955,7 @@ db.notifications.insertMany([
     type: "safety_alert",
     title: "Emotional Support Reminder",
     content: "Remember that you can seek support from trusted people when overwhelmed.",
-    related: {
-      type: "safety_event",
-      id: safetyEvent1Id
-    },
+    related: { type: "safety_event", id: safetyEvent1Id },
     isRead: false,
     readAt: null,
     createdAt: now
@@ -1046,10 +965,7 @@ db.notifications.insertMany([
     type: "emotional_test_reminder",
     title: "Monthly Emotional Test Reminder",
     content: "It is time to retake your Emotional Test to track your emotional state this month.",
-    related: {
-      type: "test_result",
-      id: test1Id
-    },
+    related: { type: "test_result", id: test1Id },
     isRead: false,
     readAt: null,
     createdAt: now
@@ -1059,14 +975,11 @@ db.notifications.insertMany([
     type: "positive_support_request",
     title: "Community Support Request",
     content: "A community member may need encouragement. Consider leaving a supportive comment if you feel comfortable.",
-    related: {
-      type: "post",
-      id: post1Id
-    },
+    related: { type: "post", id: post1Id },
     isRead: false,
     readAt: null,
     createdAt: now
   }
 ]);
-
+ 
 print("SOUL MongoDB seed data inserted successfully.");

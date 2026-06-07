@@ -15,12 +15,17 @@ const userSchema = new mongoose.Schema(
     status: { type: String, enum: ["active", "inactive", "blocked"], required: true, default: "active" },
     forumBannedUntil: { type: Date, default: null },
 
-    moodReputation: { type: String, enum: ["positive", "neutral", "negative", null], default: null },
-    moodReputationScore: { type: Number, default: null },
+    moodReputation: { type: String, enum: ["positive", "neutral", "negative", null], default: "neutral" },
+    moodReputationScore: { type: Number, default: 0 },
     moodReputationUpdatedAt: { type: Date, default: null },
 
+ 
     anonymousModeEnabled: { type: Boolean, default: false },
-    anonymousAlias: { type: String, default: null },
+    anonymousAlias: {
+  type: String,
+  trim: true,
+  default: null,
+},
     anonymousModeUpdatedAt: { type: Date, default: null },
 
     lastEmotionalTestAt: { type: Date, default: null },

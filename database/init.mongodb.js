@@ -41,17 +41,14 @@ db.createCollection("users", {
         avatarUrl: { bsonType: ["string", "null"] },
         bio: { bsonType: ["string", "null"] },
 
-        savedPosts: {
-          bsonType: "array",
-          items: { bsonType: "objectId" }
-        },
+        savedPosts: { bsonType: "array", items: { bsonType: "objectId" } },
 
         role: { enum: ["user", "admin", "event_organizer"] },
         status: { enum: ["active", "inactive", "blocked"] },
         forumBannedUntil: { bsonType: ["date", "null"] },
 
-        moodReputation: { enum: ["positive", "neutral", "negative", null] },
-        moodReputationScore: { bsonType: ["int", "null"] },
+        moodReputation: { enum: ["positive", "neutral", "negative"], default: "neutral" },
+        moodReputationScore: { bsonType: "int", default: 0 },
         moodReputationUpdatedAt: { bsonType: ["date", "null"] },
 
         anonymousModeEnabled: { bsonType: "bool" },
@@ -60,7 +57,7 @@ db.createCollection("users", {
 
         lastEmotionalTestAt: { bsonType: ["date", "null"] },
         nextEmotionalTestDueAt: { bsonType: ["date", "null"] },
-        gender: { enum: ["male", "female", "other", null] },
+        gender: { enum: ["male", "female", "other"] },
         dateOfBirth: { bsonType: ["date", "null"] },
         isEmailVerified: { bsonType: "bool" },
         emailVerifiedAt: { bsonType: ["date", "null"] },
@@ -116,7 +113,6 @@ db.createCollection("diaries", {
 db.diaries.createIndex({ userId: 1 });
 db.diaries.createIndex({ userId: 1, createdAt: -1 });
 
-
 // =========================================
 // WEEKLY EMOTIONAL INSIGHTS
 // =========================================
@@ -133,17 +129,14 @@ db.createCollection("weekly_emotional_insights", {
 
         averageMoodScore: { bsonType: ["double", "int", "null"] },
         dominantEmotion: { bsonType: ["string", "null"] },
-        moodTrend: { enum: ["improving", "stable", "declining", null] },
+        moodTrend: { enum: ["improving", "stable", "declining"] },
 
         summary: { bsonType: ["string", "null"] },
         advice: { bsonType: ["string", "null"] },
 
-        sourceDiaryIds: {
-          bsonType: "array",
-          items: { bsonType: "objectId" }
-        },
+        sourceDiaryIds: { bsonType: "array", items: { bsonType: "objectId" } },
 
-        generatedBy: { enum: ["ai", "system", null] },
+        generatedBy: { enum: ["ai", "system"] },
         createdAt: { bsonType: "date" },
         updatedAt: { bsonType: "date" }
       }
@@ -156,7 +149,7 @@ db.weekly_emotional_insights.createIndex({ userId: 1, weekStartDate: -1 });
 db.weekly_emotional_insights.createIndex({ moodTrend: 1 });
 
 // =========================================
-// CHAT SESSIONS - NOSQL EMBEDDED MESSAGES
+// CHAT SESSIONS
 // =========================================
 
 db.createCollection("chat_sessions", {
@@ -167,8 +160,8 @@ db.createCollection("chat_sessions", {
       properties: {
         userId: { bsonType: "objectId" },
         title: { bsonType: "string" },
-        overallSentiment: { enum: ["positive", "neutral", "negative", null] },
-        highestRiskLevel: { enum: ["low", "medium", "high", null] },
+        overallSentiment: { enum: ["positive", "neutral", "negative"] },
+        highestRiskLevel: { enum: ["low", "medium", "high"] },
         isArchived: { bsonType: "bool" },
 
         messages: {
@@ -218,7 +211,7 @@ db.createCollection("ai_analyses", {
           }
         },
 
-        sentiment: { enum: ["positive", "neutral", "negative", null] },
+        sentiment: { enum: ["positive", "neutral", "negative"] },
         emotion: { bsonType: ["string", "null"] },
         riskLevel: { enum: ["low", "medium", "high", null] },
         toxicityLevel: { enum: ["low", "medium", "high", null] },
@@ -231,8 +224,7 @@ db.createCollection("ai_analyses", {
             "medical_advice_request",
             "medication_request",
             "violence_risk",
-            "toxic_content",
-            null
+            "toxic_content"
           ]
         },
 
@@ -280,16 +272,16 @@ db.createCollection("safety_events", {
 
         riskLevel: { enum: ["medium", "high"] },
 
-        safetyType: {
-          enum: [
-            "self_harm_risk",
-            "suicidal_intent",
-            "hopelessness",
-            "panic_crisis",
-            "medical_advice_request",
-            "medication_request",
-            "violence_risk"
-          ]
+        safetyType:{
+ enum:[
+   "self_harm_risk",
+   "suicidal_intent",
+   "medical_advice_request",
+   "medication_request",
+   "violence_risk",
+   "toxic_content",
+   null
+ ]
         },
 
         detectedText: { bsonType: ["string", "null"] },
@@ -461,6 +453,7 @@ db.createCollection("posts", {
         },
 
         isAnonymous: { bsonType: "bool" },
+        anonymousName: { bsonType: ["string", "null"] },
 
         visibility: { enum: ["public", "private"] },
 
@@ -469,14 +462,15 @@ db.createCollection("posts", {
         },
 
         statistics: {
-          bsonType: "object",
-          properties: {
-            likeCount: { bsonType: "int" },
-            supportCount: { bsonType: "int" },
-            hugCount: { bsonType: "int" },
-            commentCount: { bsonType: "int" },
-            reportCount: { bsonType: "int" }
-          }
+  bsonType: "object",
+  properties: {
+    supportCount: { bsonType: "int" },
+    hugCount: { bsonType: "int" },
+    encourageCount: { bsonType: "int" },
+    thankyouCount: { bsonType: "int" },
+    commentCount: { bsonType: "int" },
+    reportCount: { bsonType: "int" }
+  }
         },
 
         isFlagged: { bsonType: "bool" },
@@ -490,7 +484,7 @@ db.createCollection("posts", {
             required: ["userId", "type", "createdAt"],
             properties: {
               userId: { bsonType: "objectId" },
-              type: { enum: ["like", "support", "hug"] },
+              type: { enum: ["support", "hug", "encourage", "thankyou"] },
               createdAt: { bsonType: "date" }
             }
           }
@@ -531,17 +525,22 @@ db.createCollection("comments", {
         content: { bsonType: "string" },
 
         isAnonymous: { bsonType: "bool" },
+        anonymousName: { bsonType: ["string", "null"] },
 
         status: { enum: ["active", "hidden", "deleted"] },
 
         statistics: {
-          bsonType: "object",
-          properties: {
-            likeCount: { bsonType: "int" },
-            supportCount: { bsonType: "int" },
-            hugCount: { bsonType: "int" },
-            reportCount: { bsonType: "int" }
-          }
+  bsonType: "object",
+  properties: {
+    supportCount: { bsonType: "int" },
+    hugCount: { bsonType: "int" },
+    encourageCount: { bsonType: "int" },
+    thankyouCount: { bsonType: "int" },
+    replyCount: { bsonType: "int" },
+    reportCount: { bsonType: "int" }
+  }
+
+
         },
 
         toxicityLevel: { enum: ["low", "medium", "high", null] },
@@ -553,7 +552,7 @@ db.createCollection("comments", {
             required: ["userId", "type", "createdAt"],
             properties: {
               userId: { bsonType: "objectId" },
-              type: { enum: ["like", "support", "hug"] },
+              type: { enum: ["support", "hug", "encourage", "thankyou"] },
               createdAt: { bsonType: "date" }
             }
           }
