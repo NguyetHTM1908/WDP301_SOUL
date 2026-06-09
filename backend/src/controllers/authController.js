@@ -70,17 +70,26 @@ const register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // 7. Tạo người dùng mới
-    const newUser = await User.create({
+    const userFields = {
       fullName,
       email,
-      phone: phone || null,
       passwordHash,
-      gender: gender || null,
-      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
       role: "user",
       status: "active",
       isEmailVerified: false,
-    });
+    };
+
+    if (phone) {
+      userFields.phone = phone;
+    }
+    if (gender) {
+      userFields.gender = gender;
+    }
+    if (dateOfBirth) {
+      userFields.dateOfBirth = new Date(dateOfBirth);
+    }
+
+    const newUser = await User.create(userFields);
 
     // 8. Tạo JWT token
     const token = generateToken(newUser._id);
