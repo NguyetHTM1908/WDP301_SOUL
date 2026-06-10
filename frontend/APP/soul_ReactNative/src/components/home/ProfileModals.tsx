@@ -12,8 +12,10 @@ import {
   Alert,
   Image,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { useAuthStore } from "@/store";
+import DateTimePicker from "@react-native-community/datetimepicker";
 
 type ProfileModalsProps = {
   showMyProfile: boolean;
@@ -42,6 +44,40 @@ export function ProfileModals({
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
   const [saving, setSaving] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Chuyển string YYYY-MM-DD thành Date object để truyền vào DateTimePicker
+  const getBirthDateObject = () => {
+    if (dateOfBirth) {
+      const parts = dateOfBirth.split("-");
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // 0-indexed
+        const day = parseInt(parts[2], 10);
+        const date = new Date(year, month, day);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+    }
+    return new Date(2000, 0, 1); // Mặc định năm 2000 nếu chưa có ngày sinh
+  };
+
+  const handleToggleDatePicker = () => {
+    setShowDatePicker((prev) => !prev);
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS !== "ios") {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const day = String(selectedDate.getDate()).padStart(2, "0");
+      setDateOfBirth(`${year}-${month}-${day}`);
+    }
+  };
 
   // Đồng bộ thông tin người dùng từ store khi mở biểu mẫu chỉnh sửa
   const syncFormFields = () => {
@@ -362,7 +398,11 @@ export function ProfileModals({
 
               {/* Ngày sinh */}
               <Text style={styles.inputLabel}>Ngày sinh (YYYY-MM-DD)</Text>
-              <View style={styles.inputWrapper}>
+              <TouchableOpacity
+                style={styles.inputWrapper}
+                onPress={handleToggleDatePicker}
+                activeOpacity={0.7}
+              >
                 <MaterialCommunityIcons
                   name="calendar-outline"
                   size={20}
@@ -370,13 +410,34 @@ export function ProfileModals({
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { color: "#0F172A" }]}
                   value={dateOfBirth}
-                  onChangeText={setDateOfBirth}
-                  placeholder="Ví dụ: 1998-05-15"
+                  editable={false}
+                  pointerEvents="none"
+                  placeholder="Chọn ngày sinh"
                   placeholderTextColor="#94A3B8"
                 />
-              </View>
+              </TouchableOpacity>
+
+              {showDatePicker && (
+                <View style={Platform.OS === "ios" ? styles.iosPickerContainer : null}>
+                  <DateTimePicker
+                    value={getBirthDateObject()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    maximumDate={new Date()}
+                    onChange={handleDateChange}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity
+                      style={styles.iosDoneButton}
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <Text style={styles.iosDoneButtonText}>Xong</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
 
               {/* Link ảnh đại diện */}
               <Text style={styles.inputLabel}>Đường dẫn ảnh đại diện (URL)</Text>
@@ -649,5 +710,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     color: "#FFFFFF",
+  },
+  iosPickerContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    marginTop: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+  },
+  iosDoneButton: {
+    marginTop: 8,
+    backgroundColor: "#006B5C",
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignSelf: "stretch",
+    alignItems: "center",
+  },
+  iosDoneButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
   },
 });
