@@ -20,6 +20,7 @@ import { authStyles as styles } from "@/styles/auth.styles";
 import { WebView } from "react-native-webview";
 import { API_BASE_URL } from "@/api/config";
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
@@ -28,6 +29,13 @@ export default function RegisterScreen() {
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
 
+  // States inline validation
+  const [nameError, setNameError] = useState("");
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [serverError, setServerError] = useState("");
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   // States phục vụ WebView đăng nhập/đăng ký Google
   const [showGoogleAuth, setShowGoogleAuth] = useState(false);
   const [googleAuthUrl, setGoogleAuthUrl] = useState("");
@@ -35,7 +43,55 @@ export default function RegisterScreen() {
   const registerAction = useAuthStore((state) => state.register);
   const setSession = useAuthStore((state) => state.setSession);
 
-  // Kích hoạt hiển thị WebView mở đường dẫn đăng nhập Google từ Backend
+  // ── Validate helpers ──────────────────────────────────────────
+  const validateName = (value: string) => {
+    if (!value.trim()) {
+      setNameError("Vui lòng nhập họ tên");
+    } else {
+      setNameError("");
+    }
+  };
+
+  const validateEmail = (value: string) => {
+    if (!value.trim()) {
+      setEmailError("Vui lòng nhập email");
+    } else if (!emailRegex.test(value)) {
+      setEmailError("Email không hợp lệ (vd: example@gmail.com)");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) {
+      setPasswordError("Vui lòng nhập mật khẩu");
+    } else if (value.length < 6) {
+      setPasswordError("Mật khẩu phải có ít nhất 6 ký tự");
+    } else {
+      setPasswordError("");
+    }
+  };
+
+  // ── onChangeText handlers ─────────────────────────────────────
+  const handleNameChange = (value: string) => {
+    setFullName(value);
+    setServerError("");
+    validateName(value);
+  };
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setServerError("");
+    validateEmail(value);
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    setServerError("");
+    validatePassword(value);
+  };
+
+  // ── Google Auth ───────────────────────────────────────────────
   const handleGoogleSignUp = () => {
     const authUrl = `${API_BASE_URL}/auth/google`;
     console.log("[Google SignUp WebView] Khởi động, load URL:", authUrl);
@@ -43,7 +99,6 @@ export default function RegisterScreen() {
     setShowGoogleAuth(true);
   };
 
-  // Lắng nghe sự thay đổi URL bên trong WebView để hứng Token trả về
   const handleGoogleNavigation = async (navState: any) => {
     const urlStr = navState.url;
     console.log("[Google SignUp WebView] Lắng nghe chuyển hướng URL:", urlStr);
@@ -51,10 +106,9 @@ export default function RegisterScreen() {
     const hasToken = urlStr.includes("token=");
 
     if (hasToken) {
-      setShowGoogleAuth(false); // Đóng ngay Modal WebView
+      setShowGoogleAuth(false);
 
       try {
-        // Tách token JWT và thông tin user JSON từ callback URL
         const tokenMatch = urlStr.match(/token=([^&]+)/);
         const userMatch = urlStr.match(/user=([^&]+)/);
 
@@ -65,11 +119,7 @@ export default function RegisterScreen() {
           if (userJsonEncoded) {
             const userDecoded = decodeURIComponent(userJsonEncoded);
             const userObj = JSON.parse(userDecoded);
-
-            // Lưu phiên đăng nhập vào Zustand Store toàn cục
             setSession(token, userObj);
-
-            // Điều hướng thẳng vào trang chủ
             router.replace("/(tabs)");
           } else {
             Alert.alert("Lỗi đăng ký", "Không trích xuất được thông tin người dùng Google.");
@@ -87,34 +137,26 @@ export default function RegisterScreen() {
     }
   };
 
-
-
-  // Xử lý tạo tài khoản mới khi nhấn nút "Create account"
+  // ── Submit ────────────────────────────────────────────────────
   const handleRegister = async () => {
-    if (!fullName || !email || !password) {
-      Alert.alert("Thông báo", "Vui lòng điền đầy đủ Họ tên, Email và Mật khẩu.");
+    // Validate tất cả fields trước khi gọi API
+    validateName(fullName);
+    validateEmail(email);
+    validatePassword(password);
+
+    if (!fullName.trim() || !emailRegex.test(email) || password.length < 6) {
       return;
     }
 
-    if (password.length < 6) {
-      Alert.alert("Lỗi", "Mật khẩu phải có độ dài tối thiểu 6 ký tự.");
-      return;
-    }
-
+    setServerError("");
     setLoading(true);
-    const result = await registerAction({
-      fullName,
-      email,
-      password,
-    });
+    const result = await registerAction({ fullName, email, password });
     setLoading(false);
 
     if (result.success) {
-      Alert.alert("Thành công", "Đăng ký tài khoản thành công! Hãy đăng nhập lại.", [
-        { text: "OK", onPress: () => router.push("/(auth)/login") },
-      ]);
+      setShowSuccessModal(true);
     } else {
-      Alert.alert("Lỗi đăng ký", result.message);
+      setServerError(result.message || "Đăng ký thất bại. Vui lòng thử lại.");
     }
   };
 
@@ -141,7 +183,14 @@ export default function RegisterScreen() {
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>Sign Up</Text>
 
-          {/* Ô nhập Họ tên / Username */}
+          {/* Server error box */}
+          {serverError ? (
+            <View style={styles.serverErrorBox}>
+              <Text style={styles.serverErrorText}>{serverError}</Text>
+            </View>
+          ) : null}
+
+          {/* Ô nhập Họ tên */}
           <View style={styles.inputGroup}>
             <MaterialCommunityIcons
               name="account-outline"
@@ -154,10 +203,11 @@ export default function RegisterScreen() {
               placeholderTextColor="#A0AEC0"
               style={styles.input}
               value={fullName}
-              onChangeText={setFullName}
+              onChangeText={handleNameChange}
               autoCapitalize="words"
             />
           </View>
+          {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
           {/* Ô nhập Email */}
           <View style={styles.inputGroup}>
@@ -172,11 +222,12 @@ export default function RegisterScreen() {
               placeholderTextColor="#A0AEC0"
               style={styles.input}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
             />
           </View>
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
           {/* Ô nhập Mật khẩu */}
           <View style={styles.inputGroup}>
@@ -192,7 +243,7 @@ export default function RegisterScreen() {
               secureTextEntry={secureText}
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setSecureText(!secureText)}>
@@ -203,6 +254,7 @@ export default function RegisterScreen() {
               />
             </TouchableOpacity>
           </View>
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
           {/* Nút Đăng ký tài khoản */}
           <TouchableOpacity style={styles.buttonLarge} onPress={handleRegister} disabled={loading}>
@@ -220,7 +272,7 @@ export default function RegisterScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          {/* Nút Đăng nhập MXH (Chỉ giữ lại Google theo yêu cầu) */}
+          {/* Nút Đăng nhập Google */}
           <View style={styles.socialRow}>
             <TouchableOpacity style={styles.socialButton} onPress={handleGoogleSignUp}>
               <MaterialCommunityIcons name="google" size={24} color="#EA4335" />
@@ -273,6 +325,42 @@ export default function RegisterScreen() {
           </SafeAreaView>
         </Modal>
       )}
+
+      {/* Custom Success Popup Modal */}
+      <Modal
+        transparent={true}
+        visible={showSuccessModal}
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Header Icon */}
+            <View style={styles.successIconCircle}>
+              <MaterialCommunityIcons name="party-popper" size={44} color="#006B5C" />
+            </View>
+            
+            {/* Title */}
+            <Text style={styles.modalTitleText}>Đăng ký thành công!</Text>
+            
+            {/* Description */}
+            <Text style={styles.modalDescText}>
+              Chào mừng bạn đến với SOUL. Hãy đăng nhập để bắt đầu.
+            </Text>
+            
+            {/* Button */}
+            <TouchableOpacity
+              style={styles.modalConfirmButton}
+              onPress={() => {
+                setShowSuccessModal(false);
+                router.push("/(auth)/login");
+              }}
+            >
+              <Text style={styles.modalConfirmButtonText}>ĐĂNG NHẬP NGAY</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }

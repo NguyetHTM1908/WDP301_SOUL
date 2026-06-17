@@ -121,7 +121,15 @@ export default function AdminDashboard() {
             key={idx}
             style={styles.actionCard}
             activeOpacity={0.8}
-            onPress={action.onPress}
+            onPress={() => {
+              if (action.title === "Quản lý Người dùng") {
+                router.push("/(admin)/users");
+              } else if (action.onPress) {
+                action.onPress();
+              } else {
+                Alert.alert("Thông báo", `Tính năng "${action.title}" đang được hoàn thiện.`);
+              }
+            }}
           >
             <View style={[styles.actionIconContainer, { backgroundColor: action.color + "12" }]}>
               <MaterialCommunityIcons name={action.icon as any} size={26} color={action.color} />

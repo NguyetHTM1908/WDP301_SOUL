@@ -18,6 +18,7 @@ const adminForumRoutes = require("./src/routes/adminForumRoutes");
 // const journalRoutes = require("./src/routes/journalRoutes");
 const eventRoutes = require("./src/routes/eventRoutes");
 const tagRoutes = require("./src/routes/tagRoutes");
+const adminRoutes = require("./src/routes/adminRoutes");
 const app = express();
 
 connectDB();
@@ -40,6 +41,7 @@ app.use("/api/diaries", diaryRoutes);
 app.use("/api/events", eventRoutes);
 app.use("/api/tags", tagRoutes);
 app.use("/api/emotion-analysis", emotionAnalysisRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({

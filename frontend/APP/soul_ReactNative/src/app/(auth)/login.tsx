@@ -20,12 +20,18 @@ import { authStyles as styles } from "@/styles/auth.styles";
 import { WebView } from "react-native-webview";
 import { API_BASE_URL } from "@/api/config";
 
+const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  // States inline validation
+  const [emailError, setEmailError] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [serverError, setServerError] = useState("");
 
   // States phục vụ WebView đăng nhập Google
   const [showGoogleAuth, setShowGoogleAuth] = useState(false);
@@ -34,13 +40,48 @@ export default function LoginScreen() {
   const loginAction = useAuthStore((state) => state.login);
   const setSession = useAuthStore((state) => state.setSession);
 
-  // Xử lý đăng nhập khi nhấn nút Login thường
+  // ── Validate helpers ──────────────────────────────────────────
+  const validateEmail = (value: string) => {
+    if (!value.trim()) {
+      setEmailError("Vui lòng nhập email");
+    } else if (!emailRegex.test(value)) {
+      setEmailError("Email không hợp lệ (vd: example@gmail.com)");
+    } else {
+      setEmailError("");
+    }
+  };
+
+  const validatePassword = (value: string) => {
+    if (!value) {
+      setPasswordError("Vui lòng nhập mật khẩu");
+    } else {
+      setPasswordError("");
+    }
+  };
+
+  // ── onChangeText handlers ─────────────────────────────────────
+  const handleEmailChange = (value: string) => {
+    setEmail(value);
+    setServerError("");
+    validateEmail(value);
+  };
+
+  const handlePasswordChange = (value: string) => {
+    setPassword(value);
+    setServerError("");
+    validatePassword(value);
+  };
+
+  // ── Submit ────────────────────────────────────────────────────
   const handleLogin = async () => {
-    if (!email || !password) {
-      Alert.alert("Thông báo", "Vui lòng điền đầy đủ email và mật khẩu.");
+    validateEmail(email);
+    validatePassword(password);
+
+    if (!email.trim() || !emailRegex.test(email) || !password) {
       return;
     }
 
+    setServerError("");
     setLoading(true);
     const result = await loginAction(email, password);
     setLoading(false);
@@ -54,11 +95,11 @@ export default function LoginScreen() {
         router.replace("/(tabs)");
       }
     } else {
-      Alert.alert("Lỗi", result.message);
+      setServerError(result.message || "Đăng nhập thất bại. Vui lòng thử lại.");
     }
   };
 
-  // Kích hoạt hiển thị WebView mở đường dẫn đăng nhập Google từ Backend
+  // ── Google Auth ───────────────────────────────────────────────
   const handleGoogleLogin = () => {
     const authUrl = `${API_BASE_URL}/auth/google`;
     console.log("[Google Auth WebView] Khởi động, load URL:", authUrl);
@@ -66,7 +107,6 @@ export default function LoginScreen() {
     setShowGoogleAuth(true);
   };
 
-  // Lắng nghe sự thay đổi URL bên trong WebView để hứng Token trả về
   const handleGoogleNavigation = async (navState: any) => {
     const urlStr = navState.url;
     console.log("[Google Auth WebView] Lắng nghe chuyển hướng URL:", urlStr);
@@ -74,10 +114,9 @@ export default function LoginScreen() {
     const hasToken = urlStr.includes("token=");
 
     if (hasToken) {
-      setShowGoogleAuth(false); // Đóng ngay Modal WebView
+      setShowGoogleAuth(false);
 
       try {
-        // Tách token JWT và thông tin user JSON từ callback URL
         const tokenMatch = urlStr.match(/token=([^&]+)/);
         const userMatch = urlStr.match(/user=([^&]+)/);
 
@@ -89,7 +128,6 @@ export default function LoginScreen() {
             const userDecoded = decodeURIComponent(userJsonEncoded);
             const userObj = JSON.parse(userDecoded);
 
-            // Lưu phiên đăng nhập vào Zustand Store toàn cục
             setSession(token, userObj);
 
             // Điều hướng dựa trên vai trò (role) của người dùng
@@ -114,8 +152,6 @@ export default function LoginScreen() {
     }
   };
 
-
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -134,6 +170,13 @@ export default function LoginScreen() {
         <View style={styles.formCard}>
           <Text style={styles.formTitle}>Login</Text>
 
+          {/* Server error box */}
+          {serverError ? (
+            <View style={styles.serverErrorBox}>
+              <Text style={styles.serverErrorText}>{serverError}</Text>
+            </View>
+          ) : null}
+
           {/* Ô nhập Email */}
           <View style={styles.inputGroup}>
             <MaterialCommunityIcons
@@ -147,11 +190,12 @@ export default function LoginScreen() {
               placeholderTextColor="#A0AEC0"
               style={styles.input}
               value={email}
-              onChangeText={setEmail}
+              onChangeText={handleEmailChange}
               keyboardType="email-address"
               autoCapitalize="none"
             />
           </View>
+          {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
 
           {/* Ô nhập Mật khẩu */}
           <View style={styles.inputGroup}>
@@ -167,7 +211,7 @@ export default function LoginScreen() {
               secureTextEntry={secureText}
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={handlePasswordChange}
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setSecureText(!secureText)}>
@@ -178,6 +222,7 @@ export default function LoginScreen() {
               />
             </TouchableOpacity>
           </View>
+          {passwordError ? <Text style={styles.errorText}>{passwordError}</Text> : null}
 
           {/* Hàng liên kết quên mật khẩu và nút Login */}
           <View style={styles.loginRow}>
