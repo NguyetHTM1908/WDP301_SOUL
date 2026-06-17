@@ -4,7 +4,7 @@ import { Image, Pressable, Text, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
 import { CommentThread } from "./CommentThread";
 
-type ReactionType = "like" | "support" | "hug";
+type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type Props = {
   item: any;
@@ -42,7 +42,6 @@ type Props = {
 
 function normalizeImageUrl(url: any) {
   if (!url || typeof url !== "string") return "";
-
   return url.trim();
 }
 
@@ -80,7 +79,7 @@ export function PostCard({
   const postId = item?._id?.toString?.() || item?._id;
 
   const authorName = item?.isAnonymous
-    ? "Anonymous Soul"
+    ? item?.anonymousName || "Anonymous Soul"
     : item?.authorId?.fullName || "SOUL User";
 
   const avatar = item?.isAnonymous
@@ -89,6 +88,8 @@ export function PostCard({
 
   const mediaUrl = normalizeImageUrl(item?.mediaUrls?.[0]?.url);
   const shouldShowImage = isRemoteUrl(mediaUrl) && !imageError;
+
+  const stats = item?.statistics || {};
 
   return (
     <View style={s.postCard}>
@@ -99,11 +100,23 @@ export function PostCard({
           <View style={s.authorInfo}>
             <View style={s.nameRow}>
               <Text style={s.authorName}>{authorName}</Text>
-              <MaterialCommunityIcons
-                name="check-decagram"
-                size={15}
-                color="#00866B"
-              />
+
+              {item?.isAnonymous ? (
+                <View style={s.anonymousBadge}>
+                  <MaterialCommunityIcons
+                    name="incognito"
+                    size={13}
+                    color="#00866B"
+                  />
+                  <Text style={s.anonymousBadgeText}>Anonymous</Text>
+                </View>
+              ) : (
+                <MaterialCommunityIcons
+                  name="check-decagram"
+                  size={15}
+                  color="#00866B"
+                />
+              )}
             </View>
 
             <Text style={s.postMeta}>{moodLabel(item?.emotionStatus)}</Text>
@@ -135,10 +148,10 @@ export function PostCard({
             </View>
           </View>
         ) : (
-          <Pressable onPress={() => onReportPost(postId)}>
+          <Pressable style={s.iconButtonSoft} onPress={() => onReportPost(postId)}>
             <MaterialCommunityIcons
               name="flag-outline"
-              size={23}
+              size={21}
               color="#60706C"
             />
           </Pressable>
@@ -161,7 +174,7 @@ export function PostCard({
         <Image
           source={{ uri: mediaUrl }}
           style={s.postImage}
-          resizeMode="contain"
+          resizeMode="cover"
           onError={() => setImageError(true)}
         />
       ) : null}
@@ -179,41 +192,49 @@ export function PostCard({
         </View>
       ) : null}
 
-      <View style={s.actionRow}>
+      <View style={s.reactionBar}>
         <Pressable
-          style={s.actionItem}
-          onPress={() => onReactPost(postId, "like")}
-        >
-          <Text style={s.actionEmoji}>❤️</Text>
-          <Text style={s.actionText}>{item?.statistics?.likeCount || 0}</Text>
-        </Pressable>
-
-        <Pressable
-          style={s.actionItem}
+          style={s.reactionPill}
           onPress={() => onReactPost(postId, "support")}
         >
           <Text style={s.actionEmoji}>💚</Text>
-          <Text style={s.actionText}>{item?.statistics?.supportCount || 0}</Text>
+          <Text style={s.actionText}>{stats.supportCount || 0}</Text>
         </Pressable>
 
         <Pressable
-          style={s.actionItem}
+          style={s.reactionPill}
           onPress={() => onReactPost(postId, "hug")}
         >
           <Text style={s.actionEmoji}>🤗</Text>
-          <Text style={s.actionText}>{item?.statistics?.hugCount || 0}</Text>
+          <Text style={s.actionText}>{stats.hugCount || 0}</Text>
         </Pressable>
 
         <Pressable
-          style={s.actionItem}
+          style={s.reactionPill}
+          onPress={() => onReactPost(postId, "encourage")}
+        >
+          <Text style={s.actionEmoji}>🌟</Text>
+          <Text style={s.actionText}>{stats.encourageCount || 0}</Text>
+        </Pressable>
+
+        <Pressable
+          style={s.reactionPill}
+          onPress={() => onReactPost(postId, "thankyou")}
+        >
+          <Text style={s.actionEmoji}>🙏</Text>
+          <Text style={s.actionText}>{stats.thankyouCount || 0}</Text>
+        </Pressable>
+
+        <Pressable
+          style={s.commentPill}
           onPress={() => onToggleComments(postId)}
         >
           <MaterialCommunityIcons
             name="comment-outline"
-            size={22}
-            color="#60706C"
+            size={19}
+            color="#064D3D"
           />
-          <Text style={s.actionText}>{item?.statistics?.commentCount || 0}</Text>
+          <Text style={s.actionText}>{stats.commentCount || 0}</Text>
         </Pressable>
       </View>
 

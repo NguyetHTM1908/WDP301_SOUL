@@ -1,6 +1,6 @@
 import { API_BASE_URL } from "./config";
 
-export type ReactionType = "like" | "support" | "hug";
+export type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type GetApprovedPostsParams = {
   search?: string;
