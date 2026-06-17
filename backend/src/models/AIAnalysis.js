@@ -6,11 +6,13 @@ const aiAnalysisSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+      index: true,
     },
+
     target: {
       type: {
         type: String,
-        enum: ["chat_message", "diary", "post", "comment"],
+        enum: ["chat_message", "diary", "post", "comment", "test_result"],
         required: true,
       },
       id: {
@@ -18,30 +20,61 @@ const aiAnalysisSchema = new mongoose.Schema(
         required: true,
       },
     },
+
+    analysisType: {
+      type: String,
+      enum: ["emotion_analysis", "safety_check", "toxicity_check"],
+      required: true,
+      default: "emotion_analysis",
+    },
+
     sentiment: {
+      type: String,
+      enum: ["positive", "neutral", "negative"],
+      required: true,
+      index: true,
+    },
+
+    emotion: {
       type: String,
       enum: ["positive", "neutral", "negative", null],
       default: null,
     },
-    emotion: {
-      type: String,
-      default: null,
-      trim: true,
+
+    emotionScore: {
+      type: Number,
+      required: true,
+      min: 0,
+      max: 100,
+      index: true,
     },
+
+    confidenceScore: {
+      type: Number,
+      default: null,
+      min: 0,
+      max: 100,
+    },
+
     riskLevel: {
       type: String,
       enum: ["low", "medium", "high", null],
-      default: null,
+      default: "low",
+      index: true,
     },
+
     toxicityLevel: {
       type: String,
       enum: ["low", "medium", "high", null],
-      default: null,
+      default: "low",
     },
+
     safetyTriggered: {
       type: Boolean,
       default: false,
+      index: true,
     },
+
     safetyType: {
       type: String,
       enum: [
@@ -55,31 +88,45 @@ const aiAnalysisSchema = new mongoose.Schema(
       ],
       default: null,
     },
+
+    sourceTextSnapshot: {
+      type: String,
+      default: null,
+    },
+
     summary: {
       type: String,
       default: null,
     },
+
     suggestion: {
       type: String,
       default: null,
     },
+
     modelName: {
       type: String,
-      default: null,
-      trim: true,
+      default: "hybrid-emotion-v1",
+    },
+
+    analyzedAt: {
+      type: Date,
+      default: Date.now,
+      index: true,
+    },
+
+    createdAt: {
+      type: Date,
+      default: Date.now,
     },
   },
   {
-    timestamps: { createdAt: true, updatedAt: false }, // Only need createdAt for AI analysis logs
+    versionKey: false,
+    collection: "ai_analyses",
   }
 );
 
-// Indexes
-aiAnalysisSchema.index({ userId: 1 });
+aiAnalysisSchema.index({ userId: 1, analyzedAt: -1 });
 aiAnalysisSchema.index({ "target.type": 1, "target.id": 1 });
-aiAnalysisSchema.index({ riskLevel: 1 });
-aiAnalysisSchema.index({ safetyTriggered: 1 });
 
-const AIAnalysis = mongoose.model("AIAnalysis", aiAnalysisSchema, "ai_analyses");
-
-module.exports = AIAnalysis;
+module.exports = mongoose.model("AiAnalysis", aiAnalysisSchema);

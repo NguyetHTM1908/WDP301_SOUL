@@ -727,7 +727,69 @@ mediaPlaceholderText: {
     color: "#064D3D",
     textAlign: "center",
   },
+anonymousBadge: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 4,
+  backgroundColor: "#EAF7F3",
+  borderRadius: 999,
+  paddingHorizontal: 8,
+  paddingVertical: 3,
+},
 
+anonymousBadgeText: {
+  color: "#00866B",
+  fontSize: 11,
+  fontWeight: "900",
+},
+
+iconButtonSoft: {
+  width: 38,
+  height: 38,
+  borderRadius: 19,
+  backgroundColor: "#F1F7F5",
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+reactionBar: {
+  marginTop: 16,
+  flexDirection: "row",
+  alignItems: "center",
+  flexWrap: "wrap",
+  gap: 8,
+},
+
+reactionPill: {
+  minHeight: 38,
+  paddingHorizontal: 12,
+  borderRadius: 999,
+  backgroundColor: "#F0FBF7",
+  borderWidth: 1,
+  borderColor: "#DCEBE7",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+commentPill: {
+  minHeight: 38,
+  paddingHorizontal: 12,
+  borderRadius: 999,
+  backgroundColor: "#EAF7F3",
+  borderWidth: 1,
+  borderColor: "#D4EAE3",
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+inlineCommentMeta: {
+  marginTop: 2,
+  fontSize: 11,
+  fontWeight: "700",
+  color: "#7A8A87",
+},
   reportSub: {
     marginTop: 8,
     color: "#6D7D79",

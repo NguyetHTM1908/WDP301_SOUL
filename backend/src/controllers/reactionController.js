@@ -1,20 +1,123 @@
+const mongoose = require("mongoose");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
 
-const ALLOWED_REACTIONS = ["like", "support", "hug"];
+const ALLOWED_REACTIONS = ["support", "hug", "encourage", "thankyou"];
 
-const countReactionStats = (reactions) => {
-  return {
-    likeCount: reactions.filter((r) => r.type === "like").length,
-    supportCount: reactions.filter((r) => r.type === "support").length,
-    hugCount: reactions.filter((r) => r.type === "hug").length,
-  };
+const emptyStats = () => ({
+  supportCount: 0,
+  hugCount: 0,
+  encourageCount: 0,
+  thankyouCount: 0,
+});
+
+const countReactionStats = (reactions = []) => {
+  const safeReactions = Array.isArray(reactions) ? reactions : [];
+
+  return safeReactions.reduce(
+    (acc, reaction) => {
+      if (reaction?.type === "support") acc.supportCount += 1;
+      if (reaction?.type === "hug") acc.hugCount += 1;
+      if (reaction?.type === "encourage") acc.encourageCount += 1;
+      if (reaction?.type === "thankyou") acc.thankyouCount += 1;
+      return acc;
+    },
+    emptyStats()
+  );
+};
+
+const ensureStatistics = (target, type = "post") => {
+  if (!target.statistics) {
+    target.statistics = {};
+  }
+
+  target.statistics.supportCount = target.statistics.supportCount || 0;
+  target.statistics.hugCount = target.statistics.hugCount || 0;
+  target.statistics.encourageCount = target.statistics.encourageCount || 0;
+  target.statistics.thankyouCount = target.statistics.thankyouCount || 0;
+  target.statistics.reportCount = target.statistics.reportCount || 0;
+
+  if (type === "post") {
+    target.statistics.commentCount = target.statistics.commentCount || 0;
+  }
+
+  if (type === "comment") {
+    target.statistics.replyCount = target.statistics.replyCount || 0;
+  }
+};
+
+const ensureAuthUser = (req, res) => {
+  if (!req.user || !req.user._id) {
+    res.status(401).json({
+      success: false,
+      message: "Bạn cần đăng nhập để thực hiện hành động này.",
+    });
+    return false;
+  }
+
+  return true;
+};
+
+const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+const upsertReaction = (target, userId, type) => {
+  if (!Array.isArray(target.reactions)) {
+    target.reactions = [];
+  }
+
+  const userIdString = userId.toString();
+
+  const existingIndex = target.reactions.findIndex(
+    (reaction) => reaction?.userId?.toString() === userIdString
+  );
+
+  if (existingIndex >= 0) {
+    target.reactions[existingIndex].type = type;
+    target.reactions[existingIndex].createdAt = new Date();
+  } else {
+    target.reactions.push({
+      userId,
+      type,
+      createdAt: new Date(),
+    });
+  }
+};
+
+const removeReaction = (target, userId) => {
+  if (!Array.isArray(target.reactions)) {
+    target.reactions = [];
+    return;
+  }
+
+  const userIdString = userId.toString();
+
+  target.reactions = target.reactions.filter(
+    (reaction) => reaction?.userId?.toString() !== userIdString
+  );
+};
+
+const applyReactionStats = (target) => {
+  const stats = countReactionStats(target.reactions);
+
+  target.statistics.supportCount = stats.supportCount;
+  target.statistics.hugCount = stats.hugCount;
+  target.statistics.encourageCount = stats.encourageCount;
+  target.statistics.thankyouCount = stats.thankyouCount;
 };
 
 exports.reactToPost = async (req, res) => {
   try {
+    if (!ensureAuthUser(req, res)) return;
+
     const { type } = req.body;
     const { postId } = req.params;
+
+    if (!isValidObjectId(postId)) {
+      return res.status(400).json({
+        success: false,
+        message: "postId không hợp lệ.",
+      });
+    }
 
     if (!ALLOWED_REACTIONS.includes(type)) {
       return res.status(400).json({
@@ -25,32 +128,23 @@ exports.reactToPost = async (req, res) => {
 
     const post = await Post.findById(postId);
 
-    if (!post || post.status !== "approved" || post.visibility !== "public") {
+    if (!post) {
       return res.status(404).json({
         success: false,
-        message: "Không tìm thấy bài viết đã duyệt.",
+        message: "Không tìm thấy bài viết.",
       });
     }
 
-    const existingIndex = post.reactions.findIndex(
-      (r) => r.userId.toString() === req.user._id.toString()
-    );
-
-    if (existingIndex >= 0) {
-      post.reactions[existingIndex].type = type;
-      post.reactions[existingIndex].createdAt = new Date();
-    } else {
-      post.reactions.push({
-        userId: req.user._id,
-        type,
+    if (post.status !== "approved" || post.visibility !== "public") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ có thể react bài viết đã được duyệt và công khai.",
       });
     }
 
-    const stats = countReactionStats(post.reactions);
-
-    post.statistics.likeCount = stats.likeCount;
-    post.statistics.supportCount = stats.supportCount;
-    post.statistics.hugCount = stats.hugCount;
+    ensureStatistics(post, "post");
+    upsertReaction(post, req.user._id, type);
+    applyReactionStats(post);
 
     await post.save();
 
@@ -60,35 +154,47 @@ exports.reactToPost = async (req, res) => {
       data: post.statistics,
     });
   } catch (error) {
+    console.error("reactToPost error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Lỗi server khi react bài viết.",
     });
   }
 };
 
 exports.removePostReaction = async (req, res) => {
   try {
+    if (!ensureAuthUser(req, res)) return;
+
     const { postId } = req.params;
+
+    if (!isValidObjectId(postId)) {
+      return res.status(400).json({
+        success: false,
+        message: "postId không hợp lệ.",
+      });
+    }
 
     const post = await Post.findById(postId);
 
-    if (!post || post.status !== "approved") {
+    if (!post) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy bài viết.",
       });
     }
 
-    post.reactions = post.reactions.filter(
-      (r) => r.userId.toString() !== req.user._id.toString()
-    );
+    if (post.status !== "approved" || post.visibility !== "public") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ có thể gỡ reaction ở bài viết đã được duyệt và công khai.",
+      });
+    }
 
-    const stats = countReactionStats(post.reactions);
-
-    post.statistics.likeCount = stats.likeCount;
-    post.statistics.supportCount = stats.supportCount;
-    post.statistics.hugCount = stats.hugCount;
+    ensureStatistics(post, "post");
+    removeReaction(post, req.user._id);
+    applyReactionStats(post);
 
     await post.save();
 
@@ -98,17 +204,28 @@ exports.removePostReaction = async (req, res) => {
       data: post.statistics,
     });
   } catch (error) {
+    console.error("removePostReaction error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Lỗi server khi gỡ reaction bài viết.",
     });
   }
 };
 
 exports.reactToComment = async (req, res) => {
   try {
+    if (!ensureAuthUser(req, res)) return;
+
     const { type } = req.body;
     const { commentId } = req.params;
+
+    if (!isValidObjectId(commentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "commentId không hợp lệ.",
+      });
+    }
 
     if (!ALLOWED_REACTIONS.includes(type)) {
       return res.status(400).json({
@@ -119,41 +236,39 @@ exports.reactToComment = async (req, res) => {
 
     const comment = await Comment.findById(commentId);
 
-    if (!comment || comment.status !== "active") {
+    if (!comment) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy bình luận.",
       });
     }
 
+    if (comment.status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ có thể react bình luận đang hoạt động.",
+      });
+    }
+
     const post = await Post.findById(comment.postId);
 
-    if (!post || post.status !== "approved" || post.visibility !== "public") {
+    if (!post) {
       return res.status(404).json({
         success: false,
-        message: "Bài viết chứa bình luận không tồn tại hoặc chưa được duyệt.",
+        message: "Không tìm thấy bài viết chứa bình luận.",
       });
     }
 
-    const existingIndex = comment.reactions.findIndex(
-      (r) => r.userId.toString() === req.user._id.toString()
-    );
-
-    if (existingIndex >= 0) {
-      comment.reactions[existingIndex].type = type;
-      comment.reactions[existingIndex].createdAt = new Date();
-    } else {
-      comment.reactions.push({
-        userId: req.user._id,
-        type,
+    if (post.status !== "approved" || post.visibility !== "public") {
+      return res.status(403).json({
+        success: false,
+        message: "Bài viết chứa bình luận chưa được duyệt hoặc không công khai.",
       });
     }
 
-    const stats = countReactionStats(comment.reactions);
-
-    comment.statistics.likeCount = stats.likeCount;
-    comment.statistics.supportCount = stats.supportCount;
-    comment.statistics.hugCount = stats.hugCount;
+    ensureStatistics(comment, "comment");
+    upsertReaction(comment, req.user._id, type);
+    applyReactionStats(comment);
 
     await comment.save();
 
@@ -163,35 +278,63 @@ exports.reactToComment = async (req, res) => {
       data: comment.statistics,
     });
   } catch (error) {
+    console.error("reactToComment error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Lỗi server khi react bình luận.",
     });
   }
 };
 
 exports.removeCommentReaction = async (req, res) => {
   try {
+    if (!ensureAuthUser(req, res)) return;
+
     const { commentId } = req.params;
+
+    if (!isValidObjectId(commentId)) {
+      return res.status(400).json({
+        success: false,
+        message: "commentId không hợp lệ.",
+      });
+    }
 
     const comment = await Comment.findById(commentId);
 
-    if (!comment || comment.status !== "active") {
+    if (!comment) {
       return res.status(404).json({
         success: false,
         message: "Không tìm thấy bình luận.",
       });
     }
 
-    comment.reactions = comment.reactions.filter(
-      (r) => r.userId.toString() !== req.user._id.toString()
-    );
+    if (comment.status !== "active") {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ có thể gỡ reaction ở bình luận đang hoạt động.",
+      });
+    }
 
-    const stats = countReactionStats(comment.reactions);
+    const post = await Post.findById(comment.postId);
 
-    comment.statistics.likeCount = stats.likeCount;
-    comment.statistics.supportCount = stats.supportCount;
-    comment.statistics.hugCount = stats.hugCount;
+    if (!post) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài viết chứa bình luận.",
+      });
+    }
+
+    if (post.status !== "approved" || post.visibility !== "public") {
+      return res.status(403).json({
+        success: false,
+        message: "Bài viết chứa bình luận chưa được duyệt hoặc không công khai.",
+      });
+    }
+
+    ensureStatistics(comment, "comment");
+    removeReaction(comment, req.user._id);
+    applyReactionStats(comment);
 
     await comment.save();
 
@@ -201,9 +344,11 @@ exports.removeCommentReaction = async (req, res) => {
       data: comment.statistics,
     });
   } catch (error) {
+    console.error("removeCommentReaction error:", error);
+
     return res.status(500).json({
       success: false,
-      message: error.message,
+      message: error.message || "Lỗi server khi gỡ reaction bình luận.",
     });
   }
 };

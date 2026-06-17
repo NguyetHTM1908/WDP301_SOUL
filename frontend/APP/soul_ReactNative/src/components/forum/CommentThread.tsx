@@ -3,7 +3,7 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
 
-type ReactionType = "like" | "support" | "hug";
+type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type Props = {
   postId: string;
@@ -79,8 +79,13 @@ export function CommentThread({
     return comment.parentCommentId._id?.toString?.() || null;
   };
 
-  const getCommentAuthorName = (comment: any) =>
-    comment?.authorId?.fullName || "Anonymous";
+  const getCommentAuthorName = (comment: any) => {
+    if (comment?.isAnonymous) {
+      return comment?.anonymousName || "Anonymous";
+    }
+
+    return comment?.authorId?.fullName || "SOUL User";
+  };
 
   const parentComments = comments.filter((comment) => !getParentId(comment));
 
@@ -239,6 +244,7 @@ export function CommentThread({
   const renderActions = (comment: any, rootParentId?: string) => {
     const commentId = getCommentId(comment);
     const submitParentId = rootParentId || commentId;
+    const stats = comment?.statistics || {};
 
     const authorId = getAuthorId(comment);
     const isOwner =
@@ -249,22 +255,20 @@ export function CommentThread({
     return (
       <>
         <View style={s.commentActionRow}>
-          <Pressable onPress={() => onReactComment(postId, commentId, "like")}>
-            <Text style={s.commentActionText}>
-              ❤️ {comment?.statistics?.likeCount || 0}
-            </Text>
-          </Pressable>
-
           <Pressable onPress={() => onReactComment(postId, commentId, "support")}>
-            <Text style={s.commentActionText}>
-              💚 {comment?.statistics?.supportCount || 0}
-            </Text>
+            <Text style={s.commentActionText}>💚 {stats.supportCount || 0}</Text>
           </Pressable>
 
           <Pressable onPress={() => onReactComment(postId, commentId, "hug")}>
-            <Text style={s.commentActionText}>
-              🤗 {comment?.statistics?.hugCount || 0}
-            </Text>
+            <Text style={s.commentActionText}>🤗 {stats.hugCount || 0}</Text>
+          </Pressable>
+
+          <Pressable onPress={() => onReactComment(postId, commentId, "encourage")}>
+            <Text style={s.commentActionText}>🌟 {stats.encourageCount || 0}</Text>
+          </Pressable>
+
+          <Pressable onPress={() => onReactComment(postId, commentId, "thankyou")}>
+            <Text style={s.commentActionText}>🙏 {stats.thankyouCount || 0}</Text>
           </Pressable>
 
           <Pressable onPress={() => openReplyInput(comment)}>
@@ -308,9 +312,15 @@ export function CommentThread({
     return (
       <View key={commentId} style={isReply ? s.replyCard : s.inlineCommentCard}>
         <View style={s.commentTopRow}>
-          <Text style={s.inlineCommentAuthor}>
-            {getCommentAuthorName(comment)}
-          </Text>
+          <View style={{ flex: 1 }}>
+            <Text style={s.inlineCommentAuthor}>
+              {getCommentAuthorName(comment)}
+            </Text>
+
+            {comment?.isAnonymous ? (
+              <Text style={s.inlineCommentMeta}>Anonymous reply</Text>
+            ) : null}
+          </View>
 
           <Pressable
             style={s.commentMenuButton}
@@ -352,7 +362,7 @@ export function CommentThread({
       <View style={s.inlineCommentInputRow}>
         <TextInput
           style={s.inlineCommentInput}
-          placeholder="Write a comment..."
+          placeholder="Write a supportive comment..."
           placeholderTextColor="#8A9996"
           value={commentInput}
           onChangeText={(text) =>

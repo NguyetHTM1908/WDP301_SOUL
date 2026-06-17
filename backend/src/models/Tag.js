@@ -9,14 +9,17 @@ const tagSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+
     description: {
       type: String,
       default: null,
     },
+
     postCount: {
       type: Number,
       default: 0,
     },
+
     status: {
       type: String,
       enum: ["active", "inactive"],
@@ -28,7 +31,6 @@ const tagSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
 tagSchema.index({ status: 1 });
 
 const Tag = mongoose.model("Tag", tagSchema);

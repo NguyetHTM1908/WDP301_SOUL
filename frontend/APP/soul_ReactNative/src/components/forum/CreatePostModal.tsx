@@ -26,12 +26,14 @@ type Props = {
   hashtags: string;
   emotionStatus: string;
   isAnonymous: boolean;
+  anonymousName: string;
   emotions: Emotion[];
   setContent: (value: string) => void;
   setMediaUrl: (value: string) => void;
   setHashtags: (value: string) => void;
   setEmotionStatus: (value: string) => void;
   setIsAnonymous: (value: boolean) => void;
+  setAnonymousName: (value: string) => void;
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -44,12 +46,14 @@ export function CreatePostModal({
   hashtags,
   emotionStatus,
   isAnonymous,
+  anonymousName,
   emotions,
   setContent,
   setMediaUrl,
   setHashtags,
   setEmotionStatus,
   setIsAnonymous,
+  setAnonymousName,
   onClose,
   onSubmit,
 }: Props) {
@@ -157,6 +161,23 @@ export function CreatePostModal({
                 thumbColor="#FFFFFF"
               />
             </View>
+
+            {isAnonymous ? (
+              <View style={s.formInput}>
+                <MaterialCommunityIcons
+                  name="account-question-outline"
+                  size={24}
+                  color="#7A8A87"
+                />
+                <TextInput
+                  style={s.formTextInput}
+                  placeholder="Anonymous name: Thỏ lém lỉnh..."
+                  placeholderTextColor="#8A9996"
+                  value={anonymousName}
+                  onChangeText={setAnonymousName}
+                />
+              </View>
+            ) : null}
 
             <Pressable style={s.submitButton} onPress={onSubmit}>
               <MaterialCommunityIcons

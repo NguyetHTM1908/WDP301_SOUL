@@ -5,6 +5,7 @@ const TokenBlacklist = require("../models/TokenBlacklist");
 const auth = async (req, res, next) => {
   try {
     const authHeader = req.header("Authorization");
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
         success: false,
@@ -15,8 +16,8 @@ const auth = async (req, res, next) => {
     const token = authHeader.replace("Bearer ", "");
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // Kiểm tra token có trong danh sách đen (đã đăng xuất) không
     const isBlacklisted = await TokenBlacklist.findOne({ token });
+
     if (isBlacklisted) {
       return res.status(401).json({
         success: false,
@@ -24,7 +25,9 @@ const auth = async (req, res, next) => {
       });
     }
 
-    const user = await User.findById(decoded.id);
+    const userId = decoded.id || decoded._id;
+    const user = await User.findById(userId);
+
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -32,10 +35,10 @@ const auth = async (req, res, next) => {
       });
     }
 
-    // Đính kèm user, token và thời gian hết hạn vào request
     req.user = user;
     req.token = token;
-    req.tokenExp = decoded.exp; // Unix timestamp khi token hết hạn
+    req.tokenExp = decoded.exp;
+
     next();
   } catch (error) {
     return res.status(401).json({
@@ -50,14 +53,16 @@ const isAdmin = async (req, res, next) => {
     if (!req.user) {
       return res.status(401).json({
         success: false,
-        message: "Không xác định được danh tính người dùng. Vui lòng đăng nhập.",
+        message:
+          "Không xác định được danh tính người dùng. Vui lòng đăng nhập.",
       });
     }
 
     if (req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
-        message: "Không có quyền truy cập. Chức năng này chỉ dành cho quản trị viên.",
+        message:
+          "Không có quyền truy cập. Chức năng này chỉ dành cho quản trị viên.",
       });
     }
 

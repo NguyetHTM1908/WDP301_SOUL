@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 
+const REACTION_TYPES = ["support", "hug", "encourage", "thankyou"];
+
 const reactionSchema = new mongoose.Schema(
   {
     userId: {
@@ -9,7 +11,7 @@ const reactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["like", "support", "hug"],
+      enum: REACTION_TYPES,
       required: true,
     },
     createdAt: {
@@ -51,6 +53,12 @@ const commentSchema = new mongoose.Schema(
       default: false,
     },
 
+    anonymousName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     status: {
       type: String,
       enum: ["active", "hidden", "deleted"],
@@ -58,9 +66,11 @@ const commentSchema = new mongoose.Schema(
     },
 
     statistics: {
-      likeCount: { type: Number, default: 0 },
       supportCount: { type: Number, default: 0 },
       hugCount: { type: Number, default: 0 },
+      encourageCount: { type: Number, default: 0 },
+      thankyouCount: { type: Number, default: 0 },
+      replyCount: { type: Number, default: 0 },
       reportCount: { type: Number, default: 0 },
     },
 
@@ -70,7 +80,10 @@ const commentSchema = new mongoose.Schema(
       default: null,
     },
 
-    reactions: [reactionSchema],
+    reactions: {
+      type: [reactionSchema],
+      default: [],
+    },
 
     editedAt: {
       type: Date,

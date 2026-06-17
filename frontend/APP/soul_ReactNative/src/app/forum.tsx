@@ -39,6 +39,8 @@ import { EmptyForum } from "@/components/forum/EmptyForum";
 import { ReportModal } from "@/components/forum/ReportModal";
 import { MyReportsModal } from "@/components/forum/MyReportsModal";
 
+type ReactionType = "support" | "hug" | "encourage" | "thankyou";
+
 const defaultFilters = ["all", "stress", "self-care", "student-life", "deadline"];
 
 const emotions = [
@@ -122,6 +124,7 @@ export default function ForumScreen() {
   const [hashtags, setHashtags] = useState("stress, deadline");
   const [emotionStatus, setEmotionStatus] = useState("stress");
   const [isAnonymous, setIsAnonymous] = useState(true);
+  const [anonymousName, setAnonymousName] = useState("");
 
   const [openCommentPostId, setOpenCommentPostId] = useState<string | null>(null);
   const [commentsByPost, setCommentsByPost] = useState<Record<string, any[]>>({});
@@ -174,7 +177,7 @@ export default function ForumScreen() {
 
     const res = await getApprovedPosts({
       search,
-      hashtag: filter,
+      hashtag: filter === "all" ? undefined : filter,
     });
 
     setPosts(normalizeList(res));
@@ -224,9 +227,7 @@ export default function ForumScreen() {
     return () => clearTimeout(timeout);
   }, [search, filter]);
 
-  const visiblePosts = useMemo(() => {
-    return posts;
-  }, [posts]);
+  const visiblePosts = useMemo(() => posts, [posts]);
 
   const onRefresh = async () => {
     try {
@@ -246,6 +247,7 @@ export default function ForumScreen() {
     setHashtags("stress, deadline");
     setEmotionStatus("stress");
     setIsAnonymous(true);
+    setAnonymousName(user?.anonymousAlias || "");
   };
 
   const openCreateModal = () => {
@@ -260,6 +262,7 @@ export default function ForumScreen() {
     setHashtags((post.hashtags || []).join(", "));
     setEmotionStatus(post.emotionStatus || "neutral");
     setIsAnonymous(!!post.isAnonymous);
+    setAnonymousName(post.anonymousName || user?.anonymousAlias || "");
     setShowCreate(true);
   };
 
@@ -287,6 +290,7 @@ export default function ForumScreen() {
         .map((tag) => tag.replace("#", "").trim())
         .filter(Boolean),
       isAnonymous,
+      anonymousName: isAnonymous ? anonymousName.trim() || "Anonymous Soul" : null,
       visibility: "public",
     };
 
@@ -332,10 +336,7 @@ export default function ForumScreen() {
     ]);
   };
 
-  const handleReactPost = async (
-    postId: string,
-    type: "like" | "support" | "hug"
-  ) => {
+  const handleReactPost = async (postId: string, type: ReactionType) => {
     if (!requireLogin()) return;
 
     try {
@@ -430,7 +431,7 @@ export default function ForumScreen() {
   const handleReactComment = async (
     postId: string,
     commentId: string,
-    type: "like" | "support" | "hug"
+    type: ReactionType
   ) => {
     if (!requireLogin()) return;
 
@@ -524,14 +525,15 @@ export default function ForumScreen() {
   return (
     <View style={s.page}>
       <ForumHeader
-  search={search}
-  setSearch={setSearch}
-  filter={filter}
-  setFilter={setFilter}
-  filters={filters}
-  onCreatePress={openCreateModal}
-  onReportsPress={openMyReports}
-onBackPress={() => router.replace("/(tabs)" as any)}/>
+        search={search}
+        setSearch={setSearch}
+        filter={filter}
+        setFilter={setFilter}
+        filters={filters}
+        onCreatePress={openCreateModal}
+        onReportsPress={openMyReports}
+        onBackPress={() => router.replace("/(tabs)" as any)}
+      />
 
       <FlatList
         data={visiblePosts}
@@ -579,12 +581,14 @@ onBackPress={() => router.replace("/(tabs)" as any)}/>
         hashtags={hashtags}
         emotionStatus={emotionStatus}
         isAnonymous={isAnonymous}
+        anonymousName={anonymousName}
         emotions={emotions}
         setContent={setContent}
         setMediaUrl={setMediaUrl}
         setHashtags={setHashtags}
         setEmotionStatus={setEmotionStatus}
         setIsAnonymous={setIsAnonymous}
+        setAnonymousName={setAnonymousName}
         onClose={() => {
           setShowCreate(false);
           resetPostForm();
