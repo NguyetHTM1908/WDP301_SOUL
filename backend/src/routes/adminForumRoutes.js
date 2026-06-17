@@ -11,6 +11,7 @@ const {
   takeActionReport,
   hideComment,
   deleteCommentByAdmin,
+  resolveAppeal,
 } = require("../controllers/adminForumController");
 
 const auth = require("../middleware/auth");
@@ -28,5 +29,6 @@ router.delete("/comments/:id", auth, adminOnly, deleteCommentByAdmin);
 router.get("/reports", auth, adminOnly, getReports);
 router.patch("/reports/:id/dismiss", auth, adminOnly, dismissReport);
 router.patch("/reports/:id/action", auth, adminOnly, takeActionReport);
+router.patch("/reports/:id/appeal", auth, adminOnly, resolveAppeal);
 
 module.exports = router;

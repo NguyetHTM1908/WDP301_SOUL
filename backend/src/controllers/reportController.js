@@ -1,6 +1,7 @@
 const Report = require("../models/Report");
 const Post = require("../models/Post");
 const Comment = require("../models/Comment");
+const ModerationLog = require("../models/ModerationLog");
 
 exports.getMyReports = async (req, res) => {
   try {
@@ -14,12 +15,10 @@ exports.getMyReports = async (req, res) => {
       data: reports,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
+
 exports.createReport = async (req, res) => {
   try {
     const { targetType, targetId, reason, description } = req.body;
@@ -129,9 +128,78 @@ exports.createReport = async (req, res) => {
       });
     }
 
-    return res.status(500).json({
-      success: false,
-      message: error.message,
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.createAppeal = async (req, res) => {
+  try {
+    const { reportId, appealReason } = req.body;
+
+    if (!reportId) {
+      return res.status(400).json({
+        success: false,
+        message: "reportId là bắt buộc.",
+      });
+    }
+
+    if (!appealReason || appealReason.trim() === "") {
+      return res.status(400).json({
+        success: false,
+        message: "Lý do appeal không được để trống.",
+      });
+    }
+
+    const report = await Report.findById(reportId);
+
+    if (!report) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy report.",
+      });
+    }
+
+    if (report.reportedUserId.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền appeal report này.",
+      });
+    }
+
+    if (report.status !== "action_taken") {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ có thể appeal report đã bị xử lý.",
+      });
+    }
+
+    const previousStatus = report.status;
+
+    report.status = "appeal_pending";
+    report.appealReason = appealReason.trim();
+    report.appealRequestedAt = new Date();
+
+    await report.save();
+
+    await ModerationLog.create({
+      target: {
+        type: "report",
+        id: report._id,
+      },
+      action: "appeal_requested",
+      reason: appealReason.trim(),
+      note: "User requested appeal",
+      performedBy: req.user._id,
+      previousStatus,
+      newStatus: "appeal_pending",
     });
+
+    return res.status(200).json({
+      success: true,
+      message: "Gửi appeal thành công. Vui lòng chờ admin xem xét.",
+      data: report,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

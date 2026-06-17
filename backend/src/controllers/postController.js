@@ -11,7 +11,7 @@ const maskAnonymousPost = (post) => {
 
   if (obj.isAnonymous) {
     obj.authorId = {
-      fullName: "Anonymous",
+      fullName: obj.anonymousName || "Anonymous",
       email: null,
       avatarUrl: null,
     };
@@ -28,6 +28,7 @@ exports.createPost = async (req, res) => {
       emotionStatus,
       hashtags,
       isAnonymous,
+      anonymousName,
       visibility,
     } = req.body;
 
@@ -45,6 +46,9 @@ exports.createPost = async (req, res) => {
       emotionStatus: emotionStatus || "neutral",
       hashtags: normalizeHashtags(hashtags || []),
       isAnonymous: isAnonymous || false,
+      anonymousName: isAnonymous
+        ? anonymousName || req.user.anonymousAlias || "Anonymous"
+        : null,
       visibility: visibility || "public",
       status: "pending",
     });
@@ -55,10 +59,7 @@ exports.createPost = async (req, res) => {
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -84,7 +85,7 @@ exports.getApprovedPosts = async (req, res) => {
     }
 
     const posts = await Post.find(filter)
-      .populate("authorId", "fullName email avatarUrl")
+      .populate("authorId", "fullName email avatarUrl anonymousAlias")
       .sort({ createdAt: -1 });
 
     const data = posts.map(maskAnonymousPost);
@@ -95,10 +96,7 @@ exports.getApprovedPosts = async (req, res) => {
       data,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -106,7 +104,7 @@ exports.getPostDetail = async (req, res) => {
   try {
     const post = await Post.findById(req.params.id).populate(
       "authorId",
-      "fullName email avatarUrl"
+      "fullName email avatarUrl anonymousAlias"
     );
 
     if (!post || post.status === "deleted") {
@@ -118,7 +116,9 @@ exports.getPostDetail = async (req, res) => {
 
     const isAdmin = req.user && req.user.role === "admin";
     const isAuthor =
-      req.user && post.authorId && post.authorId._id.toString() === req.user._id.toString();
+      req.user &&
+      post.authorId &&
+      post.authorId._id.toString() === req.user._id.toString();
 
     const isPublicApproved =
       post.status === "approved" && post.visibility === "public";
@@ -136,10 +136,7 @@ exports.getPostDetail = async (req, res) => {
       data: isAuthor || isAdmin ? post : maskAnonymousPost(post),
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -156,10 +153,7 @@ exports.getMyPosts = async (req, res) => {
       data: posts,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -187,6 +181,7 @@ exports.updateMyPost = async (req, res) => {
       emotionStatus,
       hashtags,
       isAnonymous,
+      anonymousName,
       visibility,
     } = req.body;
 
@@ -221,6 +216,9 @@ exports.updateMyPost = async (req, res) => {
 
     if (isAnonymous !== undefined) {
       post.isAnonymous = isAnonymous;
+      post.anonymousName = isAnonymous
+        ? anonymousName || req.user.anonymousAlias || post.anonymousName || "Anonymous"
+        : null;
     }
 
     if (visibility !== undefined) {
@@ -235,7 +233,6 @@ exports.updateMyPost = async (req, res) => {
     }
 
     post.editedAt = new Date();
-
     await post.save();
 
     return res.status(200).json({
@@ -246,10 +243,7 @@ exports.updateMyPost = async (req, res) => {
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -279,9 +273,6 @@ exports.deleteMyPost = async (req, res) => {
       message: "Xóa bài viết thành công.",
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

@@ -39,8 +39,37 @@ const reportSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "dismissed", "action_taken"],
+      enum: [
+        "pending",
+        "dismissed",
+        "action_taken",
+        "appeal_pending",
+        "appeal_accepted",
+        "appeal_rejected",
+      ],
       default: "pending",
+    },
+
+    appealReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    appealRequestedAt: {
+      type: Date,
+      default: null,
+    },
+
+    appealResolvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    appealNote: {
+      type: String,
+      default: null,
+      trim: true,
     },
   },
   { timestamps: true }

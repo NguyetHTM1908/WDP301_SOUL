@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 
+const REACTION_TYPES = ["support", "hug", "encourage", "thankyou"];
+
 const reactionSchema = new mongoose.Schema(
   {
     userId: {
@@ -9,7 +11,7 @@ const reactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["like", "support", "hug"],
+      enum: REACTION_TYPES,
       required: true,
     },
     createdAt: {
@@ -25,6 +27,7 @@ const mediaSchema = new mongoose.Schema(
     url: {
       type: String,
       required: true,
+      trim: true,
     },
     type: {
       type: String,
@@ -49,7 +52,10 @@ const postSchema = new mongoose.Schema(
       trim: true,
     },
 
-    mediaUrls: [mediaSchema],
+    mediaUrls: {
+      type: [mediaSchema],
+      default: [],
+    },
 
     emotionStatus: {
       type: String,
@@ -57,17 +63,24 @@ const postSchema = new mongoose.Schema(
       default: "neutral",
     },
 
-    hashtags: [
-      {
-        type: String,
-        trim: true,
-        lowercase: true,
-      },
-    ],
+    hashtags: {
+      type: [String],
+      default: [],
+      set: (tags) =>
+        Array.isArray(tags)
+          ? tags.map((tag) => String(tag).replace("#", "").trim().toLowerCase()).filter(Boolean)
+          : [],
+    },
 
     isAnonymous: {
       type: Boolean,
       default: false,
+    },
+
+    anonymousName: {
+      type: String,
+      trim: true,
+      default: null,
     },
 
     visibility: {
@@ -83,9 +96,10 @@ const postSchema = new mongoose.Schema(
     },
 
     statistics: {
-      likeCount: { type: Number, default: 0 },
       supportCount: { type: Number, default: 0 },
       hugCount: { type: Number, default: 0 },
+      encourageCount: { type: Number, default: 0 },
+      thankyouCount: { type: Number, default: 0 },
       commentCount: { type: Number, default: 0 },
       reportCount: { type: Number, default: 0 },
     },
@@ -101,7 +115,10 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
 
-    reactions: [reactionSchema],
+    reactions: {
+      type: [reactionSchema],
+      default: [],
+    },
 
     editedAt: {
       type: Date,

@@ -4,10 +4,37 @@ const Report = require("../models/Report");
 const User = require("../models/User");
 const ModerationLog = require("../models/ModerationLog");
 
+const updateMoodReputation = async (userId) => {
+  const oneMonthAgo = new Date();
+  oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+
+  const actionTakenCount = await Report.countDocuments({
+    reportedUserId: userId,
+    status: "action_taken",
+    createdAt: { $gte: oneMonthAgo },
+  });
+
+  let moodReputation = "neutral";
+  let moodReputationScore = 50;
+
+  if (actionTakenCount >= 3) {
+    moodReputation = "negative";
+    moodReputationScore = 30;
+  } else if (actionTakenCount === 0) {
+    moodReputation = "positive";
+    moodReputationScore = 80;
+  }
+
+  await User.findByIdAndUpdate(userId, {
+    moodReputation,
+    moodReputationScore,
+    moodReputationUpdatedAt: new Date(),
+  });
+};
+
 exports.getAllPostsForAdmin = async (req, res) => {
   try {
     const { status } = req.query;
-
     const filter = {};
 
     if (status) filter.status = status;
@@ -23,10 +50,7 @@ exports.getAllPostsForAdmin = async (req, res) => {
       data: posts,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -35,10 +59,7 @@ exports.approvePost = async (req, res) => {
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy bài viết.",
-      });
+      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết." });
     }
 
     const previousStatus = post.status;
@@ -51,10 +72,7 @@ exports.approvePost = async (req, res) => {
     await post.save();
 
     await ModerationLog.create({
-      target: {
-        type: "post",
-        id: post._id,
-      },
+      target: { type: "post", id: post._id },
       action: "approve_post",
       reason: "Bài viết phù hợp với quy tắc cộng đồng",
       note: "Approved from pending queue",
@@ -69,24 +87,17 @@ exports.approvePost = async (req, res) => {
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 exports.rejectPost = async (req, res) => {
   try {
     const { reason } = req.body;
-
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy bài viết.",
-      });
+      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết." });
     }
 
     const previousStatus = post.status;
@@ -99,10 +110,7 @@ exports.rejectPost = async (req, res) => {
     await post.save();
 
     await ModerationLog.create({
-      target: {
-        type: "post",
-        id: post._id,
-      },
+      target: { type: "post", id: post._id },
       action: "reject_post",
       reason: post.rejectedReason,
       note: "Rejected from pending queue",
@@ -117,23 +125,51 @@ exports.rejectPost = async (req, res) => {
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+exports.hidePost = async (req, res) => {
+  try {
+    const { reason } = req.body;
+    const post = await Post.findById(req.params.id);
+
+    if (!post) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết." });
+    }
+
+    const previousStatus = post.status;
+
+    post.status = "hidden";
+    await post.save();
+
+    await ModerationLog.create({
+      target: { type: "post", id: post._id },
+      action: "hide_content",
+      reason: reason || "Post hidden by admin",
+      note: "Post was hidden manually by admin",
+      performedBy: req.user._id,
+      previousStatus,
+      newStatus: "hidden",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: "Ẩn bài viết thành công.",
+      data: post,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
 exports.hideComment = async (req, res) => {
   try {
     const { reason } = req.body;
-
     const comment = await Comment.findById(req.params.id);
 
     if (!comment || comment.status === "deleted") {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy bình luận.",
-      });
+      return res.status(404).json({ success: false, message: "Không tìm thấy bình luận." });
     }
 
     const previousStatus = comment.status;
@@ -142,10 +178,7 @@ exports.hideComment = async (req, res) => {
     await comment.save();
 
     await ModerationLog.create({
-      target: {
-        type: "comment",
-        id: comment._id,
-      },
+      target: { type: "comment", id: comment._id },
       action: "hide_content",
       reason: reason || "Comment hidden by admin",
       note: "Comment was hidden manually by admin",
@@ -167,14 +200,10 @@ exports.hideComment = async (req, res) => {
 exports.deleteCommentByAdmin = async (req, res) => {
   try {
     const { reason } = req.body;
-
     const comment = await Comment.findById(req.params.id);
 
     if (!comment || comment.status === "deleted") {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy bình luận.",
-      });
+      return res.status(404).json({ success: false, message: "Không tìm thấy bình luận." });
     }
 
     const previousStatus = comment.status;
@@ -186,11 +215,14 @@ exports.deleteCommentByAdmin = async (req, res) => {
       $inc: { "statistics.commentCount": -1 },
     });
 
+    if (comment.parentCommentId) {
+      await Comment.findByIdAndUpdate(comment.parentCommentId, {
+        $inc: { "statistics.replyCount": -1 },
+      });
+    }
+
     await ModerationLog.create({
-      target: {
-        type: "comment",
-        id: comment._id,
-      },
+      target: { type: "comment", id: comment._id },
       action: "delete_content",
       reason: reason || "Comment deleted by admin",
       note: "Comment was deleted manually by admin",
@@ -208,50 +240,6 @@ exports.deleteCommentByAdmin = async (req, res) => {
   }
 };
 
-exports.hidePost = async (req, res) => {
-  try {
-    const { reason } = req.body;
-
-    const post = await Post.findById(req.params.id);
-
-    if (!post) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy bài viết.",
-      });
-    }
-
-    const previousStatus = post.status;
-
-    post.status = "hidden";
-    await post.save();
-
-    await ModerationLog.create({
-      target: {
-        type: "post",
-        id: post._id,
-      },
-      action: "hide_content",
-      reason: reason || "Post hidden by admin",
-      note: "Post was hidden manually by admin",
-      performedBy: req.user._id,
-      previousStatus,
-      newStatus: "hidden",
-    });
-
-    return res.status(200).json({
-      success: true,
-      message: "Ẩn bài viết thành công.",
-      data: post,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-};
-
 exports.getReports = async (req, res) => {
   try {
     const reports = await Report.find()
@@ -265,10 +253,7 @@ exports.getReports = async (req, res) => {
       data: reports,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
@@ -277,10 +262,7 @@ exports.dismissReport = async (req, res) => {
     const report = await Report.findById(req.params.id);
 
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy report.",
-      });
+      return res.status(404).json({ success: false, message: "Không tìm thấy report." });
     }
 
     const previousStatus = report.status;
@@ -289,10 +271,7 @@ exports.dismissReport = async (req, res) => {
     await report.save();
 
     await ModerationLog.create({
-      target: {
-        type: "report",
-        id: report._id,
-      },
+      target: { type: "report", id: report._id },
       action: "reject_report",
       reason: "Report dismissed",
       note: "Admin reviewed and rejected this report",
@@ -301,30 +280,25 @@ exports.dismissReport = async (req, res) => {
       newStatus: "dismissed",
     });
 
+    await updateMoodReputation(report.reportedUserId);
+
     return res.status(200).json({
       success: true,
       message: "Đã bỏ qua report.",
       data: report,
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 exports.takeActionReport = async (req, res) => {
   try {
     const { reason } = req.body;
-
     const report = await Report.findById(req.params.id);
 
     if (!report) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy report.",
-      });
+      return res.status(404).json({ success: false, message: "Không tìm thấy report." });
     }
 
     const previousReportStatus = report.status;
@@ -333,11 +307,9 @@ exports.takeActionReport = async (req, res) => {
     await report.save();
 
     let previousTargetStatus = null;
-    let newTargetStatus = "hidden";
 
     if (report.targetType === "post") {
       const post = await Post.findById(report.targetId);
-
       if (post) {
         previousTargetStatus = post.status;
         post.status = "hidden";
@@ -348,7 +320,6 @@ exports.takeActionReport = async (req, res) => {
 
     if (report.targetType === "comment") {
       const comment = await Comment.findById(report.targetId);
-
       if (comment) {
         previousTargetStatus = comment.status;
         comment.status = "hidden";
@@ -376,10 +347,7 @@ exports.takeActionReport = async (req, res) => {
       });
 
       await ModerationLog.create({
-        target: {
-          type: "user",
-          id: report.reportedUserId,
-        },
+        target: { type: "user", id: report.reportedUserId },
         action: "block_user",
         reason: "User received more than 3 valid reports within 7 days",
         note: `Auto banned until ${bannedUntil.toISOString()}`,
@@ -390,17 +358,16 @@ exports.takeActionReport = async (req, res) => {
     }
 
     await ModerationLog.create({
-      target: {
-        type: report.targetType,
-        id: report.targetId,
-      },
+      target: { type: report.targetType, id: report.targetId },
       action: "resolve_report",
       reason: reason || "Admin took action on report",
       note: `Report status changed from ${previousReportStatus} to action_taken`,
       performedBy: req.user._id,
       previousStatus: previousTargetStatus,
-      newStatus: newTargetStatus,
+      newStatus: "hidden",
     });
+
+    await updateMoodReputation(report.reportedUserId);
 
     return res.status(200).json({
       success: true,
@@ -412,9 +379,80 @@ exports.takeActionReport = async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+exports.resolveAppeal = async (req, res) => {
+  try {
+    const { action, note } = req.body;
+    const report = await Report.findById(req.params.id);
+
+    if (!report) {
+      return res.status(404).json({ success: false, message: "Không tìm thấy report." });
+    }
+
+    if (report.status !== "appeal_pending") {
+      return res.status(400).json({
+        success: false,
+        message: "Report này không ở trạng thái chờ appeal.",
+      });
+    }
+
+    if (!["accept", "reject"].includes(action)) {
+      return res.status(400).json({
+        success: false,
+        message: "Action phải là accept hoặc reject.",
+      });
+    }
+
+    const previousStatus = report.status;
+
+    if (action === "accept") {
+      report.status = "appeal_accepted";
+      report.appealResolvedAt = new Date();
+      report.appealNote = note || "Appeal accepted by admin";
+
+      if (report.targetType === "post") {
+        await Post.findByIdAndUpdate(report.targetId, {
+          status: "approved",
+          isFlagged: false,
+        });
+      }
+
+      if (report.targetType === "comment") {
+        await Comment.findByIdAndUpdate(report.targetId, {
+          status: "active",
+        });
+      }
+    }
+
+    if (action === "reject") {
+      report.status = "appeal_rejected";
+      report.appealResolvedAt = new Date();
+      report.appealNote = note || "Appeal rejected by admin";
+    }
+
+    await report.save();
+
+    await ModerationLog.create({
+      target: { type: "report", id: report._id },
+      action: action === "accept" ? "appeal_accepted" : "appeal_rejected",
+      reason: note || null,
+      note: "Appeal resolved by admin",
+      performedBy: req.user._id,
+      previousStatus,
+      newStatus: report.status,
     });
+
+    await updateMoodReputation(report.reportedUserId);
+
+    return res.status(200).json({
+      success: true,
+      message: action === "accept" ? "Đã chấp nhận appeal." : "Đã từ chối appeal.",
+      data: report,
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
