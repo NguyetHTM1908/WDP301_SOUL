@@ -13,6 +13,7 @@ const {
   initiateGoogleAuth,
   googleCallback,
   updateProfile,
+  changePassword,
 } = require("../controllers/authController");
 const auth = require("../middleware/auth");
 
@@ -44,6 +45,9 @@ router.get("/google/callback", googleCallback);
 
 // Cập nhật thông tin cá nhân (Private)
 router.put("/profile", auth, updateProfile);
+
+// Đổi mật khẩu (Private)
+router.put("/change-password", auth, changePassword);
 
 // Route kiểm tra phân quyền Admin (Private & Admin only)
 router.get("/admin-only", auth, auth.isAdmin, (req, res) => {

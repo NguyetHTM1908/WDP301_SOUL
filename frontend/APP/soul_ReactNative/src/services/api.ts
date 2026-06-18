@@ -135,6 +135,19 @@ export const authService = {
       throw error.response?.data || new Error("Không thể kết nối đến máy chủ.");
     }
   },
+
+  // Đổi mật khẩu
+  changePassword: async (passwordData: {
+    currentPassword?: string;
+    newPassword?: string;
+  }) => {
+    try {
+      const response = await apiClient.put("/auth/change-password", passwordData);
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || new Error("Không thể kết nối đến máy chủ.");
+    }
+  },
 };
 
 export default apiClient;
