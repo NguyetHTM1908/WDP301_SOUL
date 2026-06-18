@@ -8,6 +8,7 @@ import {
   SafeAreaView,
   Alert,
   StatusBar,
+  Image,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -67,6 +68,13 @@ export default function AdminDashboard() {
       onPress: () => router.push("/(admin)/events"),
     },
     {
+      title: "Hồ sơ & Bảo mật",
+      description: "Xem thông tin cá nhân, cập nhật avatar, đổi mật khẩu",
+      icon: "card-account-details-outline",
+      color: colors.primary,
+      onPress: () => router.push("/(admin)/profile"),
+    },
+    {
       title: "Cấu hình Hệ thống AI",
       description: "Tùy chỉnh mô hình LLM và độ nhạy an toàn",
       icon: "cog",
@@ -79,12 +87,21 @@ export default function AdminDashboard() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
       
-      {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Xin chào,</Text>
-          <Text style={styles.adminName}>{user?.fullName || "Quản trị viên"}</Text>
-        </View>
+        <TouchableOpacity 
+          style={{ flexDirection: "row", alignItems: "center" }} 
+          onPress={() => router.push("/(admin)/profile")}
+          activeOpacity={0.7}
+        >
+          <Image
+            source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+            style={{ width: 44, height: 44, borderRadius: 22, marginRight: 12, backgroundColor: colors.softMint }}
+          />
+          <View>
+            <Text style={styles.welcomeText}>Xin chào,</Text>
+            <Text style={styles.adminName}>{user?.fullName || "Quản trị viên"}</Text>
+          </View>
+        </TouchableOpacity>
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
           <MaterialCommunityIcons name="logout" size={22} color="#EF4444" />
         </TouchableOpacity>
