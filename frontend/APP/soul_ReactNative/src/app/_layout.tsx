@@ -9,6 +9,7 @@ export default function RootLayout() {
       <Stack.Screen name="user-events" />
       <Stack.Screen name="(tabs)" />
       <Stack.Screen name="(admin)" />
+      <Stack.Screen name="diary/index" />
     </Stack>
   );
 }

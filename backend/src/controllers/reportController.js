@@ -7,6 +7,7 @@ exports.getMyReports = async (req, res) => {
   try {
     const reports = await Report.find({
       reporterId: req.user._id,
+      reportSource: "user",
     }).sort({ createdAt: -1 });
 
     return res.status(200).json({
@@ -48,6 +49,7 @@ exports.createReport = async (req, res) => {
       targetType,
       targetId,
       reporterId: req.user._id,
+      reportSource: "user",
     });
 
     if (existedReport) {
@@ -110,9 +112,11 @@ exports.createReport = async (req, res) => {
       targetType,
       targetId,
       reporterId: req.user._id,
+      reportSource: "user",
       reportedUserId,
       reason: reason.trim(),
       description: description || null,
+      status: "pending",
     });
 
     return res.status(201).json({

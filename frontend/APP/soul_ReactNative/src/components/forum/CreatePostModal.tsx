@@ -80,8 +80,8 @@ export function CreatePostModal({
 
             <Text style={s.modalSub}>
               {isEditing
-                ? "Your edited post will be reviewed again."
-                : "Your story might be the light for someone."}
+                ? "Your updated post will stay published. SOUL AI may review it again to keep the space safe."
+                : "Your post will be published immediately. SOUL AI may review it to keep the community safe."}
             </Text>
 
             <View style={s.bigInputWrap}>
@@ -181,12 +181,12 @@ export function CreatePostModal({
 
             <Pressable style={s.submitButton} onPress={onSubmit}>
               <MaterialCommunityIcons
-                name="send-outline"
+                name={isEditing ? "content-save-outline" : "send-outline"}
                 size={24}
                 color="#FFFFFF"
               />
               <Text style={s.submitText}>
-                {isEditing ? "Update & Submit" : "Submit for Review"}
+                {isEditing ? "Update Post" : "Publish Now"}
               </Text>
             </Pressable>
 

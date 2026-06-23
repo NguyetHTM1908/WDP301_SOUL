@@ -227,7 +227,13 @@ export default function ForumScreen() {
     return () => clearTimeout(timeout);
   }, [search, filter]);
 
-  const visiblePosts = useMemo(() => posts, [posts]);
+  const visiblePosts = useMemo(() => {
+  if (mode === "community") {
+    return posts.filter((post) => post?.isFlagged !== true);
+  }
+
+  return posts;
+}, [posts, mode]);
 
   const onRefresh = async () => {
     try {
@@ -300,9 +306,16 @@ export default function ForumScreen() {
         : await createPost(token as string, body);
 
       if (isApiSuccess(res)) {
+        const data = res?.data;
+        const isFlagged =
+          data?.isFlagged === true ||
+          res?.moderation?.isViolationSuspected === true;
+
         Alert.alert(
-          editingPost ? "Đã cập nhật bài viết" : "Đã gửi bài thành công 🌿",
-          "Bài viết đang chờ Admin duyệt."
+          editingPost ? "Đã cập nhật bài viết" : "Bài viết đã được đăng 🌿",
+          isFlagged
+            ? "SOUL AI phát hiện nội dung nhạy cảm và đã gửi cho admin xem xét. Bài của bạn vẫn được đăng trong khi chờ xử lý."
+            : "Bài viết của bạn đã xuất hiện trong cộng đồng. SOUL AI vẫn có thể kiểm tra để giữ không gian an toàn."
         );
 
         setShowCreate(false);
@@ -317,24 +330,35 @@ export default function ForumScreen() {
   };
 
   const handleDeletePost = async (postId: string) => {
-    if (!requireLogin()) return;
+  if (!requireLogin()) return;
 
-    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài này không?", [
-      { text: "Hủy", style: "cancel" },
-      {
-        text: "Xóa",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await deletePost(token as string, postId);
-            await loadPosts(mode, token);
-          } catch (error: any) {
-            Alert.alert("Không thể xóa bài", error?.message || "Đã có lỗi xảy ra.");
-          }
-        },
+  Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài này không?", [
+    { text: "Hủy", style: "cancel" },
+    {
+      text: "Xóa",
+      style: "destructive",
+      onPress: async () => {
+        try {
+          await deletePost(token as string, postId);
+
+          setPosts((prev) =>
+            prev.filter((post) => {
+              const id = post?._id?.toString?.() || post?._id;
+              return id !== postId;
+            })
+          );
+
+          Alert.alert("Đã xóa", "Bài viết đã được xóa thành công.");
+        } catch (error: any) {
+          Alert.alert(
+            "Không thể xóa bài",
+            error?.message || "Đã có lỗi xảy ra."
+          );
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
   const handleReactPost = async (postId: string, type: ReactionType) => {
     if (!requireLogin()) return;
