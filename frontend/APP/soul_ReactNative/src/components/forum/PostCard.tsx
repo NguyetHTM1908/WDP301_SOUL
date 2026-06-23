@@ -49,6 +49,62 @@ function isRemoteUrl(url: string) {
   return /^https?:\/\//i.test(url);
 }
 
+function getStatusInfo(item: any) {
+  if (item?.isFlagged && item?.toxicityLevel === "high") {
+    return {
+      label: "Crisis Review",
+      tone: "danger",
+      icon: "alert-circle-outline",
+    };
+  }
+
+  if (item?.isFlagged) {
+    return {
+      label: "AI Review",
+      tone: "warning",
+      icon: "shield-alert-outline",
+    };
+  }
+
+  if (item?.status === "hidden") {
+    return {
+      label: "Hidden",
+      tone: "danger",
+      icon: "eye-off-outline",
+    };
+  }
+
+  if (item?.status === "deleted") {
+    return {
+      label: "Deleted",
+      tone: "danger",
+      icon: "trash-can-outline",
+    };
+  }
+
+  if (item?.status === "rejected") {
+    return {
+      label: "Rejected",
+      tone: "danger",
+      icon: "close-circle-outline",
+    };
+  }
+
+  if (item?.status === "approved") {
+    return {
+      label: "Published",
+      tone: "success",
+      icon: "check-circle-outline",
+    };
+  }
+
+  return {
+    label: item?.status || "Pending",
+    tone: "warning",
+    icon: "clock-outline",
+  };
+}
+
 export function PostCard({
   item,
   mode,
@@ -90,9 +146,15 @@ export function PostCard({
   const shouldShowImage = isRemoteUrl(mediaUrl) && !imageError;
 
   const stats = item?.statistics || {};
+  const statusInfo = getStatusInfo(item);
+
+  const reviewIcon =
+    item?.toxicityLevel === "high"
+      ? "alert-circle-outline"
+      : "shield-alert-outline";
 
   return (
-    <View style={s.postCard}>
+    <View style={[s.postCard, item?.isFlagged && s.postCardFlagged]}>
       <View style={s.postHeader}>
         <View style={s.authorRow}>
           <Image source={{ uri: avatar }} style={s.avatar} />
@@ -125,8 +187,35 @@ export function PostCard({
 
         {mode === "mine" ? (
           <View style={s.mineActions}>
-            <View style={s.statusBadge}>
-              <Text style={s.statusText}>{item?.status || "pending"}</Text>
+            <View
+              style={[
+                s.statusBadge,
+                statusInfo.tone === "success" && s.statusBadgeSuccess,
+                statusInfo.tone === "warning" && s.statusBadgeWarning,
+                statusInfo.tone === "danger" && s.statusBadgeDanger,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={statusInfo.icon as any}
+                size={13}
+                color={
+                  statusInfo.tone === "success"
+                    ? "#047857"
+                    : statusInfo.tone === "danger"
+                      ? "#DC2626"
+                      : "#A16207"
+                }
+              />
+
+              <Text
+                style={[
+                  s.statusText,
+                  statusInfo.tone === "success" && s.statusTextSuccess,
+                  statusInfo.tone === "danger" && s.statusTextDanger,
+                ]}
+              >
+                {statusInfo.label}
+              </Text>
             </View>
 
             <View style={s.ownerActions}>
@@ -157,6 +246,32 @@ export function PostCard({
           </Pressable>
         )}
       </View>
+
+      {item?.isFlagged ? (
+        <View
+          style={[
+            s.aiReviewBox,
+            item?.toxicityLevel === "high" && s.crisisReviewBox,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={reviewIcon as any}
+            size={18}
+            color={item?.toxicityLevel === "high" ? "#DC2626" : "#B45309"}
+          />
+
+          <Text
+            style={[
+              s.aiReviewText,
+              item?.toxicityLevel === "high" && s.crisisReviewText,
+            ]}
+          >
+            {item?.toxicityLevel === "high"
+              ? "SOUL AI detected possible self-harm risk. This post is only visible to you while admin reviews it."
+              : "SOUL AI sent this post for admin review. This post is only visible to you until admin makes a decision."}
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={s.postContent}>{item?.content}</Text>
 

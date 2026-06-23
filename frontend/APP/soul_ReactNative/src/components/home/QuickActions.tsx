@@ -17,6 +17,7 @@ const features = [
     sub: "Private reflection",
     bg: "#DFF1FF",
     color: "#2196F3",
+    route: "/diary",
   },
   {
     icon: "head-heart-outline",
@@ -24,6 +25,7 @@ const features = [
     sub: "Check your state",
     bg: "#E1F9E8",
     color: "#2BC56D",
+    route :  "/emotional-test",
   },
   {
     icon: "calendar-month-outline",

@@ -34,10 +34,21 @@ const updateMoodReputation = async (userId) => {
 
 exports.getAllPostsForAdmin = async (req, res) => {
   try {
-    const { status } = req.query;
+    const { status, flagged } = req.query;
+
     const filter = {};
 
-    if (status) filter.status = status;
+    if (status) {
+      filter.status = status;
+    }
+
+    if (flagged === "true") {
+      filter.isFlagged = true;
+    }
+
+    if (flagged === "false") {
+      filter.isFlagged = false;
+    }
 
     const posts = await Post.find(filter)
       .populate("authorId", "fullName email avatarUrl")
@@ -50,7 +61,12 @@ exports.getAllPostsForAdmin = async (req, res) => {
       data: posts,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("getAllPostsForAdmin error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy danh sách bài viết admin.",
+    });
   }
 };
 
@@ -59,12 +75,18 @@ exports.approvePost = async (req, res) => {
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài viết.",
+      });
     }
 
     const previousStatus = post.status;
 
     post.status = "approved";
+    post.visibility = "public";
+    post.isFlagged = false;
+    post.toxicityLevel = "low";
     post.approvedAt = new Date();
     post.approvedBy = req.user._id;
     post.rejectedReason = null;
@@ -72,10 +94,13 @@ exports.approvePost = async (req, res) => {
     await post.save();
 
     await ModerationLog.create({
-      target: { type: "post", id: post._id },
+      target: {
+        type: "post",
+        id: post._id,
+      },
       action: "approve_post",
-      reason: "Bài viết phù hợp với quy tắc cộng đồng",
-      note: "Approved from pending queue",
+      reason: "Admin approved this post after review",
+      note: "Post is now visible in Community Forum",
       performedBy: req.user._id,
       previousStatus,
       newStatus: "approved",
@@ -83,26 +108,35 @@ exports.approvePost = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Duyệt bài viết thành công.",
+      message: "Duyệt bài viết thành công. Bài viết đã được hiển thị trong Community.",
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("approvePost error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể duyệt bài viết.",
+    });
   }
 };
 
 exports.rejectPost = async (req, res) => {
   try {
     const { reason } = req.body;
+
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài viết.",
+      });
     }
 
     const previousStatus = post.status;
 
-    post.status = "rejected";
+    post.status = "deleted";
     post.rejectedReason = reason || "Bài viết không phù hợp.";
     post.approvedAt = null;
     post.approvedBy = null;
@@ -110,41 +144,58 @@ exports.rejectPost = async (req, res) => {
     await post.save();
 
     await ModerationLog.create({
-      target: { type: "post", id: post._id },
-      action: "reject_post",
+      target: {
+        type: "post",
+        id: post._id,
+      },
+      action: "delete_content",
       reason: post.rejectedReason,
-      note: "Rejected from pending queue",
+      note: "Post deleted after admin rejection",
       performedBy: req.user._id,
       previousStatus,
-      newStatus: "rejected",
+      newStatus: "deleted",
     });
 
     return res.status(200).json({
       success: true,
-      message: "Từ chối bài viết thành công.",
+      message: "Từ chối và xóa bài viết thành công.",
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("rejectPost error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể từ chối bài viết.",
+    });
   }
 };
 
 exports.hidePost = async (req, res) => {
   try {
     const { reason } = req.body;
+
     const post = await Post.findById(req.params.id);
 
     if (!post) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy bài viết." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bài viết.",
+      });
     }
 
     const previousStatus = post.status;
 
     post.status = "hidden";
+    post.rejectedReason = reason || "Post hidden by admin";
+
     await post.save();
 
     await ModerationLog.create({
-      target: { type: "post", id: post._id },
+      target: {
+        type: "post",
+        id: post._id,
+      },
       action: "hide_content",
       reason: reason || "Post hidden by admin",
       note: "Post was hidden manually by admin",
@@ -159,26 +210,39 @@ exports.hidePost = async (req, res) => {
       data: post,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("hidePost error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể ẩn bài viết.",
+    });
   }
 };
 
 exports.hideComment = async (req, res) => {
   try {
     const { reason } = req.body;
+
     const comment = await Comment.findById(req.params.id);
 
     if (!comment || comment.status === "deleted") {
-      return res.status(404).json({ success: false, message: "Không tìm thấy bình luận." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bình luận.",
+      });
     }
 
     const previousStatus = comment.status;
 
     comment.status = "hidden";
+
     await comment.save();
 
     await ModerationLog.create({
-      target: { type: "comment", id: comment._id },
+      target: {
+        type: "comment",
+        id: comment._id,
+      },
       action: "hide_content",
       reason: reason || "Comment hidden by admin",
       note: "Comment was hidden manually by admin",
@@ -193,36 +257,53 @@ exports.hideComment = async (req, res) => {
       data: comment,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("hideComment error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể ẩn bình luận.",
+    });
   }
 };
 
 exports.deleteCommentByAdmin = async (req, res) => {
   try {
     const { reason } = req.body;
+
     const comment = await Comment.findById(req.params.id);
 
     if (!comment || comment.status === "deleted") {
-      return res.status(404).json({ success: false, message: "Không tìm thấy bình luận." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy bình luận.",
+      });
     }
 
     const previousStatus = comment.status;
 
     comment.status = "deleted";
+
     await comment.save();
 
     await Post.findByIdAndUpdate(comment.postId, {
-      $inc: { "statistics.commentCount": -1 },
+      $inc: {
+        "statistics.commentCount": -1,
+      },
     });
 
     if (comment.parentCommentId) {
       await Comment.findByIdAndUpdate(comment.parentCommentId, {
-        $inc: { "statistics.replyCount": -1 },
+        $inc: {
+          "statistics.replyCount": -1,
+        },
       });
     }
 
     await ModerationLog.create({
-      target: { type: "comment", id: comment._id },
+      target: {
+        type: "comment",
+        id: comment._id,
+      },
       action: "delete_content",
       reason: reason || "Comment deleted by admin",
       note: "Comment was deleted manually by admin",
@@ -236,7 +317,12 @@ exports.deleteCommentByAdmin = async (req, res) => {
       message: "Xóa bình luận thành công.",
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("deleteCommentByAdmin error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể xóa bình luận.",
+    });
   }
 };
 
@@ -253,7 +339,12 @@ exports.getReports = async (req, res) => {
       data: reports,
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("getReports error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy danh sách report.",
+    });
   }
 };
 
@@ -262,19 +353,58 @@ exports.dismissReport = async (req, res) => {
     const report = await Report.findById(req.params.id);
 
     if (!report) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy report." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy report.",
+      });
     }
 
     const previousStatus = report.status;
 
     report.status = "dismissed";
+
     await report.save();
 
+    let updatedTarget = null;
+
+    // Admin xác nhận không vi phạm:
+    // clear flag để bài hiện lên Community.
+    if (report.targetType === "post") {
+      updatedTarget = await Post.findById(report.targetId);
+
+      if (updatedTarget) {
+        updatedTarget.status = "approved";
+        updatedTarget.visibility = "public";
+        updatedTarget.isFlagged = false;
+        updatedTarget.toxicityLevel = "low";
+        updatedTarget.rejectedReason = null;
+        updatedTarget.approvedAt = new Date();
+        updatedTarget.approvedBy = req.user._id;
+
+        await updatedTarget.save();
+      }
+    }
+
+    if (report.targetType === "comment") {
+      updatedTarget = await Comment.findById(report.targetId);
+
+      if (updatedTarget) {
+        updatedTarget.status = "active";
+        updatedTarget.toxicityLevel = "low";
+
+        await updatedTarget.save();
+      }
+    }
+
     await ModerationLog.create({
-      target: { type: "report", id: report._id },
+      target: {
+        type: "report",
+        id: report._id,
+      },
       action: "reject_report",
-      reason: "Report dismissed",
-      note: "Admin reviewed and rejected this report",
+      reason: "Admin reviewed and found no violation",
+      note:
+        "Report dismissed. If this was an AI-flagged post, the content is now visible again.",
       performedBy: req.user._id,
       previousStatus,
       newStatus: "dismissed",
@@ -284,46 +414,101 @@ exports.dismissReport = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: "Đã bỏ qua report.",
-      data: report,
+      message: "Đã bỏ qua report. Nội dung được phép hiển thị.",
+      data: {
+        report,
+        target: updatedTarget,
+      },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("dismissReport error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể bỏ qua report.",
+    });
   }
 };
 
 exports.takeActionReport = async (req, res) => {
   try {
     const { reason } = req.body;
+
     const report = await Report.findById(req.params.id);
 
     if (!report) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy report." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy report.",
+      });
     }
 
     const previousReportStatus = report.status;
 
     report.status = "action_taken";
+
     await report.save();
 
     let previousTargetStatus = null;
+    let updatedTarget = null;
 
+    // Admin xác nhận bài vi phạm:
+    // xóa khỏi forum bằng status = deleted.
     if (report.targetType === "post") {
       const post = await Post.findById(report.targetId);
+
       if (post) {
         previousTargetStatus = post.status;
-        post.status = "hidden";
+
+        post.status = "deleted";
         post.isFlagged = true;
-        await post.save();
+        post.toxicityLevel =
+          report.aiReview?.severity === "high"
+            ? "high"
+            : report.aiReview?.severity === "medium"
+            ? "medium"
+            : post.toxicityLevel || "medium";
+
+        post.rejectedReason =
+          reason ||
+          report.reason ||
+          "Bài viết vi phạm quy tắc cộng đồng.";
+
+        updatedTarget = await post.save();
       }
     }
 
+    // Admin xác nhận comment vi phạm:
+    // xóa khỏi forum bằng status = deleted.
     if (report.targetType === "comment") {
       const comment = await Comment.findById(report.targetId);
+
       if (comment) {
         previousTargetStatus = comment.status;
-        comment.status = "hidden";
-        await comment.save();
+
+        comment.status = "deleted";
+        comment.toxicityLevel =
+          report.aiReview?.severity === "high"
+            ? "high"
+            : report.aiReview?.severity === "medium"
+            ? "medium"
+            : comment.toxicityLevel || "medium";
+
+        updatedTarget = await comment.save();
+
+        await Post.findByIdAndUpdate(comment.postId, {
+          $inc: {
+            "statistics.commentCount": -1,
+          },
+        });
+
+        if (comment.parentCommentId) {
+          await Comment.findByIdAndUpdate(comment.parentCommentId, {
+            $inc: {
+              "statistics.replyCount": -1,
+            },
+          });
+        }
       }
     }
 
@@ -333,7 +518,9 @@ exports.takeActionReport = async (req, res) => {
     const validReportsCount = await Report.countDocuments({
       reportedUserId: report.reportedUserId,
       status: "action_taken",
-      createdAt: { $gte: oneWeekAgo },
+      createdAt: {
+        $gte: oneWeekAgo,
+      },
     });
 
     let bannedUntil = null;
@@ -347,7 +534,10 @@ exports.takeActionReport = async (req, res) => {
       });
 
       await ModerationLog.create({
-        target: { type: "user", id: report.reportedUserId },
+        target: {
+          type: "user",
+          id: report.reportedUserId,
+        },
         action: "block_user",
         reason: "User received more than 3 valid reports within 7 days",
         note: `Auto banned until ${bannedUntil.toISOString()}`,
@@ -358,38 +548,51 @@ exports.takeActionReport = async (req, res) => {
     }
 
     await ModerationLog.create({
-      target: { type: report.targetType, id: report.targetId },
-      action: "resolve_report",
-      reason: reason || "Admin took action on report",
-      note: `Report status changed from ${previousReportStatus} to action_taken`,
+      target: {
+        type: report.targetType,
+        id: report.targetId,
+      },
+      action: "delete_content",
+      reason: reason || report.reason || "Admin confirmed violation",
+      note: `Report status changed from ${previousReportStatus} to action_taken. Target content was deleted.`,
       performedBy: req.user._id,
       previousStatus: previousTargetStatus,
-      newStatus: "hidden",
+      newStatus: "deleted",
     });
 
     await updateMoodReputation(report.reportedUserId);
 
     return res.status(200).json({
       success: true,
-      message: "Đã xử lý report thành công.",
+      message: "Đã xử lý report. Nội dung vi phạm đã bị xóa khỏi forum.",
       data: {
         report,
+        target: updatedTarget,
         validReportsCount,
         bannedUntil,
       },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("takeActionReport error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể xử lý report.",
+    });
   }
 };
 
 exports.resolveAppeal = async (req, res) => {
   try {
     const { action, note } = req.body;
+
     const report = await Report.findById(req.params.id);
 
     if (!report) {
-      return res.status(404).json({ success: false, message: "Không tìm thấy report." });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy report.",
+      });
     }
 
     if (report.status !== "appeal_pending") {
@@ -399,60 +602,108 @@ exports.resolveAppeal = async (req, res) => {
       });
     }
 
-    if (!["accept", "reject"].includes(action)) {
-      return res.status(400).json({
-        success: false,
-        message: "Action phải là accept hoặc reject.",
-      });
-    }
-
     const previousStatus = report.status;
 
     if (action === "accept") {
       report.status = "appeal_accepted";
       report.appealResolvedAt = new Date();
-      report.appealNote = note || "Appeal accepted by admin";
+      report.appealNote = note || "Admin accepted appeal.";
+
+      await report.save();
+
+      let restoredTarget = null;
 
       if (report.targetType === "post") {
-        await Post.findByIdAndUpdate(report.targetId, {
-          status: "approved",
-          isFlagged: false,
-        });
+        restoredTarget = await Post.findById(report.targetId);
+
+        if (restoredTarget) {
+          restoredTarget.status = "approved";
+          restoredTarget.visibility = "public";
+          restoredTarget.isFlagged = false;
+          restoredTarget.toxicityLevel = "low";
+          restoredTarget.rejectedReason = null;
+          restoredTarget.approvedAt = new Date();
+          restoredTarget.approvedBy = req.user._id;
+
+          await restoredTarget.save();
+        }
       }
 
       if (report.targetType === "comment") {
-        await Comment.findByIdAndUpdate(report.targetId, {
-          status: "active",
-        });
+        restoredTarget = await Comment.findById(report.targetId);
+
+        if (restoredTarget) {
+          restoredTarget.status = "active";
+          restoredTarget.toxicityLevel = "low";
+
+          await restoredTarget.save();
+        }
       }
+
+      await ModerationLog.create({
+        target: {
+          type: "report",
+          id: report._id,
+        },
+        action: "appeal_accepted",
+        reason: note || "Appeal accepted by admin",
+        note: "Target content was restored when possible",
+        performedBy: req.user._id,
+        previousStatus,
+        newStatus: "appeal_accepted",
+      });
+
+      await updateMoodReputation(report.reportedUserId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Đã chấp nhận appeal và khôi phục nội dung.",
+        data: {
+          report,
+          target: restoredTarget,
+        },
+      });
     }
 
     if (action === "reject") {
       report.status = "appeal_rejected";
       report.appealResolvedAt = new Date();
-      report.appealNote = note || "Appeal rejected by admin";
+      report.appealNote = note || "Admin rejected appeal.";
+
+      await report.save();
+
+      await ModerationLog.create({
+        target: {
+          type: "report",
+          id: report._id,
+        },
+        action: "appeal_rejected",
+        reason: note || "Appeal rejected by admin",
+        note: "Target content remains removed or hidden",
+        performedBy: req.user._id,
+        previousStatus,
+        newStatus: "appeal_rejected",
+      });
+
+      await updateMoodReputation(report.reportedUserId);
+
+      return res.status(200).json({
+        success: true,
+        message: "Đã từ chối appeal.",
+        data: report,
+      });
     }
 
-    await report.save();
-
-    await ModerationLog.create({
-      target: { type: "report", id: report._id },
-      action: action === "accept" ? "appeal_accepted" : "appeal_rejected",
-      reason: note || null,
-      note: "Appeal resolved by admin",
-      performedBy: req.user._id,
-      previousStatus,
-      newStatus: report.status,
-    });
-
-    await updateMoodReputation(report.reportedUserId);
-
-    return res.status(200).json({
-      success: true,
-      message: action === "accept" ? "Đã chấp nhận appeal." : "Đã từ chối appeal.",
-      data: report,
+    return res.status(400).json({
+      success: false,
+      message: "action không hợp lệ. Chỉ nhận accept hoặc reject.",
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.error("resolveAppeal error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể xử lý appeal.",
+    });
   }
 };

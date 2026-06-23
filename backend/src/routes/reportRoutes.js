@@ -4,7 +4,7 @@ const router = express.Router();
 const {
   createReport,
   getMyReports,
-  createAppeal
+  createAppeal,
 } = require("../controllers/reportController");
 
 const auth = require("../middleware/auth");

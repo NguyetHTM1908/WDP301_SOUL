@@ -19,8 +19,16 @@ async function handleResponse(res: Response) {
     data = text;
   }
 
+  console.log("API RESPONSE STATUS:", res.status);
+  console.log("API RESPONSE DATA:", data);
+
   if (!res.ok) {
-    throw new Error(data?.message || `API error ${res.status}`);
+    throw new Error(
+      data?.message ||
+        data?.error ||
+        JSON.stringify(data) ||
+        `API error ${res.status}`
+    );
   }
 
   return data;

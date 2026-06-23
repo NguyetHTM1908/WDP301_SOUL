@@ -9,11 +9,13 @@ const reactionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     type: {
       type: String,
       enum: REACTION_TYPES,
       required: true,
     },
+
     createdAt: {
       type: Date,
       default: Date.now,
@@ -29,6 +31,7 @@ const mediaSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     type: {
       type: String,
       enum: ["image", "video"],
@@ -68,7 +71,11 @@ const postSchema = new mongoose.Schema(
       default: [],
       set: (tags) =>
         Array.isArray(tags)
-          ? tags.map((tag) => String(tag).replace("#", "").trim().toLowerCase()).filter(Boolean)
+          ? tags
+              .map((tag) =>
+                String(tag).replace("#", "").trim().toLowerCase()
+              )
+              .filter(Boolean)
           : [],
     },
 
@@ -92,7 +99,7 @@ const postSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "hidden", "deleted"],
-      default: "pending",
+      default: "approved",
     },
 
     statistics: {
@@ -141,7 +148,9 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
 postSchema.index({ authorId: 1 });
@@ -149,5 +158,6 @@ postSchema.index({ hashtags: 1 });
 postSchema.index({ status: 1 });
 postSchema.index({ createdAt: -1 });
 postSchema.index({ isFlagged: 1 });
+postSchema.index({ toxicityLevel: 1 });
 
 module.exports = mongoose.model("Post", postSchema);
