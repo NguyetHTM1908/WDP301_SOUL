@@ -72,6 +72,13 @@ export default function AdminDashboard() {
       route: "/(admin)/users",
     },
     {
+      title: "Quản lý Forum",
+      description: "Kiểm duyệt bài viết, xử lý báo cáo và ẩn nội dung vi phạm",
+      icon: "forum-outline",
+      color: "#14B8A6",
+      route: "/(admin)/forum",
+    },
+    {
       title: "Xem Báo cáo Nội dung",
       description: "Xét duyệt và xử lý các bài đăng bị báo cáo vi phạm",
       icon: "shield-alert",

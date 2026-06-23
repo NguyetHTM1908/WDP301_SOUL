@@ -51,6 +51,10 @@ interface AuthState {
     avatarUrl?: string;
     bio?: string;
   }) => Promise<{ success: boolean; message: string }>;
+  changePassword: (passwordData: {
+    currentPassword?: string;
+    newPassword?: string;
+  }) => Promise<{ success: boolean; message: string }>;
   logout: () => Promise<void> | void;
 
   
@@ -168,6 +172,19 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       return { success: false, message: response.message || "Cập nhật profile thất bại." };
     } catch (error: any) {
       return { success: false, message: error.message || "Cập nhật profile thất bại." };
+    }
+  },
+
+  // Đổi mật khẩu
+  changePassword: async (passwordData) => {
+    try {
+      const response = await authService.changePassword(passwordData);
+      if (response.success) {
+        return { success: true, message: response.message || "Đổi mật khẩu thành công." };
+      }
+      return { success: false, message: response.message || "Đổi mật khẩu thất bại." };
+    } catch (error: any) {
+      return { success: false, message: error.message || "Đổi mật khẩu thất bại." };
     }
   },
 

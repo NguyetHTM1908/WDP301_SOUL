@@ -4,6 +4,7 @@ import { styles } from "@/styles/home.styles";
 
 import { HomeHeader } from "@/components/home/HomeHeader";
 import { HeroCard } from "@/components/home/HeroCard";
+import { DailyMotivation } from "@/components/home/DailyMotivation";
 import { QuickActions } from "@/components/home/QuickActions";
 import { MoodAnalytics } from "@/components/home/MoodAnalytics";
 import { WeeklyInsight } from "@/components/home/WeeklyInsight";
@@ -26,6 +27,7 @@ export default function HomeScreen() {
         />
 
         <HeroCard />
+        <DailyMotivation />
         <QuickActions />
 
         <View style={styles.row}>
