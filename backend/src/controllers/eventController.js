@@ -2,17 +2,61 @@ const mongoose = require("mongoose");
 const Event = require("../models/Event");
 const User = require("../models/User");
 
-const EVENT_TYPES = ["workshop", "talkshow", "webinar", "community_event", null];
-const EVENT_STATUSES = ["upcoming", "ongoing", "completed", "cancelled"];
-const REGISTRATION_STATUSES = ["registered", "cancelled", "attended"];
-const ADMIN_REGISTRATION_FILTERS = ["all", "registered", "cancelled"];
+const EVENT_TYPES = [
+  "workshop",
+  "talkshow",
+  "webinar",
+  "community_event",
+  null,
+];
 
-const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(id);
+const REGISTRATION_STATUSES = ["registered", "cancelled", "attended"];
+const ADMIN_REGISTRATION_FILTERS = [
+  "all",
+  "registered",
+  "cancelled",
+  "attended",
+];
+
+const isValidObjectId = (id) => /^[0-9a-fA-F]{24}$/.test(String(id));
+
 const toObjectId = (id) => new mongoose.Types.ObjectId(id.toString());
+
 const getEventRegistrationCollection = () =>
   mongoose.connection.collection("event_registrations");
 
-const buildEventPayload = (body) => {
+function getCurrentUserId(req) {
+  return req.user?._id || req.user?.id || req.userId || null;
+}
+
+function isAdmin(req) {
+  return req.user?.role === "admin";
+}
+
+function canCreateEvent(req) {
+  return req.user?.role === "admin" || req.user?.role === "event_organizer";
+}
+
+function normalizeLocationKey(location, meetingLink) {
+  const raw =
+    location && String(location).trim()
+      ? String(location).trim()
+      : meetingLink && String(meetingLink).trim()
+      ? `online:${String(meetingLink).trim()}`
+      : "online";
+
+  return raw.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function normalizeOptionalString(value) {
+  if (value === undefined) return undefined;
+  if (value === null) return null;
+
+  const text = String(value).trim();
+  return text ? text : null;
+}
+
+function buildEventPayload(body) {
   const allowedFields = [
     "title",
     "description",
@@ -27,45 +71,84 @@ const buildEventPayload = (body) => {
     "location",
     "meetingLink",
     "capacity",
-    "status",
   ];
 
-  return allowedFields.reduce((payload, field) => {
-    if (Object.prototype.hasOwnProperty.call(body, field)) {
-      payload[field] = body[field];
+  const payload = {};
+
+  allowedFields.forEach((field) => {
+    if (!Object.prototype.hasOwnProperty.call(body, field)) return;
+
+    if (
+      [
+        "description",
+        "speakerName",
+        "organizerName",
+        "contactEmail",
+        "bannerImage",
+        "location",
+        "meetingLink",
+      ].includes(field)
+    ) {
+      payload[field] = normalizeOptionalString(body[field]);
+      return;
     }
 
-    return payload;
-  }, {});
-};
+    if (field === "capacity") {
+      if (
+        body[field] === "" ||
+        body[field] === null ||
+        body[field] === undefined
+      ) {
+        payload[field] = null;
+      } else {
+        payload[field] = body[field];
+      }
+      return;
+    }
 
-const validateEventPayload = (payload, { isCreate = false, currentEvent = null } = {}) => {
-  if (isCreate && (!payload.title || !payload.startDateTime)) {
-    return "Title and startDateTime are required";
+    if (field === "eventType") {
+      payload[field] = body[field] === "" ? null : body[field];
+      return;
+    }
+
+    payload[field] = body[field];
+  });
+
+  return payload;
+}
+
+function validateEventPayload(
+  payload,
+  { isCreate = false, currentEvent = null } = {}
+) {
+  if (
+    isCreate &&
+    (!payload.title || !payload.startDateTime || !payload.endDateTime)
+  ) {
+    return "title, startDateTime và endDateTime là bắt buộc.";
   }
 
   if (payload.title !== undefined && !String(payload.title).trim()) {
-    return "Title cannot be empty";
+    return "Tên event không được để trống.";
   }
 
-  if (payload.eventType !== undefined && !EVENT_TYPES.includes(payload.eventType)) {
-    return "Invalid event type";
-  }
-
-  if (payload.status !== undefined && !EVENT_STATUSES.includes(payload.status)) {
-    return "Invalid event status";
+  if (
+    payload.eventType !== undefined &&
+    !EVENT_TYPES.includes(payload.eventType)
+  ) {
+    return "Loại event không hợp lệ.";
   }
 
   if (payload.capacity !== undefined && payload.capacity !== null) {
     const capacity = Number(payload.capacity);
     const registeredCount = currentEvent ? currentEvent.registeredCount : 0;
 
-    if (!Number.isInteger(capacity) || capacity < 0) {
-      return "Capacity must be a non-negative integer";
+    if (!Number.isInteger(capacity) || capacity < 1) {
+      return "Sức chứa phải là số nguyên lớn hơn 0.";
     }
 
     if (capacity < registeredCount) {
-      return "Capacity cannot be lower than current registered count";
+      return "Sức chứa không được nhỏ hơn số người đã đăng ký.";
     }
 
     payload.capacity = capacity;
@@ -74,28 +157,29 @@ const validateEventPayload = (payload, { isCreate = false, currentEvent = null }
   const startDateTime =
     payload.startDateTime !== undefined
       ? new Date(payload.startDateTime)
-      : currentEvent && currentEvent.startDateTime;
+      : currentEvent?.startDateTime;
+
   const endDateTime =
     payload.endDateTime !== undefined
-      ? payload.endDateTime === null
-        ? null
-        : new Date(payload.endDateTime)
-      : currentEvent && currentEvent.endDateTime;
+      ? new Date(payload.endDateTime)
+      : currentEvent?.endDateTime;
 
-  if (payload.startDateTime !== undefined && Number.isNaN(startDateTime.getTime())) {
-    return "Invalid startDateTime";
+  if (
+    payload.startDateTime !== undefined &&
+    Number.isNaN(startDateTime.getTime())
+  ) {
+    return "startDateTime không hợp lệ.";
   }
 
   if (
     payload.endDateTime !== undefined &&
-    payload.endDateTime !== null &&
     Number.isNaN(endDateTime.getTime())
   ) {
-    return "Invalid endDateTime";
+    return "endDateTime không hợp lệ.";
   }
 
-  if (endDateTime && startDateTime && endDateTime <= startDateTime) {
-    return "endDateTime must be after startDateTime";
+  if (startDateTime && endDateTime && endDateTime <= startDateTime) {
+    return "endDateTime phải sau startDateTime.";
   }
 
   if (payload.startDateTime !== undefined) {
@@ -106,75 +190,90 @@ const validateEventPayload = (payload, { isCreate = false, currentEvent = null }
     payload.endDateTime = endDateTime;
   }
 
-  return null;
-};
-
-const getExternalEventRegistrations = async (eventId) => {
-  const registrations = await getEventRegistrationCollection()
-    .find({ eventId: new mongoose.Types.ObjectId(eventId) })
-    .toArray();
-
-  if (!registrations.length) {
-    return [];
+  if (payload.images !== undefined && !Array.isArray(payload.images)) {
+    return "images phải là mảng.";
   }
 
-  const userIds = registrations.map((registration) => registration.userId);
+  return null;
+}
+
+async function getExternalEventRegistrations(eventId) {
+  const registrations = await getEventRegistrationCollection()
+    .find({ eventId: toObjectId(eventId) })
+    .toArray();
+
+  if (!registrations.length) return [];
+
+  const userIds = registrations.map((item) => item.userId);
+
   const users = await User.find({ _id: { $in: userIds } })
     .select("fullName email phone avatarUrl role status")
     .lean();
+
   const userMap = new Map(users.map((user) => [user._id.toString(), user]));
 
-  return registrations.map((registration) => ({
-    userId: userMap.get(registration.userId.toString()) || registration.userId,
-    status: registration.status,
-    registeredAt: registration.registeredAt,
-    cancelledAt: registration.cancelledAt || null,
+  return registrations.map((item) => ({
+    userId: userMap.get(item.userId.toString()) || item.userId,
+    status: item.status,
+    registeredAt: item.registeredAt,
+    cancelledAt: item.cancelledAt || null,
   }));
-};
+}
 
-const normalizeEmbeddedRegistration = (participant) => ({
-  userId: participant.userId,
-  status: participant.status,
-  registeredAt: participant.registeredAt,
-  cancelledAt: participant.cancelledAt || null,
-});
+function normalizeEmbeddedRegistration(participant) {
+  return {
+    userId: participant.userId,
+    status: participant.status,
+    registeredAt: participant.registeredAt,
+    cancelledAt: participant.cancelledAt || null,
+  };
+}
 
-const mergeRegistrations = (embeddedRegistrations, externalRegistrations) => {
+function mergeRegistrations(embeddedRegistrations, externalRegistrations) {
   const merged = new Map();
 
-  [...externalRegistrations, ...embeddedRegistrations].forEach((registration) => {
-    const userId =
-      registration.userId && registration.userId._id
-        ? registration.userId._id.toString()
-        : registration.userId && registration.userId.toString();
+  [...externalRegistrations, ...embeddedRegistrations].forEach(
+    (registration) => {
+      const userId =
+        registration.userId && registration.userId._id
+          ? registration.userId._id.toString()
+          : registration.userId?.toString();
 
-    if (userId) {
-      merged.set(userId, registration);
+      if (userId) {
+        merged.set(userId, registration);
+      }
     }
-  });
+  );
 
   return Array.from(merged.values());
-};
+}
 
-const buildRegistrationStats = (registrations, capacity) => {
+function buildRegistrationStats(registrations, capacity) {
   const registered = registrations.filter(
-    (registration) => registration.status === "registered"
+    (item) => item.status === "registered"
   ).length;
+
   const cancelled = registrations.filter(
-    (registration) => registration.status === "cancelled"
+    (item) => item.status === "cancelled"
+  ).length;
+
+  const attended = registrations.filter(
+    (item) => item.status === "attended"
   ).length;
 
   return {
     totalRegistrations: registered,
     totalCancelled: cancelled,
+    totalAttended: attended,
     capacity,
-    remainingSlots: capacity === null || capacity === undefined
-      ? null
-      : Math.max(capacity - registered, 0),
+    remainingSlots:
+      capacity === null || capacity === undefined
+        ? null
+        : Math.max(capacity - registered, 0),
   };
-};
+}
 
-const countActiveRegistrations = async (event) => {
+async function countActiveRegistrations(event) {
   const externalRegistrations = await getEventRegistrationCollection()
     .find({ eventId: toObjectId(event._id) })
     .project({ userId: 1, status: 1 })
@@ -182,270 +281,841 @@ const countActiveRegistrations = async (event) => {
 
   const mergedStatuses = new Map();
 
-  externalRegistrations.forEach((registration) => {
-    mergedStatuses.set(registration.userId.toString(), registration.status);
+  externalRegistrations.forEach((item) => {
+    mergedStatuses.set(item.userId.toString(), item.status);
   });
 
-  event.participants.forEach((participant) => {
-    mergedStatuses.set(participant.userId.toString(), participant.status);
+  event.participants.forEach((item) => {
+    mergedStatuses.set(item.userId.toString(), item.status);
   });
 
   return Array.from(mergedStatuses.values()).filter(
     (status) => status === "registered"
   ).length;
-};
+}
 
-const countUserUpcomingRegistrations = async (userId) => {
+async function countUserUpcomingRegistrations(userId) {
   const userObjectId = toObjectId(userId);
   const registeredEventIds = new Set();
 
   const embeddedEvents = await Event.find({
+    approvalStatus: "approved",
+    status: "upcoming",
     "participants.userId": userObjectId,
     "participants.status": "registered",
-    status: "upcoming",
   })
     .select("_id")
     .lean();
 
-  embeddedEvents.forEach((event) => registeredEventIds.add(event._id.toString()));
+  embeddedEvents.forEach((event) => {
+    registeredEventIds.add(event._id.toString());
+  });
 
   const externalRegistrations = await getEventRegistrationCollection()
     .find({ userId: userObjectId, status: "registered" })
     .project({ eventId: 1 })
     .toArray();
 
-  const externalEventIds = externalRegistrations.map(
-    (registration) => registration.eventId
-  );
+  const externalEventIds = externalRegistrations.map((item) => item.eventId);
 
   if (externalEventIds.length) {
     const externalEvents = await Event.find({
       _id: { $in: externalEventIds },
+      approvalStatus: "approved",
       status: "upcoming",
     })
       .select("_id")
       .lean();
 
-    externalEvents.forEach((event) => registeredEventIds.add(event._id.toString()));
+    externalEvents.forEach((event) => {
+      registeredEventIds.add(event._id.toString());
+    });
   }
 
   return registeredEventIds.size;
-};
+}
+
+async function findScheduleConflict(event) {
+  const start = new Date(event.startDateTime);
+  const end = new Date(event.endDateTime);
+
+  const currentPlaceKey = normalizeLocationKey(
+    event.location,
+    event.meetingLink
+  );
+
+  const candidates = await Event.find({
+    _id: { $ne: event._id },
+    approvalStatus: "approved",
+    status: { $ne: "cancelled" },
+
+    // Time overlap:
+    // new start < old end
+    // new end > old start
+    startDateTime: { $lt: end },
+    endDateTime: { $gt: start },
+  }).populate("createdBy", "fullName email avatarUrl role");
+
+  const conflictEvent = candidates.find((item) => {
+    const itemPlaceKey = normalizeLocationKey(item.location, item.meetingLink);
+    return itemPlaceKey === currentPlaceKey;
+  });
+
+  return conflictEvent || null;
+}
+
+function cleanPublicEvent(event) {
+  const data = event.toObject ? event.toObject() : event;
+  delete data.participants;
+  return data;
+}
 
 /**
- * @route   GET /api/events
- * @desc    Get list of events
- * @access  Public
+ * GET /api/events
+ * Public: chỉ trả event đã approved
  */
-const getEvents = async (req, res) => {
+async function getEvents(req, res) {
   try {
-    const { status, eventType, page = 1, limit = 10 } = req.query;
+    const { eventType, page = 1, limit = 10, from, to } = req.query;
 
-    const query = {};
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 50);
+    const skip = (pageNumber - 1) * limitNumber;
 
-    if (status) {
-      query.status = status;
-    }
+    const query = {
+      approvalStatus: "approved",
+      status: { $ne: "cancelled" },
+    };
 
     if (eventType) {
       query.eventType = eventType;
     }
 
-    const skip = (parseInt(page) - 1) * parseInt(limit);
+    if (from || to) {
+      query.startDateTime = {};
 
-    const events = await Event.find(query)
-      .sort({ startDateTime: 1 })
-      .skip(skip)
-      .limit(parseInt(limit))
-      .populate("createdBy", "username fullName avatar");
+      if (from) query.startDateTime.$gte = new Date(from);
+      if (to) query.startDateTime.$lte = new Date(to);
+    }
 
-    const total = await Event.countDocuments(query);
+    const [events, total] = await Promise.all([
+      Event.find(query)
+        .sort({ startDateTime: 1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .populate("createdBy", "fullName email avatarUrl role"),
+      Event.countDocuments(query),
+    ]);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: events,
+      message: "Lấy danh sách event thành công.",
+      data: events.map(cleanPublicEvent),
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        totalPages: Math.ceil(total / parseInt(limit)),
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
       },
     });
   } catch (error) {
-    console.error("Error fetching events:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("getEvents error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy danh sách event.",
+    });
   }
-};
+}
 
 /**
- * @route   GET /api/events/:id
- * @desc    Get event detail by ID
- * @access  Public
+ * GET /api/events/calendar
+ * Public: lịch event đã approved
  */
-const getEventById = async (req, res) => {
+async function getEventCalendar(req, res) {
+  try {
+    const { from, to } = req.query;
+
+    const query = {
+      approvalStatus: "approved",
+      status: { $ne: "cancelled" },
+    };
+
+    if (from || to) {
+      query.startDateTime = {};
+
+      if (from) query.startDateTime.$gte = new Date(from);
+      if (to) query.startDateTime.$lte = new Date(to);
+    }
+
+    const events = await Event.find(query)
+      .select(
+        "title description eventType startDateTime endDateTime location meetingLink capacity registeredCount status approvalStatus bannerImage"
+      )
+      .sort({ startDateTime: 1 })
+      .lean();
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy lịch event thành công.",
+      data: events,
+    });
+  } catch (error) {
+    console.error("getEventCalendar error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy lịch event.",
+    });
+  }
+}
+
+/**
+ * GET /api/events/:id
+ * Public: chỉ xem event approved
+ */
+async function getEventById(req, res) {
   try {
     const { id } = req.params;
 
-    // Validate MongoDB ObjectId format
     if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
     }
 
-    const event = await Event.findById(id).populate(
-      "createdBy",
-      "username fullName avatar"
-    );
+    const event = await Event.findOne({
+      _id: id,
+      approvalStatus: "approved",
+    }).populate("createdBy", "fullName email avatarUrl role");
 
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event hoặc event chưa được duyệt.",
+      });
     }
 
-    // Build response, exclude full participants array to keep it clean
-    // but include registered count
-    const responseData = event.toObject();
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: responseData,
+      message: "Lấy chi tiết event thành công.",
+      data: cleanPublicEvent(event),
     });
   } catch (error) {
-    console.error("Error fetching event detail:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("getEventById error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy chi tiết event.",
+    });
   }
-};
+}
 
 /**
- * @route   POST /api/events
- * @desc    Create event
- * @access  Private (Admin)
+ * POST /api/events
+ * Owner tạo event -> approvalStatus = pending
  */
-const createEvent = async (req, res) => {
+async function createEvent(req, res) {
   try {
+    const userId = getCurrentUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập để tạo event.",
+      });
+    }
+
+    if (!canCreateEvent(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ event organizer hoặc admin mới được tạo event.",
+      });
+    }
+
     const payload = buildEventPayload(req.body);
     const validationError = validateEventPayload(payload, { isCreate: true });
 
     if (validationError) {
-      return res.status(400).json({ success: false, message: validationError });
+      return res.status(400).json({
+        success: false,
+        message: validationError,
+      });
     }
 
     const event = await Event.create({
       ...payload,
+      locationKey: normalizeLocationKey(payload.location, payload.meetingLink),
+      status: "upcoming",
+      approvalStatus: "pending",
+      approvedBy: null,
+      approvedAt: null,
+      rejectedReason: null,
+      lockAfterApproval: true,
       registeredCount: 0,
       participants: [],
-      createdBy: req.user._id,
+      createdBy: userId,
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
-      message: "Event created successfully",
+      message: "Tạo event thành công. Event đang chờ admin duyệt.",
       data: event,
     });
   } catch (error) {
-    console.error("Error creating event:", error);
+    console.error("createEvent error:", error);
 
     if (error.name === "ValidationError") {
-      return res.status(400).json({ success: false, message: error.message });
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
     }
 
-    res.status(500).json({ success: false, message: "Server Error" });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể tạo event.",
+    });
   }
-};
+}
 
 /**
- * @route   PATCH /api/events/:id
- * @desc    Update event
- * @access  Private (Admin)
+ * GET /api/events/me/created
  */
-const updateEvent = async (req, res) => {
+async function getMyEvents(req, res) {
   try {
+    const userId = getCurrentUserId(req);
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
+    }
+
+    const events = await Event.find({ createdBy: userId })
+      .sort({ createdAt: -1 })
+      .populate("approvedBy", "fullName email avatarUrl role");
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy danh sách event của tôi thành công.",
+      data: events,
+    });
+  } catch (error) {
+    console.error("getMyEvents error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy event của tôi.",
+    });
+  }
+}
+
+/**
+ * GET /api/events/me/created/:id
+ */
+async function getMyEventById(req, res) {
+  try {
+    const userId = getCurrentUserId(req);
     const { id } = req.params;
 
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
+    }
+
     if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
+    }
+
+    const event = await Event.findOne({
+      _id: id,
+      createdBy: userId,
+    })
+      .populate("createdBy", "fullName email avatarUrl role")
+      .populate("approvedBy", "fullName email avatarUrl role");
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event của bạn.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy chi tiết event của tôi thành công.",
+      data: event,
+    });
+  } catch (error) {
+    console.error("getMyEventById error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy chi tiết event của tôi.",
+    });
+  }
+}
+
+/**
+ * PATCH /api/events/:id
+ */
+async function updateEvent(req, res) {
+  try {
+    const userId = getCurrentUserId(req);
+    const { id } = req.params;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
     }
 
     const event = await Event.findById(id);
+
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
+    }
+
+    if (event.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền sửa event này.",
+      });
+    }
+
+    if (event.approvalStatus === "approved" && event.lockAfterApproval) {
+      return res.status(400).json({
+        success: false,
+        message: "Event đã được admin duyệt nên không thể chỉnh sửa.",
+      });
     }
 
     const payload = buildEventPayload(req.body);
-    const validationError = validateEventPayload(payload, { currentEvent: event });
+    const validationError = validateEventPayload(payload, {
+      currentEvent: event,
+    });
 
     if (validationError) {
-      return res.status(400).json({ success: false, message: validationError });
+      return res.status(400).json({
+        success: false,
+        message: validationError,
+      });
     }
 
     Object.assign(event, payload);
+
+    event.locationKey = normalizeLocationKey(event.location, event.meetingLink);
+
+    if (event.approvalStatus === "rejected") {
+      event.approvalStatus = "pending";
+      event.rejectedReason = null;
+      event.approvedBy = null;
+      event.approvedAt = null;
+    }
+
     await event.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Event updated successfully",
+      message: "Cập nhật event thành công.",
       data: event,
     });
   } catch (error) {
-    console.error("Error updating event:", error);
+    console.error("updateEvent error:", error);
 
     if (error.name === "ValidationError") {
-      return res.status(400).json({ success: false, message: error.message });
+      return res.status(400).json({
+        success: false,
+        message: error.message,
+      });
     }
 
-    res.status(500).json({ success: false, message: "Server Error" });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể cập nhật event.",
+    });
   }
-};
+}
 
 /**
- * @route   DELETE /api/events/:id
- * @desc    Delete event
- * @access  Private (Admin)
+ * DELETE /api/events/:id
  */
-const deleteEvent = async (req, res) => {
+async function deleteEvent(req, res) {
   try {
+    const userId = getCurrentUserId(req);
     const { id } = req.params;
 
-    if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
     }
 
-    const event = await Event.findByIdAndDelete(id);
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
+    }
+
+    const event = await Event.findById(id);
 
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
     }
 
-    res.status(200).json({
+    if (event.createdBy.toString() !== userId.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: "Bạn không có quyền xóa event này.",
+      });
+    }
+
+    if (event.approvalStatus === "approved" && event.lockAfterApproval) {
+      return res.status(400).json({
+        success: false,
+        message: "Event đã được admin duyệt nên không thể xóa.",
+      });
+    }
+
+    await Event.findByIdAndDelete(id);
+
+    await getEventRegistrationCollection().deleteMany({
+      eventId: toObjectId(id),
+    });
+
+    return res.status(200).json({
       success: true,
-      message: "Event deleted successfully",
+      message: "Xóa event thành công.",
       data: {
         eventId: event._id,
         title: event.title,
       },
     });
   } catch (error) {
-    console.error("Error deleting event:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("deleteEvent error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể xóa event.",
+    });
   }
-};
+}
 
 /**
- * @route   GET /api/events/:id/registrations
- * @desc    Get event registrations
- * @access  Private (Admin)
+ * GET /api/events/admin/pending
  */
-const getEventRegistrations = async (req, res) => {
+async function getAdminPendingEvents(req, res) {
+  try {
+    const events = await Event.find({ approvalStatus: "pending" })
+      .sort({ createdAt: -1 })
+      .populate("createdBy", "fullName email avatarUrl role");
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy danh sách event chờ duyệt thành công.",
+      data: events,
+    });
+  } catch (error) {
+    console.error("getAdminPendingEvents error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy event chờ duyệt.",
+    });
+  }
+}
+
+/**
+ * GET /api/events/admin/all
+ */
+async function getAdminAllEvents(req, res) {
+  try {
+    const { approvalStatus, status, page = 1, limit = 20 } = req.query;
+
+    const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
+    const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 20, 1), 100);
+    const skip = (pageNumber - 1) * limitNumber;
+
+    const query = {};
+
+    if (approvalStatus) query.approvalStatus = approvalStatus;
+    if (status) query.status = status;
+
+    const [events, total] = await Promise.all([
+      Event.find(query)
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .populate("createdBy", "fullName email avatarUrl role")
+        .populate("approvedBy", "fullName email avatarUrl role"),
+      Event.countDocuments(query),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy danh sách event admin thành công.",
+      data: events,
+      pagination: {
+        total,
+        page: pageNumber,
+        limit: limitNumber,
+        totalPages: Math.ceil(total / limitNumber),
+      },
+    });
+  } catch (error) {
+    console.error("getAdminAllEvents error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy danh sách event admin.",
+    });
+  }
+}
+
+/**
+ * GET /api/events/admin/:id
+ */
+async function getAdminEventById(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới được xem chi tiết event admin.",
+      });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
+    }
+
+    const event = await Event.findById(id)
+      .populate("createdBy", "fullName email avatarUrl role")
+      .populate("approvedBy", "fullName email avatarUrl role");
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy chi tiết event admin thành công.",
+      data: event,
+    });
+  } catch (error) {
+    console.error("getAdminEventById error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy chi tiết event admin.",
+    });
+  }
+}
+
+/**
+ * PATCH /api/events/admin/:id/approve
+ */
+async function approveEvent(req, res) {
+  try {
+    const adminId = getCurrentUserId(req);
+    const { id } = req.params;
+
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới được duyệt event.",
+      });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
+    }
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
+    }
+
+    if (event.approvalStatus === "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Event này đã được duyệt trước đó.",
+      });
+    }
+
+    if (event.status === "cancelled" || event.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể duyệt event đã bị hủy hoặc đã hoàn thành.",
+      });
+    }
+
+    if (!event.startDateTime || !event.endDateTime) {
+      return res.status(400).json({
+        success: false,
+        message: "Event cần có thời gian bắt đầu và kết thúc trước khi duyệt.",
+      });
+    }
+
+    if (new Date(event.endDateTime) <= new Date(event.startDateTime)) {
+      return res.status(400).json({
+        success: false,
+        message: "Thời gian kết thúc phải sau thời gian bắt đầu.",
+      });
+    }
+
+    const conflictEvent = await findScheduleConflict(event);
+
+    if (conflictEvent) {
+      return res.status(409).json({
+        success: false,
+        message: "Không thể duyệt event vì trùng lịch tại cùng địa điểm.",
+        conflictEvent: {
+          _id: conflictEvent._id,
+          title: conflictEvent.title,
+          startDateTime: conflictEvent.startDateTime,
+          endDateTime: conflictEvent.endDateTime,
+          location: conflictEvent.location,
+          meetingLink: conflictEvent.meetingLink,
+          approvalStatus: conflictEvent.approvalStatus,
+          status: conflictEvent.status,
+        },
+      });
+    }
+
+    event.locationKey = normalizeLocationKey(event.location, event.meetingLink);
+    event.approvalStatus = "approved";
+    event.approvedBy = adminId;
+    event.approvedAt = new Date();
+    event.rejectedReason = null;
+    event.lockAfterApproval = true;
+
+    await event.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Duyệt event thành công. Event đã hiển thị cho mọi người đăng ký.",
+      data: event,
+    });
+  } catch (error) {
+    console.error("approveEvent error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể duyệt event.",
+    });
+  }
+}
+
+/**
+ * PATCH /api/events/admin/:id/reject
+ */
+async function rejectEvent(req, res) {
+  try {
+    const { id } = req.params;
+    const { reason } = req.body;
+
+    if (!isAdmin(req)) {
+      return res.status(403).json({
+        success: false,
+        message: "Chỉ admin mới được từ chối event.",
+      });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
+    }
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
+    }
+
+    if (event.approvalStatus === "approved") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Event đã được duyệt nên không thể reject. Hãy dùng cancelled nếu cần hủy.",
+      });
+    }
+
+    event.approvalStatus = "rejected";
+    event.rejectedReason =
+      reason || "Event không phù hợp hoặc thiếu thông tin.";
+    event.approvedBy = null;
+    event.approvedAt = null;
+
+    await event.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Từ chối event thành công.",
+      data: event,
+    });
+  } catch (error) {
+    console.error("rejectEvent error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể từ chối event.",
+    });
+  }
+}
+
+/**
+ * GET /api/events/:id/registrations
+ */
+async function getEventRegistrations(req, res) {
   try {
     const { id } = req.params;
     const { status = "all", page = 1, limit = 10 } = req.query;
 
     if (!isValidObjectId(id)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
     }
 
     if (!ADMIN_REGISTRATION_FILTERS.includes(status)) {
       return res.status(400).json({
         success: false,
-        message: "Invalid registration status",
+        message: "Trạng thái đăng ký không hợp lệ.",
       });
     }
 
@@ -454,38 +1124,53 @@ const getEventRegistrations = async (req, res) => {
     const skip = (pageNumber - 1) * limitNumber;
 
     const event = await Event.findById(id)
-      .populate("participants.userId", "fullName email phone avatarUrl role status")
-      .select("title startDateTime endDateTime status capacity registeredCount participants");
+      .populate(
+        "participants.userId",
+        "fullName email phone avatarUrl role status"
+      )
+      .select(
+        "title startDateTime endDateTime status approvalStatus capacity registeredCount participants location meetingLink"
+      );
 
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
     }
 
-    const embeddedRegistrations = event.participants.map(normalizeEmbeddedRegistration);
+    const embeddedRegistrations = event.participants.map(
+      normalizeEmbeddedRegistration
+    );
+
     const externalRegistrations = await getExternalEventRegistrations(id);
+
     const allRegistrations = mergeRegistrations(
       embeddedRegistrations,
       externalRegistrations
-    ).filter((registration) =>
-      ADMIN_REGISTRATION_FILTERS.includes(registration.status)
     );
+
     const stats = buildRegistrationStats(allRegistrations, event.capacity);
 
     const registrations = allRegistrations
-      .filter((registration) => status === "all" || registration.status === status)
+      .filter((item) => status === "all" || item.status === status)
       .sort((a, b) => new Date(b.registeredAt) - new Date(a.registeredAt));
 
     const paginatedRegistrations = registrations.slice(skip, skip + limitNumber);
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      message: "Lấy danh sách đăng ký event thành công.",
       data: {
         event: {
           _id: event._id,
           title: event.title,
           startDateTime: event.startDateTime,
           endDateTime: event.endDateTime,
+          location: event.location,
+          meetingLink: event.meetingLink,
           status: event.status,
+          approvalStatus: event.approvalStatus,
           capacity: event.capacity,
           registeredCount: stats.totalRegistrations,
         },
@@ -500,40 +1185,49 @@ const getEventRegistrations = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching event registrations:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("getEventRegistrations error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy danh sách đăng ký.",
+    });
   }
-};
+}
 
 /**
- * @route   GET /api/events/me/registered
- * @desc    Get events registered by current user
- * @access  Private (User)
+ * GET /api/events/me/registered
  */
-const getRegisteredEvents = async (req, res) => {
+async function getRegisteredEvents(req, res) {
   try {
-    const userId = req.user._id;
+    const userId = getCurrentUserId(req);
     const { status = "registered", page = 1, limit = 10 } = req.query;
-    const userObjectId = toObjectId(userId);
 
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
+    }
+
+    if (status !== "all" && !REGISTRATION_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Trạng thái đăng ký không hợp lệ.",
+      });
+    }
+
+    const userObjectId = toObjectId(userId);
     const pageNumber = Math.max(parseInt(page, 10) || 1, 1);
     const limitNumber = Math.max(parseInt(limit, 10) || 10, 1);
     const skip = (pageNumber - 1) * limitNumber;
 
-    const validStatuses = ["registered", "cancelled", "attended"];
-    if (status !== "all" && !validStatuses.includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid registration status",
-      });
-    }
-
     const participantQuery = { userId: userObjectId };
+
     if (status !== "all") {
       participantQuery.status = status;
     }
 
     const externalFilter = { userId: userObjectId };
+
     if (status !== "all") {
       externalFilter.status = status;
     }
@@ -543,13 +1237,13 @@ const getRegisteredEvents = async (req, res) => {
       .toArray();
 
     const externalRegistrationMap = new Map(
-      externalRegistrations.map((registration) => [
-        registration.eventId.toString(),
+      externalRegistrations.map((item) => [
+        item.eventId.toString(),
         {
-          userId: registration.userId,
-          status: registration.status,
-          registeredAt: registration.registeredAt,
-          cancelledAt: registration.cancelledAt || null,
+          userId: item.userId,
+          status: item.status,
+          registeredAt: item.registeredAt,
+          cancelledAt: item.cancelledAt || null,
         },
       ])
     );
@@ -564,28 +1258,37 @@ const getRegisteredEvents = async (req, res) => {
 
     if (externalRegistrations.length) {
       eventConditions.push({
-        _id: { $in: externalRegistrations.map((registration) => registration.eventId) },
+        _id: { $in: externalRegistrations.map((item) => item.eventId) },
       });
     }
 
-    const query = { $or: eventConditions };
+    const query = {
+      approvalStatus: "approved",
+      $or: eventConditions,
+    };
 
-    const events = await Event.find(query)
-      .sort({ startDateTime: 1 })
-      .skip(skip)
-      .limit(limitNumber)
-      .populate("createdBy", "username fullName avatar");
-
-    const total = await Event.countDocuments(query);
+    const [events, total] = await Promise.all([
+      Event.find(query)
+        .sort({ startDateTime: 1 })
+        .skip(skip)
+        .limit(limitNumber)
+        .populate("createdBy", "fullName email avatarUrl role"),
+      Event.countDocuments(query),
+    ]);
 
     const data = events.map((event) => {
       const eventData = event.toObject();
+
       const embeddedRegistration = eventData.participants.find(
-        (participant) =>
-          participant.userId.toString() === userId.toString() &&
-          (status === "all" || participant.status === status)
+        (item) =>
+          item.userId.toString() === userId.toString() &&
+          (status === "all" || item.status === status)
       );
-      const externalRegistration = externalRegistrationMap.get(eventData._id.toString());
+
+      const externalRegistration = externalRegistrationMap.get(
+        eventData._id.toString()
+      );
+
       const registration = embeddedRegistration || externalRegistration;
 
       delete eventData.participants;
@@ -596,8 +1299,9 @@ const getRegisteredEvents = async (req, res) => {
       };
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
+      message: "Lấy lịch event đã đăng ký thành công.",
       data,
       pagination: {
         total,
@@ -607,94 +1311,126 @@ const getRegisteredEvents = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching registered events:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("getRegisteredEvents error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy event đã đăng ký.",
+    });
   }
-};
+}
 
 /**
- * @route   POST /api/events/:id/register
- * @desc    Register for an event
- * @access  Private (User)
+ * POST /api/events/:id/register
  */
-const registerEvent = async (req, res) => {
+async function registerEvent(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user._id;
+    const userId = getCurrentUserId(req);
 
-    // Validate ObjectId
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
+    }
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
     }
 
     const event = await Event.findById(id);
+
     if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
-    }
-
-    // Chỉ cho đăng ký event sắp diễn ra
-    const externalRegistration = await getEventRegistrationCollection().findOne({
-      eventId: toObjectId(event._id),
-      userId: toObjectId(userId),
-    });
-
-    if (event.status !== "upcoming") {
-      return res.status(400).json({
+      return res.status(404).json({
         success: false,
-        message: "Chỉ có thể đăng ký các sự kiện sắp diễn ra",
+        message: "Không tìm thấy event.",
       });
     }
 
-    // Kiểm tra user đã đăng ký chưa
+    if (event.approvalStatus !== "approved") {
+      return res.status(400).json({
+        success: false,
+        message: "Event chưa được admin duyệt nên chưa thể đăng ký.",
+      });
+    }
+
+    if (event.status !== "upcoming" && event.status !== "ongoing") {
+      return res.status(400).json({
+        success: false,
+        message: "Chỉ có thể đăng ký event đang hoặc sắp diễn ra.",
+      });
+    }
+
+    if (new Date(event.endDateTime) <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Event đã kết thúc.",
+      });
+    }
+
+    const externalRegistration =
+      await getEventRegistrationCollection().findOne({
+        eventId: toObjectId(event._id),
+        userId: toObjectId(userId),
+      });
+
     const existingParticipant = event.participants.find(
-      (p) => p.userId.toString() === userId.toString()
+      (item) => item.userId.toString() === userId.toString()
     );
 
+    if (
+      existingParticipant?.status === "registered" ||
+      externalRegistration?.status === "registered"
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Bạn đã đăng ký event này rồi.",
+      });
+    }
+
+    const activeCount = await countActiveRegistrations(event);
+
+    if (
+      event.capacity !== null &&
+      event.capacity !== undefined &&
+      activeCount >= event.capacity
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Event đã đủ số lượng người tham gia.",
+      });
+    }
+
+    const upcomingEventCount = await countUserUpcomingRegistrations(userId);
+
+    if (upcomingEventCount >= 3) {
+      return res.status(400).json({
+        success: false,
+        message: "Bạn chỉ có thể đăng ký tối đa 3 event cùng lúc.",
+      });
+    }
+
     if (existingParticipant) {
-      if (existingParticipant.status === "registered") {
-        return res.status(400).json({
-          success: false,
-          message: "Bạn đã đăng ký sự kiện này rồi",
-        });
-      }
-      // Nếu đã cancel trước đó thì cho phép đăng ký lại
       existingParticipant.status = "registered";
       existingParticipant.registeredAt = new Date();
       existingParticipant.cancelledAt = null;
-    } else if (externalRegistration && externalRegistration.status === "registered") {
-      return res.status(400).json({
-        success: false,
-        message: "Ban da dang ky su kien nay roi",
-      });
     } else {
-      // Kiểm tra giới hạn 3 event đồng thời (status = upcoming)
-      const upcomingEventCount = await countUserUpcomingRegistrations(userId);
-
-      if (upcomingEventCount >= 3) {
-        return res.status(400).json({
-          success: false,
-          message: "Bạn chỉ có thể đăng ký tối đa 3 sự kiện cùng lúc",
-        });
-      }
-
-      // Kiểm tra capacity
-      if (event.capacity !== null && event.registeredCount >= event.capacity) {
-        return res.status(400).json({
-          success: false,
-          message: "Sự kiện đã đủ số lượng tham gia",
-        });
-      }
-
-      // Thêm participant mới
       event.participants.push({
         userId,
         status: "registered",
         registeredAt: new Date(),
+        cancelledAt: null,
       });
     }
 
     await getEventRegistrationCollection().updateOne(
-      { eventId: toObjectId(event._id), userId: toObjectId(userId) },
+      {
+        eventId: toObjectId(event._id),
+        userId: toObjectId(userId),
+      },
       {
         $set: {
           eventId: toObjectId(event._id),
@@ -712,60 +1448,77 @@ const registerEvent = async (req, res) => {
     );
 
     event.registeredCount = await countActiveRegistrations(event);
-
     await event.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Đăng ký sự kiện thành công",
+      message: "Đăng ký event thành công.",
       data: {
         eventId: event._id,
         title: event.title,
+        startDateTime: event.startDateTime,
+        endDateTime: event.endDateTime,
+        location: event.location,
+        meetingLink: event.meetingLink,
+        registeredAt: new Date(),
         registeredCount: event.registeredCount,
       },
     });
   } catch (error) {
-    console.error("Error registering event:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("registerEvent error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể đăng ký event.",
+    });
   }
-};
+}
 
 /**
- * @route   POST /api/events/:id/cancel
- * @desc    Cancel event registration
- * @access  Private (User)
+ * POST /api/events/:id/cancel
  */
-const cancelRegistration = async (req, res) => {
+async function cancelRegistration(req, res) {
   try {
     const { id } = req.params;
-    const userId = req.user._id;
+    const userId = getCurrentUserId(req);
 
-    // Validate ObjectId
-    if (!id.match(/^[0-9a-fA-F]{24}$/)) {
-      return res.status(400).json({ success: false, message: "Invalid event ID" });
-    }
-
-    const event = await Event.findById(id);
-    if (!event) {
-      return res.status(404).json({ success: false, message: "Event not found" });
-    }
-
-    // Không cho hủy event đã diễn ra hoặc đã completed
-    if (event.status === "completed" || event.status === "cancelled") {
-      return res.status(400).json({
+    if (!userId) {
+      return res.status(401).json({
         success: false,
-        message: "Không thể hủy đăng ký sự kiện đã kết thúc hoặc bị hủy",
+        message: "Bạn cần đăng nhập.",
       });
     }
 
-    // Tìm participant
-    const externalRegistration = await getEventRegistrationCollection().findOne({
-      eventId: toObjectId(event._id),
-      userId: toObjectId(userId),
-    });
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Event ID không hợp lệ.",
+      });
+    }
+
+    const event = await Event.findById(id);
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event.",
+      });
+    }
+
+    if (event.status === "completed" || event.status === "cancelled") {
+      return res.status(400).json({
+        success: false,
+        message: "Không thể hủy đăng ký event đã kết thúc hoặc đã bị hủy.",
+      });
+    }
+
+    const externalRegistration =
+      await getEventRegistrationCollection().findOne({
+        eventId: toObjectId(event._id),
+        userId: toObjectId(userId),
+      });
 
     const participant = event.participants.find(
-      (p) => p.userId.toString() === userId.toString()
+      (item) => item.userId.toString() === userId.toString()
     );
 
     if (
@@ -774,18 +1527,20 @@ const cancelRegistration = async (req, res) => {
     ) {
       return res.status(400).json({
         success: false,
-        message: "Bạn chưa đăng ký sự kiện này",
+        message: "Bạn chưa đăng ký event này.",
       });
     }
 
-    // Cập nhật status sang cancelled
     if (participant) {
       participant.status = "cancelled";
       participant.cancelledAt = new Date();
     }
 
     await getEventRegistrationCollection().updateOne(
-      { eventId: toObjectId(event._id), userId: toObjectId(userId) },
+      {
+        eventId: toObjectId(event._id),
+        userId: toObjectId(userId),
+      },
       {
         $set: {
           eventId: toObjectId(event._id),
@@ -803,12 +1558,11 @@ const cancelRegistration = async (req, res) => {
     );
 
     event.registeredCount = await countActiveRegistrations(event);
-
     await event.save();
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      message: "Hủy đăng ký sự kiện thành công",
+      message: "Hủy đăng ký event thành công.",
       data: {
         eventId: event._id,
         title: event.title,
@@ -816,17 +1570,31 @@ const cancelRegistration = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("Error cancelling registration:", error);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.error("cancelRegistration error:", error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể hủy đăng ký event.",
+    });
   }
-};
+}
 
 module.exports = {
   getEvents,
+  getEventCalendar,
   getEventById,
+
   createEvent,
+  getMyEvents,
+  getMyEventById,
   updateEvent,
   deleteEvent,
+
+  getAdminPendingEvents,
+  getAdminAllEvents,
+  getAdminEventById,
+  approveEvent,
+  rejectEvent,
+
   getEventRegistrations,
   getRegisteredEvents,
   registerEvent,
