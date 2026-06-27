@@ -4,7 +4,7 @@ import {
   Alert,
   FlatList,
   SafeAreaView,
-  StyleSheet,
+  ScrollView,
   Text,
   TextInput,
   TouchableOpacity,
@@ -14,82 +14,106 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { colors } from "@/constants/colors";
 import { eventAdminService } from "@/services/eventApi";
+import { eventStyles as s } from "@/styles/event.styles";
 
-type RegistrationStatusFilter = "all" | "registered" | "cancelled";
-
-type RegistrationUser = {
-  _id?: string;
-  fullName?: string;
-  email?: string;
-  phone?: string | null;
-};
+type RegistrationStatusFilter = "all" | "registered" | "cancelled" | "attended";
 
 type EventRegistration = {
-  userId: RegistrationUser | string;
-  status: "registered" | "cancelled";
+  userId: any;
+  status: "registered" | "cancelled" | "attended";
   registeredAt?: string;
   cancelledAt?: string | null;
-};
-
-type RegistrationStats = {
-  totalRegistrations: number;
-  totalCancelled: number;
 };
 
 const filters: { label: string; value: RegistrationStatusFilter }[] = [
   { label: "All", value: "all" },
   { label: "Registered", value: "registered" },
   { label: "Cancelled", value: "cancelled" },
+  { label: "Attended", value: "attended" },
 ];
 
-const getUserId = (registration: EventRegistration) => {
-  if (typeof registration.userId === "string") {
-    return registration.userId;
-  }
+function formatDateTime(value?: string | null) {
+  if (!value) return "Chưa cập nhật";
 
-  return registration.userId._id || "";
-};
+  const date = new Date(value);
 
-const getUserInfo = (registration: EventRegistration) => {
-  if (typeof registration.userId === "string") {
-    return {
-      name: "Nguoi dung",
-      email: "Khong co email",
-      phone: "Khong co so dien thoai",
-    };
-  }
+  if (Number.isNaN(date.getTime())) return "Thời gian không hợp lệ";
 
-  return {
-    name: registration.userId.fullName || "Nguoi dung",
-    email: registration.userId.email || "Khong co email",
-    phone: registration.userId.phone || "Khong co so dien thoai",
-  };
-};
-
-const formatDateTime = (value?: string | null) => {
-  if (!value) return "Chua cap nhat";
-
-  return new Date(value).toLocaleString("vi-VN", {
+  return date.toLocaleString("vi-VN", {
+    weekday: "short",
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
-};
+}
+
+function getUserId(registration: EventRegistration) {
+  if (typeof registration.userId === "string") return registration.userId;
+  return registration.userId?._id || "";
+}
+
+function getUserInfo(registration: EventRegistration) {
+  if (typeof registration.userId === "string") {
+    return {
+      name: "SOUL User",
+      email: "Không có email",
+      phone: "Không có số điện thoại",
+    };
+  }
+
+  return {
+    name: registration.userId?.fullName || "SOUL User",
+    email: registration.userId?.email || "Không có email",
+    phone: registration.userId?.phone || "Không có số điện thoại",
+  };
+}
+
+function getStatusMeta(status: string) {
+  if (status === "registered") {
+    return {
+      label: "Registered",
+      bgStyle: s.badgeGreen,
+      textStyle: s.badgeGreenText,
+      icon: "account-check-outline",
+      color: "#047857",
+    };
+  }
+
+  if (status === "attended") {
+    return {
+      label: "Attended",
+      bgStyle: s.badgeBlue,
+      textStyle: s.badgeBlueText,
+      icon: "check-circle-outline",
+      color: "#0369A1",
+    };
+  }
+
+  return {
+    label: "Cancelled",
+    bgStyle: s.badgeRed,
+    textStyle: s.badgeRedText,
+    icon: "account-cancel-outline",
+    color: "#DC2626",
+  };
+}
 
 export default function AdminEventRegistrations() {
   const params = useLocalSearchParams();
-  const eventId = Array.isArray(params.id)
-    ? params.id[0]
-    : (params.id as string);
+  const eventId = Array.isArray(params.id) ? params.id[0] : (params.id as string);
 
   const [eventTitle, setEventTitle] = useState("");
+  const [eventTime, setEventTime] = useState("");
   const [registrations, setRegistrations] = useState<EventRegistration[]>([]);
-  const [stats, setStats] = useState<RegistrationStats>({
+  const [stats, setStats] = useState<any>({
     totalRegistrations: 0,
     totalCancelled: 0,
+    totalAttended: 0,
+    remainingSlots: null,
   });
+
   const [filter, setFilter] = useState<RegistrationStatusFilter>("all");
   const [searchText, setSearchText] = useState("");
   const [loading, setLoading] = useState(true);
@@ -98,28 +122,28 @@ export default function AdminEventRegistrations() {
     if (!eventId) return;
 
     setLoading(true);
+
     try {
-      const response = await eventAdminService.getEventRegistrations(
-        eventId,
-        "all",
-      );
+      const response = await eventAdminService.getEventRegistrations(eventId, "all");
 
       if (response.success && response.data) {
-        setEventTitle(response.data.event?.title || "");
+        const event = response.data.event || {};
+        const resultStats = response.data.stats || {};
+
+        setEventTitle(event.title || "Event registrations");
+        setEventTime(`${formatDateTime(event.startDateTime)} - ${formatDateTime(event.endDateTime)}`);
         setRegistrations(response.data.registrations || []);
+
         setStats({
-          totalRegistrations:
-            response.data.stats?.totalRegistrations ??
-            response.data.event?.registeredCount ??
-            0,
-          totalCancelled: response.data.stats?.totalCancelled ?? 0,
+          totalRegistrations: resultStats.totalRegistrations ?? event.registeredCount ?? 0,
+          totalCancelled: resultStats.totalCancelled ?? 0,
+          totalAttended: resultStats.totalAttended ?? 0,
+          capacity: resultStats.capacity ?? event.capacity,
+          remainingSlots: resultStats.remainingSlots ?? null,
         });
       }
     } catch (error: any) {
-      Alert.alert(
-        "Loi",
-        error.message || "Khong the tai danh sach nguoi dang ky",
-      );
+      Alert.alert("Lỗi", error?.message || "Không thể tải danh sách người đăng ký.");
     } finally {
       setLoading(false);
     }
@@ -128,21 +152,19 @@ export default function AdminEventRegistrations() {
   useFocusEffect(
     useCallback(() => {
       fetchRegistrations();
-    }, [fetchRegistrations]),
+    }, [fetchRegistrations])
   );
 
   const counts = useMemo(() => {
-    const registered = registrations.filter(
-      (item) => item.status === "registered",
-    ).length;
-    const cancelled = registrations.filter(
-      (item) => item.status === "cancelled",
-    ).length;
+    const registered = registrations.filter((item) => item.status === "registered").length;
+    const cancelled = registrations.filter((item) => item.status === "cancelled").length;
+    const attended = registrations.filter((item) => item.status === "attended").length;
 
     return {
       all: registrations.length,
       registered,
       cancelled,
+      attended,
     };
   }, [registrations]);
 
@@ -151,7 +173,9 @@ export default function AdminEventRegistrations() {
 
     return registrations.filter((registration) => {
       const user = getUserInfo(registration);
+
       const matchesStatus = filter === "all" || registration.status === filter;
+
       const matchesSearch =
         !keyword ||
         user.name.toLowerCase().includes(keyword) ||
@@ -164,148 +188,122 @@ export default function AdminEventRegistrations() {
 
   const renderRegistration = ({ item }: { item: EventRegistration }) => {
     const user = getUserInfo(item);
-    const isRegistered = item.status === "registered";
+    const meta = getStatusMeta(item.status);
 
     return (
-      <View style={screenStyles.registrationCard}>
-        <View style={screenStyles.registrationHeader}>
-          <View style={screenStyles.avatar}>
+      <View style={s.registrationCard}>
+        <View style={s.registrationHeader}>
+          <View style={s.avatarCircle}>
             <MaterialCommunityIcons
-              name="account"
-              size={22}
-              color={colors.primary}
-            />
+  name={meta.icon as any}
+  size={24}
+  color={meta.color}
+/>
           </View>
-          <View style={screenStyles.userInfo}>
-            <Text style={screenStyles.participantName}>{user.name}</Text>
-            <Text style={screenStyles.participantMeta}>{user.email}</Text>
-            <Text style={screenStyles.participantMeta}>{user.phone}</Text>
+
+          <View style={s.participantInfo}>
+            <Text style={s.participantName}>{user.name}</Text>
+            <Text style={s.participantMeta}>{user.email}</Text>
+            <Text style={s.participantMeta}>{user.phone}</Text>
           </View>
-          <View
-            style={[
-              screenStyles.statusPill,
-              isRegistered
-                ? screenStyles.registeredPill
-                : screenStyles.cancelledPill,
-            ]}
-          >
-            <Text
-              style={[
-                screenStyles.statusText,
-                isRegistered
-                  ? screenStyles.registeredText
-                  : screenStyles.cancelledText,
-              ]}
-            >
-              {isRegistered ? "Registered" : "Cancelled"}
-            </Text>
+
+          <View style={[s.badge, meta.bgStyle]}>
+            <Text style={[s.badgeText, meta.textStyle]}>{meta.label}</Text>
           </View>
         </View>
 
-        <View style={screenStyles.registeredAtRow}>
-          <MaterialCommunityIcons
-            name="clock-outline"
-            size={17}
-            color="#64748B"
-          />
+        <View style={s.timelineRow}>
+          <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
           <View>
-            <Text style={screenStyles.metaLabel}>Thoi gian dang ky</Text>
-            <Text style={screenStyles.metaValue}>
-              {formatDateTime(item.registeredAt)}
-            </Text>
+            <Text style={s.timelineLabel}>Thời gian đăng ký</Text>
+            <Text style={s.timelineValue}>{formatDateTime(item.registeredAt)}</Text>
           </View>
         </View>
+
+        {item.cancelledAt ? (
+          <View style={s.timelineRow}>
+            <MaterialCommunityIcons name="close-circle-outline" size={18} color="#EF4444" />
+            <View>
+              <Text style={s.timelineLabel}>Thời gian hủy</Text>
+              <Text style={s.timelineValue}>{formatDateTime(item.cancelledAt)}</Text>
+            </View>
+          </View>
+        ) : null}
       </View>
     );
   };
 
   return (
-    <SafeAreaView style={screenStyles.safeArea}>
-      <View style={screenStyles.header}>
-        <TouchableOpacity
-          style={screenStyles.iconButton}
-          onPress={() => router.replace(`/(admin)/events/${eventId}`)}
-        >
-          <MaterialCommunityIcons
-            name="arrow-left"
-            size={24}
-            color={colors.dark}
-          />
-        </TouchableOpacity>
-        <View style={screenStyles.headerTextWrap}>
-          <Text style={screenStyles.headerTitle}>Người đăng kí</Text>
-          <Text
-            style={screenStyles.headerSubtitle}
-            numberOfLines={1}
+    <SafeAreaView style={s.safeArea}>
+      <View style={s.adminHeader}>
+        <View style={s.adminHeaderTop}>
+          <TouchableOpacity
+            style={s.iconButtonLight}
+            onPress={() => router.replace(`/(admin)/events/${eventId}`)}
           >
-            {eventTitle || "Event registrations"}
-          </Text>
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
+          </TouchableOpacity>
+
+          <View style={[s.badge, s.badgeGreen]}>
+            <Text style={[s.badgeText, s.badgeGreenText]}>Registrations</Text>
+          </View>
         </View>
-        <View style={screenStyles.headerSpacer} />
+
+        <Text style={s.adminTitle}>Participants</Text>
+        <Text style={s.adminSubtitle} numberOfLines={2}>
+          {eventTitle}
+        </Text>
+        <Text style={[s.adminSubtitle, { color: "#00866B" }]} numberOfLines={1}>
+          {eventTime}
+        </Text>
+
+        <View style={s.heroStats}>
+          <View style={s.heroStatCard}>
+            <Text style={s.heroStatValue}>{stats.totalRegistrations}</Text>
+            <Text style={s.heroStatLabel}>Registered</Text>
+          </View>
+          <View style={s.heroStatCard}>
+            <Text style={s.heroStatValue}>{stats.totalCancelled}</Text>
+            <Text style={s.heroStatLabel}>Cancelled</Text>
+          </View>
+          <View style={s.heroStatCard}>
+            <Text style={s.heroStatValue}>{stats.remainingSlots ?? "∞"}</Text>
+            <Text style={s.heroStatLabel}>Remaining</Text>
+          </View>
+        </View>
       </View>
 
       <FlatList
         data={filteredRegistrations}
-        keyExtractor={(item) =>
-          getUserId(item) || `${item.status}-${item.registeredAt}`
-        }
+        keyExtractor={(item) => getUserId(item) || `${item.status}-${item.registeredAt}`}
         renderItem={renderRegistration}
         refreshing={loading}
         onRefresh={fetchRegistrations}
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={screenStyles.listContent}
+        contentContainerStyle={s.listContent}
         ListHeaderComponent={
           <View>
-            <View style={screenStyles.statsRow}>
-              <View style={screenStyles.statCard}>
-                <MaterialCommunityIcons
-                  name="account-check-outline"
-                  size={22}
-                  color={colors.primary}
-                />
-                <Text style={screenStyles.statValue}>
-                  {stats.totalRegistrations}
-                </Text>
-                <Text style={screenStyles.statLabel}>Registered Count</Text>
-              </View>
-              <View style={screenStyles.statCard}>
-                <MaterialCommunityIcons
-                  name="account-cancel-outline"
-                  size={22}
-                  color="#EF4444"
-                />
-                <Text style={screenStyles.statValue}>
-                  {stats.totalCancelled}
-                </Text>
-                <Text style={screenStyles.statLabel}>Cancelled Count</Text>
-              </View>
-            </View>
-
-            <View style={screenStyles.searchBox}>
-              <MaterialCommunityIcons
-                name="magnify"
-                size={20}
-                color="#64748B"
-              />
+            <View style={s.searchBox}>
+              <MaterialCommunityIcons name="magnify" size={21} color="#64748B" />
               <TextInput
                 value={searchText}
                 onChangeText={setSearchText}
-                placeholder="Tim theo ten, email, so dien thoai"
+                placeholder="Tìm theo tên, email, số điện thoại"
                 placeholderTextColor="#94A3B8"
-                style={screenStyles.searchInput}
+                style={s.searchInput}
               />
-              {searchText.length > 0 && (
+              {searchText.length > 0 ? (
                 <TouchableOpacity onPress={() => setSearchText("")}>
-                  <MaterialCommunityIcons
-                    name="close-circle"
-                    size={18}
-                    color="#94A3B8"
-                  />
+                  <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
                 </TouchableOpacity>
-              )}
+              ) : null}
             </View>
 
-            <View style={screenStyles.filterRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ gap: 8, paddingBottom: 14 }}
+            >
               {filters.map((item) => {
                 const active = filter === item.value;
                 const count = counts[item.value];
@@ -313,43 +311,32 @@ export default function AdminEventRegistrations() {
                 return (
                   <TouchableOpacity
                     key={item.value}
-                    style={[
-                      screenStyles.filterButton,
-                      active && screenStyles.activeFilter,
-                    ]}
+                    style={[s.filterChip, active && s.filterChipActive]}
                     onPress={() => setFilter(item.value)}
                   >
-                    <Text
-                      style={[
-                        screenStyles.filterText,
-                        active && screenStyles.activeFilterText,
-                      ]}
-                    >
+                    <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
                       {item.label} ({count})
                     </Text>
                   </TouchableOpacity>
                 );
               })}
-            </View>
+            </ScrollView>
           </View>
         }
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator
-              size="large"
-              color={colors.primary}
-              style={screenStyles.loader}
-            />
+            <ActivityIndicator size="large" color="#00866B" style={{ marginTop: 45 }} />
           ) : (
-            <View style={screenStyles.emptyState}>
-              <MaterialCommunityIcons
-                name="account-group-outline"
-                size={58}
-                color="#B7C8C2"
-              />
-              <Text style={screenStyles.emptyTitle}>
-                Khong co nguoi dang ky phu hop
-              </Text>
+            <View style={s.emptyState}>
+              <View style={s.emptyIconCircle}>
+                <MaterialCommunityIcons
+                  name="account-group-outline"
+                  size={46}
+                  color="#8FB9AE"
+                />
+              </View>
+              <Text style={s.emptyTitle}>Không có người đăng ký phù hợp</Text>
+              <Text style={s.emptyText}>Thử đổi bộ lọc hoặc kéo xuống để làm mới.</Text>
             </View>
           )
         }
@@ -357,209 +344,3 @@ export default function AdminEventRegistrations() {
     </SafeAreaView>
   );
 }
-
-const screenStyles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 14,
-    backgroundColor: "#FFFFFF",
-    borderBottomColor: "#E5F3EF",
-    borderBottomWidth: 1,
-  },
-  iconButton: {
-    width: 40,
-    height: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-  },
-  headerSpacer: {
-    width: 40,
-    height: 40,
-  },
-  headerTextWrap: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: colors.dark,
-    fontFamily: "Georgia",
-  },
-  headerSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 36,
-  },
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 14,
-  },
-  statCard: {
-    flex: 1,
-    minHeight: 92,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 14,
-    justifyContent: "space-between",
-    borderWidth: 1,
-    borderColor: "#E5F3EF",
-  },
-  statValue: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: colors.dark,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#6B7280",
-  },
-  searchBox: {
-    minHeight: 44,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#D9FBEF",
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  searchInput: {
-    flex: 1,
-    minHeight: 42,
-    fontSize: 14,
-    color: "#111827",
-    paddingVertical: 0,
-  },
-  filterRow: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: 16,
-  },
-  filterButton: {
-    minHeight: 38,
-    paddingHorizontal: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 999,
-    backgroundColor: "#DFF7EF",
-    borderWidth: 1,
-    borderColor: "transparent",
-  },
-  activeFilter: {
-    backgroundColor: "#FFFFFF",
-    borderColor: colors.primary,
-  },
-  filterText: {
-    fontSize: 13,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  activeFilterText: {
-    color: colors.dark,
-  },
-  registrationCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 8,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: "#E5F3EF",
-  },
-  registrationHeader: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  avatar: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 8,
-    backgroundColor: "#E7FAF3",
-  },
-  userInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  participantName: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: colors.dark,
-  },
-  participantMeta: {
-    marginTop: 3,
-    fontSize: 13,
-    color: "#64748B",
-  },
-  statusPill: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
-    borderRadius: 8,
-  },
-  registeredPill: {
-    backgroundColor: "#D1FAE5",
-  },
-  cancelledPill: {
-    backgroundColor: "#FEE2E2",
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  registeredText: {
-    color: "#047857",
-  },
-  cancelledText: {
-    color: "#DC2626",
-  },
-  registeredAtRow: {
-    marginTop: 14,
-    paddingTop: 14,
-    borderTopWidth: 1,
-    borderTopColor: "#EEF2F0",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 9,
-  },
-  metaLabel: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#64748B",
-  },
-  metaValue: {
-    marginTop: 2,
-    fontSize: 13,
-    color: "#111827",
-  },
-  loader: {
-    marginTop: 40,
-  },
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 56,
-  },
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#94A3B8",
-  },
-});

@@ -12,7 +12,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { styles } from "@/styles/admin-events.styles";
+import { styles } from "@/styles/event.styles";
 import { colors } from "@/constants/colors";
 import { eventAdminService } from "@/services/eventApi";
 
