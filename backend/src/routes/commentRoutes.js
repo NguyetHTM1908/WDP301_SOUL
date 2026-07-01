@@ -6,7 +6,7 @@ const {
   getCommentsByPost,
   updateMyComment,
   deleteMyComment,
-} = require("../controllers/commentController");
+} = require("../controllers/forum/commentController");
 
 const auth = require("../middleware/auth");
 const checkForumBan = require("../middleware/checkForumBan");

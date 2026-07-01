@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -11,10 +11,15 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
-import { colors } from "@/constants/colors";
 import { eventAdminService } from "@/services/eventApi";
 import { eventStyles as s } from "@/styles/event.styles";
-import { getComputedEventStatus, getFillRate } from "@/utils/eventRegistration";
+import {
+  formatEventDateTime,
+  getComputedEventStatus,
+  getEventModeLabel,
+  getEventPlaceText,
+  getFillRate,
+} from "@/utils/eventPolicy";
 
 const approvalFilters = [
   { label: "Pending", value: "pending" },
@@ -24,33 +29,45 @@ const approvalFilters = [
 ];
 
 const scheduleMeta: Record<string, any> = {
-  upcoming: { label: "Upcoming", bgStyle: s.badgeYellow, textStyle: s.badgeYellowText },
-  ongoing: { label: "Ongoing", bgStyle: s.badgeGreen, textStyle: s.badgeGreenText },
-  completed: { label: "Completed", bgStyle: s.badgeBlue, textStyle: s.badgeBlueText },
-  cancelled: { label: "Cancelled", bgStyle: s.badgeRed, textStyle: s.badgeRedText },
+  upcoming: {
+    label: "Upcoming",
+    bgStyle: s.badgeYellow,
+    textStyle: s.badgeYellowText,
+  },
+  ongoing: {
+    label: "Ongoing",
+    bgStyle: s.badgeGreen,
+    textStyle: s.badgeGreenText,
+  },
+  completed: {
+    label: "Completed",
+    bgStyle: s.badgeBlue,
+    textStyle: s.badgeBlueText,
+  },
+  cancelled: {
+    label: "Cancelled",
+    bgStyle: s.badgeRed,
+    textStyle: s.badgeRedText,
+  },
 };
 
 const approvalMeta: Record<string, any> = {
-  pending: { label: "Pending Review", bgStyle: s.badgeYellow, textStyle: s.badgeYellowText },
-  approved: { label: "Approved", bgStyle: s.badgeGreen, textStyle: s.badgeGreenText },
-  rejected: { label: "Rejected", bgStyle: s.badgeRed, textStyle: s.badgeRedText },
+  pending: {
+    label: "Pending Review",
+    bgStyle: s.badgeYellow,
+    textStyle: s.badgeYellowText,
+  },
+  approved: {
+    label: "Approved",
+    bgStyle: s.badgeGreen,
+    textStyle: s.badgeGreenText,
+  },
+  rejected: {
+    label: "Rejected",
+    bgStyle: s.badgeRed,
+    textStyle: s.badgeRedText,
+  },
 };
-
-function formatDate(value?: string) {
-  if (!value) return "Chưa cập nhật";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "Thời gian không hợp lệ";
-
-  return date.toLocaleString("vi-VN", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function getApprovalInfo(status?: string) {
   return approvalMeta[status || "pending"] || approvalMeta.pending;
@@ -66,7 +83,8 @@ export default function AdminEventsList() {
 
     try {
       const response = await eventAdminService.getAdminAllEvents({
-        approvalStatus: approvalFilter === "all" ? undefined : (approvalFilter as any),
+        approvalStatus:
+          approvalFilter === "all" ? undefined : (approvalFilter as any),
         page: 1,
         limit: 100,
       });
@@ -86,6 +104,14 @@ export default function AdminEventsList() {
       fetchEvents();
     }, [approvalFilter])
   );
+
+  const stats = useMemo(() => {
+    return {
+      total: events.length,
+      pending: events.filter((item) => item.approvalStatus === "pending").length,
+      approved: events.filter((item) => item.approvalStatus === "approved").length,
+    };
+  }, [events]);
 
   const renderEvent = ({ item }: { item: any }) => {
     const approval = getApprovalInfo(item.approvalStatus);
@@ -113,7 +139,11 @@ export default function AdminEventsList() {
             ]}
           >
             <MaterialCommunityIcons
-              name="calendar-search"
+              name={
+                item.eventMode === "online"
+                  ? "video-outline"
+                  : "map-marker-outline"
+              }
               size={28}
               color={
                 item.approvalStatus === "approved"
@@ -130,7 +160,7 @@ export default function AdminEventsList() {
               {item.title}
             </Text>
             <Text style={s.cardSubtitle}>
-              Owner: {item.createdBy?.fullName || "Unknown"}
+              Organizer: {item.createdBy?.fullName || "Unknown"}
             </Text>
           </View>
 
@@ -143,19 +173,39 @@ export default function AdminEventsList() {
 
         <View style={s.infoPanel}>
           <View style={s.infoRow}>
-            <MaterialCommunityIcons name="calendar-clock-outline" size={18} color="#00866B" />
-            <Text style={s.infoText}>Bắt đầu: {formatDate(item.startDateTime)}</Text>
+            <MaterialCommunityIcons
+              name="calendar-clock-outline"
+              size={18}
+              color="#00866B"
+            />
+            <Text style={s.infoText}>
+              Bắt đầu: {formatEventDateTime(item.startDateTime)}
+            </Text>
           </View>
 
           <View style={s.infoRow}>
-            <MaterialCommunityIcons name="calendar-check-outline" size={18} color="#00866B" />
-            <Text style={s.infoText}>Kết thúc: {formatDate(item.endDateTime)}</Text>
+            <MaterialCommunityIcons
+              name="calendar-check-outline"
+              size={18}
+              color="#00866B"
+            />
+            <Text style={s.infoText}>
+              Kết thúc: {formatEventDateTime(item.endDateTime)}
+            </Text>
           </View>
 
           <View style={[s.infoRow, { marginBottom: 0 }]}>
-            <MaterialCommunityIcons name="map-marker-outline" size={18} color="#00866B" />
+            <MaterialCommunityIcons
+              name={
+                item.eventMode === "online"
+                  ? "video-outline"
+                  : "map-marker-outline"
+              }
+              size={18}
+              color="#00866B"
+            />
             <Text style={s.infoText}>
-              {item.location || item.meetingLink || "Chưa xác định"}
+              {getEventModeLabel(item)} · {getEventPlaceText(item)}
             </Text>
           </View>
         </View>
@@ -177,106 +227,104 @@ export default function AdminEventsList() {
           </View>
         </View>
 
-        <View style={{ marginTop: 14, flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+        <View style={{ marginTop: 14, flexDirection: "row", gap: 8 }}>
           <View style={[s.badge, schedule.bgStyle]}>
             <Text style={[s.badgeText, schedule.textStyle]}>
               {schedule.label}
             </Text>
           </View>
-
-          {item.lockAfterApproval && item.approvalStatus === "approved" ? (
-            <View style={[s.badge, s.badgeBlue]}>
-              <Text style={[s.badgeText, s.badgeBlueText]}>Locked</Text>
-            </View>
-          ) : null}
         </View>
       </TouchableOpacity>
     );
   };
 
-  const pendingCount = events.filter((item) => item.approvalStatus === "pending").length;
-  const approvedCount = events.filter((item) => item.approvalStatus === "approved").length;
-  const rejectedCount = events.filter((item) => item.approvalStatus === "rejected").length;
-
   return (
     <SafeAreaView style={s.safeArea}>
       <View style={s.adminHeader}>
         <View style={s.adminHeaderTop}>
-          <TouchableOpacity style={s.iconButtonLight} onPress={() => router.replace("/(admin)")}>
+          <TouchableOpacity
+            style={s.iconButtonLight}
+            onPress={() => router.back()}
+            activeOpacity={0.8}
+          >
             <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
           </TouchableOpacity>
 
-          <View style={[s.badge, s.badgeBlue]}>
-            <MaterialCommunityIcons name="shield-check-outline" size={14} color="#0369A1" />
-            <Text style={[s.badgeText, s.badgeBlueText]}>Admin Review</Text>
-          </View>
+          <TouchableOpacity
+            style={s.iconButtonGreen}
+            onPress={fetchEvents}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="refresh" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
-        <Text style={s.adminTitle}>Event Approval</Text>
+        <Text style={s.adminTitle}>Event Management</Text>
         <Text style={s.adminSubtitle}>
-          Review owner-created events, approve safe schedules, and prevent location/time conflicts.
+          Admin chỉ duyệt, từ chối và xem danh sách người đăng ký.
         </Text>
 
         <View style={s.heroStats}>
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{pendingCount}</Text>
-            <Text style={s.heroStatLabel}>Pending</Text>
+            <Text style={s.heroStatValue}>{stats.total}</Text>
+            <Text style={s.heroStatLabel}>Tổng</Text>
           </View>
+
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{approvedCount}</Text>
-            <Text style={s.heroStatLabel}>Approved</Text>
+            <Text style={s.heroStatValue}>{stats.pending}</Text>
+            <Text style={s.heroStatLabel}>Chờ duyệt</Text>
           </View>
+
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{rejectedCount}</Text>
-            <Text style={s.heroStatLabel}>Rejected</Text>
+            <Text style={s.heroStatValue}>{stats.approved}</Text>
+            <Text style={s.heroStatLabel}>Đã duyệt</Text>
           </View>
         </View>
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.filterScrollContent}
-      >
-        {approvalFilters.map((filter) => {
-          const active = approvalFilter === filter.value;
+      <View style={s.filterScroll}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {approvalFilters.map((item) => {
+            const active = approvalFilter === item.value;
 
-          return (
-            <TouchableOpacity
-              key={filter.value}
-              style={[s.filterChip, active && s.filterChipActive]}
-              onPress={() => setApprovalFilter(filter.value)}
-            >
-              <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
-                {filter.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+            return (
+              <TouchableOpacity
+                key={item.value}
+                style={[s.filterChip, active && s.filterChipActive]}
+                onPress={() => setApprovalFilter(item.value)}
+                activeOpacity={0.85}
+              >
+                <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
+                  {item.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#00866B" style={{ marginTop: 45 }} />
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#00866B" />
+          <Text style={s.loadingText}>Đang tải event...</Text>
+        </View>
       ) : (
         <FlatList
           data={events}
-          renderItem={renderEvent}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={s.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshing={loading}
-          onRefresh={fetchEvents}
+          renderItem={renderEvent}
+          contentContainerStyle={events.length ? s.listContent : undefined}
           ListEmptyComponent={
-            <View style={s.emptyState}>
-              <View style={s.emptyIconCircle}>
-                <MaterialCommunityIcons
-                  name="calendar-search"
-                  size={45}
-                  color="#8FB9AE"
-                />
-              </View>
-              <Text style={s.emptyTitle}>Không có event phù hợp</Text>
-              <Text style={s.emptyText}>Đổi filter hoặc kéo xuống để làm mới dữ liệu.</Text>
+            <View style={s.emptyBox}>
+              <MaterialCommunityIcons
+                name="calendar-remove-outline"
+                size={42}
+                color="#00866B"
+              />
+              <Text style={s.emptyTitle}>Chưa có event</Text>
+              <Text style={s.emptyText}>
+                Không tìm thấy event phù hợp với bộ lọc hiện tại.
+              </Text>
             </View>
           }
         />

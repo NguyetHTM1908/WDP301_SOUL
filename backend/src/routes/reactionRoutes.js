@@ -6,7 +6,7 @@ const {
   removePostReaction,
   reactToComment,
   removeCommentReaction,
-} = require("../controllers/reactionController");
+} = require("../controllers/forum/reactionController");
 
 const auth = require("../middleware/auth");
 

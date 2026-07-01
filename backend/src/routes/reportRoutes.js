@@ -5,7 +5,7 @@ const {
   createReport,
   getMyReports,
   createAppeal,
-} = require("../controllers/reportController");
+} = require("../controllers/forum/reportController");
 
 const auth = require("../middleware/auth");
 

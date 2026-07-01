@@ -3,105 +3,70 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
   SafeAreaView,
   ScrollView,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
-import { colors } from "@/constants/colors";
-import { eventOwnerService, eventService } from "@/services/eventApi";
+import { useFocusEffect } from "expo-router";
+import { eventService, normalizeListResponse } from "@/services/eventApi";
+import { scheduleEventReminder } from "@/services/eventNotification";
 import { eventStyles as s } from "@/styles/event.styles";
-import { getFillRate } from "@/utils/eventRegistration";
+import {
+  canCancelRegistration,
+  canRegisterEvent,
+  formatEventDateTime,
+  getCancelDeadlineText,
+  getComputedEventStatus,
+  getEventModeLabel,
+  getEventPlaceText,
+  getFillRate,
+  getHoursUntilEvent,
+} from "@/utils/eventPolicy";
 
-type TabKey = "upcoming" | "mine" | "registered";
+type TabKey = "explore" | "calendar";
 
-type EventTypeValue = "workshop" | "talkshow" | "webinar" | "community_event";
-
-const tabs: { label: string; value: TabKey; icon: any }[] = [
-  { label: "Explore", value: "upcoming", icon: "calendar-star" },
-  { label: "My Events", value: "mine", icon: "calendar-edit" },
-  { label: "Joined", value: "registered", icon: "calendar-check" },
+const tabs: { label: string; value: TabKey }[] = [
+  { label: "Sự kiện", value: "explore" },
+  { label: "Lịch của tôi", value: "calendar" },
 ];
 
-const eventTypes: { label: string; value: EventTypeValue; icon: any }[] = [
-  { label: "Workshop", value: "workshop", icon: "school-outline" },
-  { label: "Talkshow", value: "talkshow", icon: "microphone-outline" },
-  { label: "Webinar", value: "webinar", icon: "video-outline" },
-  { label: "Community", value: "community_event", icon: "account-group-outline" },
-];
-
-const defaultForm = {
-  title: "",
-  description: "",
-  speakerName: "",
-  organizerName: "",
-  contactEmail: "",
-  bannerImage: "",
-  eventType: "workshop",
-  location: "",
-  meetingLink: "",
-  startDateTime: "",
-  endDateTime: "",
-  capacity: "",
-};
-
-const approvalMeta: Record<string, any> = {
-  pending: {
-    label: "Pending",
+const scheduleMeta: Record<string, any> = {
+  upcoming: {
+    label: "Sắp diễn ra",
     bgStyle: s.badgeYellow,
     textStyle: s.badgeYellowText,
-    icon: "clock-outline",
   },
-  approved: {
-    label: "Approved",
+  ongoing: {
+    label: "Đang diễn ra",
     bgStyle: s.badgeGreen,
     textStyle: s.badgeGreenText,
-    icon: "check-decagram",
   },
-  rejected: {
-    label: "Rejected",
+  completed: {
+    label: "Đã kết thúc",
+    bgStyle: s.badgeBlue,
+    textStyle: s.badgeBlueText,
+  },
+  cancelled: {
+    label: "Đã hủy",
     bgStyle: s.badgeRed,
     textStyle: s.badgeRedText,
-    icon: "close-circle-outline",
   },
 };
-
-function normalizeList(res: any) {
-  if (Array.isArray(res)) return res;
-  if (Array.isArray(res?.data)) return res.data;
-  if (Array.isArray(res?.events)) return res.events;
-  return [];
-}
-
-function formatDate(value?: string) {
-  if (!value) return "Chưa cập nhật";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "Thời gian không hợp lệ";
-
-  return date.toLocaleString("vi-VN", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
 
 function showMessage(title: string, message: string, onOk?: () => void) {
   if (Platform.OS === "web") {
     const alertFn = (globalThis as any).alert;
-    if (typeof alertFn === "function") alertFn(`${title}: ${message}`);
+
+    if (typeof alertFn === "function") {
+      alertFn(`${title}: ${message}`);
+    }
+
     onOk?.();
     return;
   }
@@ -118,63 +83,74 @@ function askConfirm(message: string) {
   return null;
 }
 
-function getApprovalInfo(status?: string) {
-  return approvalMeta[status || "pending"] || approvalMeta.pending;
-}
+function getEventIcon(event: any) {
+  if (event.eventMode === "online" || event.meetingLink) {
+    return "video-outline";
+  }
 
-function getEventTypeLabel(type?: string) {
-  return eventTypes.find((item) => item.value === type)?.label || "Event";
-}
+  if (event.eventType === "talkshow") return "microphone-outline";
+  if (event.eventType === "workshop") return "school-outline";
+  if (event.eventType === "community_event") return "account-group-outline";
 
-function getEventIcon(type?: string) {
-  return eventTypes.find((item) => item.value === type)?.icon || "calendar-heart";
+  return "calendar-heart";
 }
 
 export default function UserEventsScreen() {
-  const [activeTab, setActiveTab] = useState<TabKey>("upcoming");
+  const [activeTab, setActiveTab] = useState<TabKey>("explore");
 
-  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
-  const [myEvents, setMyEvents] = useState<any[]>([]);
+  const [events, setEvents] = useState<any[]>([]);
   const [registeredEvents, setRegisteredEvents] = useState<any[]>([]);
 
+  const [selectedEvent, setSelectedEvent] = useState<any | null>(null);
+  const [detailVisible, setDetailVisible] = useState(false);
+
   const [loading, setLoading] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [editingEvent, setEditingEvent] = useState<any | null>(null);
-  const [formData, setFormData] = useState(defaultForm);
-  const [submitting, setSubmitting] = useState(false);
+  const registeredIds = useMemo(() => {
+    return new Set(registeredEvents.map((item) => item._id));
+  }, [registeredEvents]);
 
-  const loadUpcomingEvents = async () => {
-    const res = await eventService.getEvents({
-      page: 1,
-      limit: 50,
-    });
+  const loadPublicEvents = async () => {
+    const [eventsRes, registeredRes] = await Promise.all([
+      eventService.getEvents({
+        page: 1,
+        limit: 100,
+      }),
+      eventService
+        .getRegisteredEvents({
+          status: "registered",
+          page: 1,
+          limit: 100,
+        })
+        .catch(() => ({ data: [] })),
+    ]);
 
-    setUpcomingEvents(normalizeList(res));
-  };
-
-  const loadMyEvents = async () => {
-    const res = await eventOwnerService.getMyEvents();
-    setMyEvents(normalizeList(res));
+    setEvents(normalizeListResponse(eventsRes));
+    setRegisteredEvents(normalizeListResponse(registeredRes));
   };
 
   const loadRegisteredEvents = async () => {
     const res = await eventService.getRegisteredEvents({
       status: "registered",
       page: 1,
-      limit: 50,
+      limit: 100,
     });
 
-    setRegisteredEvents(normalizeList(res));
+    setRegisteredEvents(normalizeListResponse(res));
   };
 
   const loadData = async () => {
     setLoading(true);
 
     try {
-      if (activeTab === "upcoming") await loadUpcomingEvents();
-      if (activeTab === "mine") await loadMyEvents();
-      if (activeTab === "registered") await loadRegisteredEvents();
+      if (activeTab === "explore") {
+        await loadPublicEvents();
+      }
+
+      if (activeTab === "calendar") {
+        await loadRegisteredEvents();
+      }
     } catch (error: any) {
       showMessage("Lỗi", error?.message || "Không thể tải danh sách event.");
     } finally {
@@ -188,159 +164,86 @@ export default function UserEventsScreen() {
     }, [activeTab])
   );
 
-  const resetForm = () => {
-    setEditingEvent(null);
-    setFormData(defaultForm);
+  const currentData = useMemo(() => {
+    if (activeTab === "explore") return events;
+    return registeredEvents;
+  }, [activeTab, events, registeredEvents]);
+
+  const openDetail = (event: any) => {
+    setSelectedEvent(event);
+    setDetailVisible(true);
   };
 
-  const openCreateModal = () => {
-    resetForm();
-    setModalVisible(true);
+  const closeDetail = () => {
+    setDetailVisible(false);
+    setSelectedEvent(null);
   };
 
-  const openEditModal = (event: any) => {
-    setEditingEvent(event);
-
-    setFormData({
-      title: event.title || "",
-      description: event.description || "",
-      speakerName: event.speakerName || "",
-      organizerName: event.organizerName || "",
-      contactEmail: event.contactEmail || "",
-      bannerImage: event.bannerImage || "",
-      eventType: event.eventType || "workshop",
-      location: event.location || "",
-      meetingLink: event.meetingLink || "",
-      startDateTime: event.startDateTime || "",
-      endDateTime: event.endDateTime || "",
-      capacity: event.capacity ? String(event.capacity) : "",
-    });
-
-    setModalVisible(true);
-  };
-
-  const closeModal = () => {
-    setModalVisible(false);
-    resetForm();
-  };
-
-  const buildPayload = () => {
-    return {
-      title: formData.title.trim(),
-      description: formData.description.trim() || null,
-      speakerName: formData.speakerName.trim() || null,
-      organizerName: formData.organizerName.trim() || null,
-      contactEmail: formData.contactEmail.trim() || null,
-      bannerImage: formData.bannerImage.trim() || null,
-      eventType: formData.eventType.trim() || null,
-      location: formData.location.trim() || null,
-      meetingLink: formData.meetingLink.trim() || null,
-      startDateTime: formData.startDateTime.trim(),
-      endDateTime: formData.endDateTime.trim(),
-      capacity: formData.capacity.trim() ? Number(formData.capacity) : null,
-    };
-  };
-
-  const handleSaveEvent = async () => {
-    if (submitting) return;
-
-    if (!formData.title.trim()) {
-      showMessage("Thiếu thông tin", "Vui lòng nhập tiêu đề event.");
+  const handleRegister = async (event: any) => {
+    if (registeredIds.has(event._id)) {
+      showMessage("Đã đăng ký", "Event này đã có trong lịch của bạn.");
       return;
     }
 
-    if (!formData.startDateTime.trim() || !formData.endDateTime.trim()) {
-      showMessage("Thiếu thời gian", "Vui lòng nhập thời gian bắt đầu và kết thúc.");
+    if (!canRegisterEvent(event)) {
+      showMessage("Không thể đăng ký", "Event này không còn mở đăng ký.");
       return;
     }
 
-    setSubmitting(true);
+    setActionLoadingId(event._id);
 
     try {
-      const payload = buildPayload();
-
-      const response = editingEvent
-        ? await eventOwnerService.updateEvent(editingEvent._id, payload)
-        : await eventOwnerService.createEvent(payload);
+      const response = await eventService.registerEvent(event._id);
 
       if (response.success) {
-        closeModal();
-        setActiveTab("mine");
-        await loadMyEvents();
+        await scheduleEventReminder(event);
 
         showMessage(
-          "Thành công",
-          editingEvent
-            ? "Cập nhật event thành công."
-            : "Tạo event thành công. Event đang chờ admin duyệt."
+          "Đăng ký thành công",
+          "Event đã được thêm vào lịch của bạn. Hệ thống sẽ nhắc trước 24 giờ nếu thiết bị cho phép thông báo."
         );
-      } else {
-        showMessage("Lỗi", response.message || "Không thể lưu event.");
-      }
-    } catch (error: any) {
-      showMessage("Lỗi", error?.message || "Không thể lưu event.");
-    } finally {
-      setSubmitting(false);
-    }
-  };
 
-  const handleDeleteOwnerEvent = async (eventId: string) => {
-    const deleteNow = async () => {
-      try {
-        const response = await eventOwnerService.deleteEvent(eventId);
-
-        if (response.success) {
-          setMyEvents((prev) => prev.filter((item) => item._id !== eventId));
-          showMessage("Đã xóa", "Event đã được xóa thành công.");
-        } else {
-          showMessage("Lỗi", response.message || "Không thể xóa event.");
-        }
-      } catch (error: any) {
-        showMessage("Lỗi", error?.message || "Không thể xóa event.");
-      }
-    };
-
-    const webConfirm = askConfirm("Bạn có chắc muốn xóa event này không?");
-    if (webConfirm === false) return;
-    if (webConfirm === true) {
-      await deleteNow();
-      return;
-    }
-
-    Alert.alert("Xóa event", "Bạn có chắc muốn xóa event này không?", [
-      { text: "Hủy", style: "cancel" },
-      { text: "Xóa", style: "destructive", onPress: deleteNow },
-    ]);
-  };
-
-  const handleRegister = async (eventId: string) => {
-    try {
-      const response = await eventService.registerEvent(eventId);
-
-      if (response.success) {
-        showMessage("Thành công", "Đăng ký event thành công.");
-        await loadUpcomingEvents();
+        await loadPublicEvents();
+        closeDetail();
       } else {
         showMessage("Lỗi", response.message || "Không thể đăng ký event.");
       }
     } catch (error: any) {
       showMessage("Lỗi", error?.message || "Không thể đăng ký event.");
+    } finally {
+      setActionLoadingId(null);
     }
   };
 
-  const handleCancelRegistration = async (eventId: string) => {
+  const handleCancel = async (event: any) => {
+    if (!canCancelRegistration(event)) {
+      showMessage(
+        "Không thể hủy",
+        "Bạn chỉ được hủy đăng ký trước khi event diễn ra ít nhất 24 giờ."
+      );
+      return;
+    }
+
     const cancelNow = async () => {
+      setActionLoadingId(event._id);
+
       try {
-        const response = await eventService.cancelRegistration(eventId);
+        const response = await eventService.cancelRegistration(event._id);
 
         if (response.success) {
-          setRegisteredEvents((prev) => prev.filter((item) => item._id !== eventId));
-          showMessage("Thành công", "Đã hủy đăng ký event.");
+          setRegisteredEvents((prev) =>
+            prev.filter((item) => item._id !== event._id)
+          );
+
+          showMessage("Đã hủy đăng ký", "Bạn đã hủy tham dự event thành công.");
+          closeDetail();
         } else {
           showMessage("Lỗi", response.message || "Không thể hủy đăng ký.");
         }
       } catch (error: any) {
         showMessage("Lỗi", error?.message || "Không thể hủy đăng ký.");
+      } finally {
+        setActionLoadingId(null);
       }
     };
 
@@ -357,45 +260,28 @@ export default function UserEventsScreen() {
     ]);
   };
 
-  const currentData = useMemo(() => {
-    if (activeTab === "upcoming") return upcomingEvents;
-    if (activeTab === "mine") return myEvents;
-    return registeredEvents;
-  }, [activeTab, upcomingEvents, myEvents, registeredEvents]);
-
   const renderEventCard = ({ item }: { item: any }) => {
-    const approval = getApprovalInfo(item.approvalStatus);
-    const registeredCount = item.registeredCount || 0;
-    const fillRate = getFillRate(item.capacity, registeredCount);
-    const locked = item.approvalStatus === "approved" && item.lockAfterApproval;
+    const status = getComputedEventStatus(item);
+    const schedule = scheduleMeta[status] || scheduleMeta.upcoming;
+    const fillRate = getFillRate(item.capacity, item.registeredCount || 0);
+    const registerable = canRegisterEvent(item);
+    const cancelable = canCancelRegistration(item);
+    const loadingThis = actionLoadingId === item._id;
+    const hoursLeft = getHoursUntilEvent(item.startDateTime);
+    const isRegistered = registeredIds.has(item._id);
 
     return (
-      <View
-        style={[
-          s.card,
-          item.approvalStatus === "approved" && s.cardApprovedGlow,
-          item.approvalStatus === "pending" && s.cardPendingGlow,
-          item.approvalStatus === "rejected" && s.cardRejectedGlow,
-        ]}
+      <TouchableOpacity
+        activeOpacity={0.88}
+        style={s.card}
+        onPress={() => openDetail(item)}
       >
         <View style={s.cardTop}>
-          <View
-            style={[
-              s.eventIconWrap,
-              item.approvalStatus === "pending" && s.eventIconWrapWarning,
-              item.approvalStatus === "rejected" && s.eventIconWrapDanger,
-            ]}
-          >
+          <View style={s.eventIconWrap}>
             <MaterialCommunityIcons
-              name={getEventIcon(item.eventType)}
-              size={27}
-              color={
-                item.approvalStatus === "rejected"
-                  ? "#DC2626"
-                  : item.approvalStatus === "pending"
-                  ? "#B45309"
-                  : "#00866B"
-              }
+              name={getEventIcon(item) as any}
+              size={28}
+              color="#00866B"
             />
           </View>
 
@@ -404,29 +290,22 @@ export default function UserEventsScreen() {
               {item.title}
             </Text>
             <Text style={s.cardSubtitle}>
-              {getEventTypeLabel(item.eventType)}
+              {item.organizerName || item.createdBy?.fullName || "SOUL Event"}
             </Text>
           </View>
 
-          {activeTab === "mine" ? (
-            <View style={[s.badge, approval.bgStyle]}>
-              <MaterialCommunityIcons
-                name={approval.icon}
-                size={13}
-                color={
-                  item.approvalStatus === "approved"
-                    ? "#047857"
-                    : item.approvalStatus === "rejected"
-                    ? "#DC2626"
-                    : "#B45309"
-                }
-              />
-              <Text style={[s.badgeText, approval.textStyle]}>
-                {approval.label}
-              </Text>
-            </View>
-          ) : null}
+          <View style={[s.badge, schedule.bgStyle]}>
+            <Text style={[s.badgeText, schedule.textStyle]}>
+              {schedule.label}
+            </Text>
+          </View>
         </View>
+
+        {!!item.description && (
+          <Text style={s.description} numberOfLines={3}>
+            {item.description}
+          </Text>
+        )}
 
         <View style={s.infoPanel}>
           <View style={s.infoRow}>
@@ -435,39 +314,39 @@ export default function UserEventsScreen() {
               size={18}
               color="#00866B"
             />
-            <Text style={s.infoText}>Bắt đầu: {formatDate(item.startDateTime)}</Text>
+            <Text style={s.infoText}>
+              {formatEventDateTime(item.startDateTime)}
+            </Text>
           </View>
 
           <View style={s.infoRow}>
             <MaterialCommunityIcons
-              name="calendar-check-outline"
+              name={
+                item.eventMode === "online"
+                  ? "video-outline"
+                  : "map-marker-outline"
+              }
               size={18}
               color="#00866B"
             />
-            <Text style={s.infoText}>Kết thúc: {formatDate(item.endDateTime)}</Text>
+            <Text style={s.infoText}>{getEventPlaceText(item)}</Text>
           </View>
 
           <View style={[s.infoRow, { marginBottom: 0 }]}>
             <MaterialCommunityIcons
-              name="map-marker-outline"
+              name="bell-outline"
               size={18}
               color="#00866B"
             />
             <Text style={s.infoText}>
-              {item.location || item.meetingLink || "Chưa xác định"}
+              Nhắc trước 24h · Còn {hoursLeft > 0 ? hoursLeft : 0} giờ
             </Text>
           </View>
         </View>
 
-        {item.description ? (
-          <Text style={s.description} numberOfLines={3}>
-            {item.description}
-          </Text>
-        ) : null}
-
         <View style={s.statsRow}>
           <View style={s.statMiniCard}>
-            <Text style={s.statMiniValue}>{registeredCount}</Text>
+            <Text style={s.statMiniValue}>{item.registeredCount || 0}</Text>
             <Text style={s.statMiniLabel}>Đăng ký</Text>
           </View>
 
@@ -482,111 +361,82 @@ export default function UserEventsScreen() {
           </View>
         </View>
 
-        {item.capacity ? (
-          <View style={s.progressBlock}>
-            <View style={s.progressHeader}>
-              <Text style={s.progressText}>
-                {registeredCount} / {item.capacity} người đăng ký
-              </Text>
-              <Text style={s.progressText}>{fillRate}%</Text>
-            </View>
-            <View style={s.progressTrack}>
-              <View style={[s.progressFill, { width: `${fillRate}%` }]} />
-            </View>
-          </View>
-        ) : null}
-
-        {activeTab === "upcoming" ? (
+        {activeTab === "explore" ? (
           <TouchableOpacity
-            style={s.primaryButton}
-            onPress={() => handleRegister(item._id)}
+            style={[
+              s.primaryButton,
+              (!registerable || loadingThis || isRegistered) && s.disabled,
+            ]}
+            onPress={() => handleRegister(item)}
+            disabled={!registerable || loadingThis || isRegistered}
           >
-            <MaterialCommunityIcons name="calendar-plus" size={21} color="#FFFFFF" />
-            <Text style={s.primaryButtonText}>Đăng ký tham gia</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {activeTab === "registered" ? (
-          <TouchableOpacity
-            style={s.cancelButton}
-            onPress={() => handleCancelRegistration(item._id)}
-          >
-            <MaterialCommunityIcons
-              name="calendar-remove-outline"
-              size={21}
-              color="#DC2626"
-            />
-            <Text style={s.cancelButtonText}>Hủy đăng ký</Text>
-          </TouchableOpacity>
-        ) : null}
-
-        {activeTab === "mine" ? (
-          <View style={s.ownerActions}>
-            {locked ? (
-              <View style={s.lockBox}>
-                <MaterialCommunityIcons name="lock-outline" size={18} color="#0369A1" />
-                <Text style={s.lockText}>Approved - đã khóa chỉnh sửa</Text>
-              </View>
+            {loadingThis ? (
+              <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <TouchableOpacity
-                  style={s.editButton}
-                  onPress={() => openEditModal(item)}
-                >
-                  <Text style={s.actionButtonText}>Edit</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={s.deleteButton}
-                  onPress={() => handleDeleteOwnerEvent(item._id)}
-                >
-                  <Text style={s.actionButtonText}>Delete</Text>
-                </TouchableOpacity>
+                <MaterialCommunityIcons
+                  name={isRegistered ? "calendar-check" : "calendar-plus"}
+                  size={20}
+                  color="#FFFFFF"
+                />
+                <Text style={s.primaryButtonText}>
+                  {isRegistered
+                    ? "Đã có trong lịch"
+                    : registerable
+                    ? "Đăng ký tham dự"
+                    : "Không thể đăng ký"}
+                </Text>
               </>
             )}
-          </View>
-        ) : null}
-      </View>
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={[s.cancelButton, (!cancelable || loadingThis) && s.disabled]}
+            onPress={() => handleCancel(item)}
+            disabled={!cancelable || loadingThis}
+          >
+            {loadingThis ? (
+              <ActivityIndicator color="#DC2626" />
+            ) : (
+              <>
+                <MaterialCommunityIcons
+                  name="calendar-remove"
+                  size={20}
+                  color="#DC2626"
+                />
+                <Text style={s.cancelButtonText}>
+                  {cancelable ? "Hủy đăng ký" : "Quá hạn hủy"}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
+      </TouchableOpacity>
     );
   };
-
-  const upcomingCount = upcomingEvents.length;
-  const mineCount = myEvents.length;
-  const registeredCount = registeredEvents.length;
 
   return (
     <SafeAreaView style={s.safeArea}>
       <View style={s.hero}>
-        <View style={s.heroCircleOne} />
-        <View style={s.heroCircleTwo} />
-
-        <View style={s.heroTop}>
-          <TouchableOpacity style={s.iconButtonLight} onPress={() => router.back()}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={s.iconButtonGreen} onPress={openCreateModal}>
-            <MaterialCommunityIcons name="plus" size={26} color="#FFFFFF" />
-          </TouchableOpacity>
-        </View>
-
         <Text style={s.heroTitle}>SOUL Events</Text>
         <Text style={s.heroSubtitle}>
-          Join healing workshops, create your own event, and keep track of your emotional wellness schedule.
+          Xem sự kiện đã được duyệt, đăng ký tham dự và theo dõi lịch cá nhân.
         </Text>
 
         <View style={s.heroStats}>
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{upcomingCount}</Text>
-            <Text style={s.heroStatLabel}>Available</Text>
+            <Text style={s.heroStatValue}>{events.length}</Text>
+            <Text style={s.heroStatLabel}>Sự kiện</Text>
           </View>
+
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{mineCount}</Text>
-            <Text style={s.heroStatLabel}>Created</Text>
+            <Text style={s.heroStatValue}>{registeredEvents.length}</Text>
+            <Text style={s.heroStatLabel}>Đã đăng ký</Text>
           </View>
+
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{registeredCount}</Text>
-            <Text style={s.heroStatLabel}>Joined</Text>
+            <Text style={s.heroStatValue}>24h</Text>
+            <Text style={s.heroStatLabel}>Nhắc lịch</Text>
           </View>
         </View>
       </View>
@@ -612,216 +462,249 @@ export default function UserEventsScreen() {
       </View>
 
       {loading ? (
-        <ActivityIndicator
-          size="large"
-          color="#00866B"
-          style={{ marginTop: 46 }}
-        />
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#00866B" />
+          <Text style={s.loadingText}>Đang tải event...</Text>
+        </View>
       ) : (
         <FlatList
           data={currentData}
-          renderItem={renderEventCard}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={s.listContent}
-          showsVerticalScrollIndicator={false}
-          refreshing={loading}
-          onRefresh={loadData}
+          renderItem={renderEventCard}
+          contentContainerStyle={currentData.length ? s.listContent : undefined}
           ListEmptyComponent={
-            <View style={s.emptyState}>
-              <View style={s.emptyIconCircle}>
-                <MaterialCommunityIcons
-                  name="calendar-blank-outline"
-                  size={46}
-                  color="#8FB9AE"
-                />
-              </View>
-              <Text style={s.emptyTitle}>
-                {activeTab === "upcoming"
-                  ? "Chưa có event đã duyệt"
-                  : activeTab === "mine"
-                  ? "Bạn chưa tạo event nào"
-                  : "Bạn chưa đăng ký event nào"}
-              </Text>
+            <View style={s.emptyBox}>
+              <MaterialCommunityIcons
+                name="calendar-blank-outline"
+                size={44}
+                color="#00866B"
+              />
+              <Text style={s.emptyTitle}>Chưa có event</Text>
               <Text style={s.emptyText}>
-                {activeTab === "mine"
-                  ? "Bấm dấu + để tạo event mới và gửi admin duyệt."
-                  : "Kéo xuống để làm mới danh sách event."}
+                {activeTab === "explore"
+                  ? "Hiện chưa có sự kiện nào được admin duyệt."
+                  : "Bạn chưa đăng ký tham dự event nào."}
               </Text>
             </View>
           }
         />
       )}
 
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <KeyboardAvoidingView
-          style={s.modalBackdrop}
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+      <EventDetailBubbleModal
+        visible={detailVisible}
+        event={selectedEvent}
+        mode={activeTab}
+        actionLoading={!!selectedEvent && actionLoadingId === selectedEvent._id}
+        isRegistered={
+          !!selectedEvent && registeredIds.has(selectedEvent._id)
+        }
+        onClose={closeDetail}
+        onRegister={() => selectedEvent && handleRegister(selectedEvent)}
+        onCancel={() => selectedEvent && handleCancel(selectedEvent)}
+      />
+    </SafeAreaView>
+  );
+}
+
+function Bubble({
+  icon,
+  label,
+  value,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+}) {
+  return (
+    <View
+      style={{
+        backgroundColor: "#F6FFFC",
+        borderWidth: 1,
+        borderColor: "#DDEFEA",
+        borderRadius: 20,
+        padding: 12,
+        marginBottom: 10,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
+      <View
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 19,
+          backgroundColor: "#E8FAF3",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <MaterialCommunityIcons name={icon} size={20} color="#00866B" />
+      </View>
+
+      <View style={{ flex: 1 }}>
+        <Text style={{ color: "#64748B", fontSize: 12, fontWeight: "800" }}>
+          {label}
+        </Text>
+        <Text
+          style={{
+            color: "#0A3F36",
+            fontSize: 14,
+            fontWeight: "900",
+            marginTop: 3,
+          }}
         >
-          <View style={s.modalPanel}>
-            <View style={s.modalHandle} />
+          {value}
+        </Text>
+      </View>
+    </View>
+  );
+}
 
-            <View style={s.modalHeader}>
-              <View>
-                <Text style={s.modalTitle}>
-                  {editingEvent ? "Edit Event" : "Create Event"}
-                </Text>
-                <Text style={s.modalSubtitle}>
-                  Event sẽ được admin duyệt trước khi hiển thị công khai.
-                </Text>
-              </View>
+function EventDetailBubbleModal({
+  visible,
+  event,
+  mode,
+  actionLoading,
+  isRegistered,
+  onClose,
+  onRegister,
+  onCancel,
+}: any) {
+  if (!event) return null;
 
-              <Pressable style={s.closeButton} onPress={closeModal}>
-                <MaterialCommunityIcons name="close" size={25} color="#064D3D" />
-              </Pressable>
+  const registerable = canRegisterEvent(event);
+  const cancelable = canCancelRegistration(event);
+  const eventMode = getEventModeLabel(event);
+  const place = getEventPlaceText(event);
+  const cancelDeadline = getCancelDeadlineText(event);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.28)" }}>
+        <Pressable style={{ flex: 1 }} onPress={onClose} />
+
+        <View
+          style={{
+            maxHeight: "88%",
+            backgroundColor: "#EEFDF8",
+            borderTopLeftRadius: 30,
+            borderTopRightRadius: 30,
+            overflow: "hidden",
+          }}
+        >
+          <View style={s.adminHeader}>
+            <View style={s.adminHeaderTop}>
+              <TouchableOpacity style={s.iconButtonLight} onPress={onClose}>
+                <MaterialCommunityIcons name="close" size={24} color="#064D3D" />
+              </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={s.formLabel}>Loại event</Text>
-              <View style={s.selectRow}>
-                {eventTypes.map((type) => {
-                  const active = formData.eventType === type.value;
-
-                  return (
-                    <TouchableOpacity
-                      key={type.value}
-                      style={[s.selectChip, active && s.selectChipActive]}
-                      onPress={() =>
-                        setFormData({ ...formData, eventType: type.value })
-                      }
-                    >
-                      <Text style={[s.selectText, active && s.selectTextActive]}>
-                        {type.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <Text style={s.formLabel}>Tiêu đề *</Text>
-              <TextInput
-                style={s.input}
-                placeholder="Workshop chăm sóc cảm xúc"
-                placeholderTextColor="#94A3B8"
-                value={formData.title}
-                onChangeText={(text) => setFormData({ ...formData, title: text })}
-              />
-
-              <Text style={s.formLabel}>Thời gian bắt đầu *</Text>
-              <TextInput
-                style={s.input}
-                placeholder="2026-08-10T09:00:00.000Z"
-                placeholderTextColor="#94A3B8"
-                value={formData.startDateTime}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, startDateTime: text })
-                }
-              />
-
-              <Text style={s.formLabel}>Thời gian kết thúc *</Text>
-              <TextInput
-                style={s.input}
-                placeholder="2026-08-10T11:00:00.000Z"
-                placeholderTextColor="#94A3B8"
-                value={formData.endDateTime}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, endDateTime: text })
-                }
-              />
-
-              <Text style={s.formLabel}>Địa điểm</Text>
-              <TextInput
-                style={s.input}
-                placeholder="FPT University Hall"
-                placeholderTextColor="#94A3B8"
-                value={formData.location}
-                onChangeText={(text) => setFormData({ ...formData, location: text })}
-              />
-
-              <Text style={s.formLabel}>Link online</Text>
-              <TextInput
-                style={s.input}
-                placeholder="Zoom / Google Meet link"
-                placeholderTextColor="#94A3B8"
-                value={formData.meetingLink}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, meetingLink: text })
-                }
-              />
-
-              <Text style={s.formLabel}>Diễn giả</Text>
-              <TextInput
-                style={s.input}
-                placeholder="Ms. Lan"
-                placeholderTextColor="#94A3B8"
-                value={formData.speakerName}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, speakerName: text })
-                }
-              />
-
-              <Text style={s.formLabel}>Đơn vị tổ chức</Text>
-              <TextInput
-                style={s.input}
-                placeholder="SOUL Community"
-                placeholderTextColor="#94A3B8"
-                value={formData.organizerName}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, organizerName: text })
-                }
-              />
-
-              <Text style={s.formLabel}>Email liên hệ</Text>
-              <TextInput
-                style={s.input}
-                placeholder="events@soul.com"
-                placeholderTextColor="#94A3B8"
-                value={formData.contactEmail}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, contactEmail: text })
-                }
-              />
-
-              <Text style={s.formLabel}>Sức chứa</Text>
-              <TextInput
-                style={s.input}
-                placeholder="50"
-                placeholderTextColor="#94A3B8"
-                keyboardType="numeric"
-                value={formData.capacity}
-                onChangeText={(text) => setFormData({ ...formData, capacity: text })}
-              />
-
-              <Text style={s.formLabel}>Mô tả</Text>
-              <TextInput
-                style={[s.input, s.textArea]}
-                placeholder="Mô tả nội dung, mục tiêu và lợi ích của event..."
-                placeholderTextColor="#94A3B8"
-                multiline
-                value={formData.description}
-                onChangeText={(text) =>
-                  setFormData({ ...formData, description: text })
-                }
-              />
-
-              <TouchableOpacity
-                style={[s.saveButton, submitting && { opacity: 0.65 }]}
-                onPress={handleSaveEvent}
-                disabled={submitting}
-              >
-                <Text style={s.saveButtonText}>
-                  {submitting
-                    ? "Đang lưu..."
-                    : editingEvent
-                    ? "Save Changes"
-                    : "Create Event"}
-                </Text>
-              </TouchableOpacity>
-
-              <View style={{ height: 32 }} />
-            </ScrollView>
+            <Text style={s.adminTitle}>Chi tiết event</Text>
+            <Text style={s.adminSubtitle}>{event.title}</Text>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
-    </SafeAreaView>
+
+          <ScrollView contentContainerStyle={s.formContent}>
+            <Bubble
+              icon="calendar-clock"
+              label="Thời gian bắt đầu"
+              value={formatEventDateTime(event.startDateTime)}
+            />
+
+            <Bubble
+              icon="calendar-check"
+              label="Thời gian kết thúc"
+              value={formatEventDateTime(event.endDateTime)}
+            />
+
+            <Bubble
+              icon={eventMode === "Online" ? "video-outline" : "map-marker-outline"}
+              label={eventMode === "Online" ? "Link Zoom/Meet" : "Địa điểm"}
+              value={place}
+            />
+
+            <Bubble
+              icon="account-group-outline"
+              label="Số lượng"
+              value={`${event.registeredCount || 0}/${event.capacity || "∞"} người`}
+            />
+
+            <Bubble
+              icon="bell-ring-outline"
+              label="Nhắc lịch"
+              value="Thông báo trước 24 giờ nếu thiết bị cho phép"
+            />
+
+            <Bubble
+              icon="calendar-remove-outline"
+              label="Hạn hủy đăng ký"
+              value={`Trước ${cancelDeadline}`}
+            />
+
+            {!!event.speakerName && (
+              <Bubble
+                icon="account-tie-voice-outline"
+                label="Diễn giả"
+                value={event.speakerName}
+              />
+            )}
+
+            {!!event.contactEmail && (
+              <Bubble
+                icon="email-outline"
+                label="Email liên hệ"
+                value={event.contactEmail}
+              />
+            )}
+
+            {!!event.description && (
+              <View style={s.card}>
+                <Text style={s.cardTitle}>Mô tả</Text>
+                <Text style={s.description}>{event.description}</Text>
+              </View>
+            )}
+
+            {mode === "explore" ? (
+              <TouchableOpacity
+                style={[
+                  s.primaryButton,
+                  (!registerable || actionLoading || isRegistered) && s.disabled,
+                ]}
+                onPress={onRegister}
+                disabled={!registerable || actionLoading || isRegistered}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={s.primaryButtonText}>
+                    {isRegistered
+                      ? "Đã có trong lịch"
+                      : registerable
+                      ? "Đăng ký tham dự"
+                      : "Không thể đăng ký"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[s.cancelButton, (!cancelable || actionLoading) && s.disabled]}
+                onPress={onCancel}
+                disabled={!cancelable || actionLoading}
+              >
+                {actionLoading ? (
+                  <ActivityIndicator color="#DC2626" />
+                ) : (
+                  <Text style={s.cancelButtonText}>
+                    {cancelable ? "Hủy đăng ký" : "Quá hạn hủy đăng ký"}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            )}
+
+            <View style={{ height: 24 }} />
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 }

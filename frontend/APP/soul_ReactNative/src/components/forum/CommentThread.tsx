@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
+import type { ForumUser } from "@/utils/forumIdentity";
 
 type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
@@ -11,10 +12,21 @@ type Props = {
   commentInput: string;
   replyInputs: Record<string, string>;
   openReplyCommentId: string | null;
+  currentUser?: ForumUser | null;
   currentUserId: string | null;
   setCommentInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setReplyInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setOpenReplyCommentId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  commentAnonymousByPost: Record<string, boolean>;
+  setCommentAnonymousByPost: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+  replyAnonymousByComment: Record<string, boolean>;
+  setReplyAnonymousByComment: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+
   onSendComment: (postId: string) => void;
   onReplyComment: (
     postId: string,
@@ -31,16 +43,25 @@ type Props = {
   onReportComment: (commentId: string) => void;
 };
 
+function getAnonymousAlias(user?: ForumUser | null) {
+  return user?.anonymousAlias || "Anonymous Soul";
+}
+
 export function CommentThread({
   postId,
   comments,
   commentInput,
   replyInputs,
   openReplyCommentId,
+  currentUser,
   currentUserId,
   setCommentInputs,
   setReplyInputs,
   setOpenReplyCommentId,
+  commentAnonymousByPost,
+  setCommentAnonymousByPost,
+  replyAnonymousByComment,
+  setReplyAnonymousByComment,
   onSendComment,
   onReplyComment,
   onReactComment,
@@ -52,8 +73,14 @@ export function CommentThread({
   const [editingContent, setEditingContent] = useState("");
   const [menuOpenCommentId, setMenuOpenCommentId] = useState<string | null>(null);
 
+  const commentAsAnonymous = Boolean(commentAnonymousByPost[postId]);
+
   const getCommentId = (comment: any) =>
-    comment?._id?.toString?.() || comment?._id || "";
+    comment?._id?.toString?.() ||
+    comment?.id?.toString?.() ||
+    comment?._id ||
+    comment?.id ||
+    "";
 
   const getAuthorId = (comment: any) => {
     if (!comment?.authorId) return null;
@@ -76,17 +103,30 @@ export function CommentThread({
       return comment.parentCommentId;
     }
 
-    return comment.parentCommentId._id?.toString?.() || null;
+    return (
+      comment.parentCommentId._id?.toString?.() ||
+      comment.parentCommentId.id?.toString?.() ||
+      null
+    );
   };
 
   const getCommentAuthorName = (comment: any) => {
-    if (comment?.isAnonymous) {
-      return comment?.anonymousName || "Anonymous";
-    }
+  if (comment?.isAnonymous === true) {
+    return (
+      comment?.displayAuthor?.fullName ||
+      comment?.anonymousName ||
+      comment?.authorId?.anonymousAlias ||
+      comment?.authorId?.fullName ||
+      "Anonymous Soul"
+    );
+  }
 
-    return comment?.authorId?.fullName || "SOUL User";
-  };
-
+  return (
+    comment?.displayAuthor?.fullName ||
+    comment?.authorId?.fullName ||
+    "SOUL User"
+  );
+};
   const parentComments = comments.filter((comment) => !getParentId(comment));
 
   const getRootParentId = (comment: any): string => {
@@ -115,6 +155,20 @@ export function CommentThread({
     });
   };
 
+  const toggleMainCommentIdentity = () => {
+    setCommentAnonymousByPost((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+  };
+
+  const toggleReplyIdentity = (commentId: string) => {
+    setReplyAnonymousByComment((prev) => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }));
+  };
+
   const openReplyInput = (comment: any) => {
     const commentId = getCommentId(comment);
     const authorName = getCommentAuthorName(comment);
@@ -125,6 +179,11 @@ export function CommentThread({
     setReplyInputs((prev) => ({
       ...prev,
       [commentId]: prev[commentId] || `@${authorName} `,
+    }));
+
+    setReplyAnonymousByComment((prev) => ({
+      ...prev,
+      [commentId]: prev[commentId] || false,
     }));
   };
 
@@ -162,6 +221,53 @@ export function CommentThread({
   const handleDelete = (commentId: string) => {
     setMenuOpenCommentId(null);
     onDeleteComment(postId, commentId);
+  };
+
+  const renderIdentityToggle = ({
+    active,
+    onPress,
+    anonymousText,
+    realText,
+  }: {
+    active: boolean;
+    onPress: () => void;
+    anonymousText: string;
+    realText: string;
+  }) => {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={{
+          alignSelf: "flex-start",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+          borderRadius: 999,
+          backgroundColor: active ? "#E8F8F3" : "#F1F5F9",
+          borderWidth: 1,
+          borderColor: active ? "#00866B" : "#CBD5E1",
+          marginBottom: 8,
+        }}
+      >
+        <MaterialCommunityIcons
+          name={active ? "incognito" : "account-circle-outline"}
+          size={16}
+          color={active ? "#00866B" : "#475569"}
+        />
+
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: "700",
+            color: active ? "#00866B" : "#475569",
+          }}
+        >
+          {active ? anonymousText : realText}
+        </Text>
+      </Pressable>
+    );
   };
 
   const renderContent = (comment: any) => {
@@ -245,12 +351,15 @@ export function CommentThread({
     const commentId = getCommentId(comment);
     const submitParentId = rootParentId || commentId;
     const stats = comment?.statistics || {};
+    const replyAsAnonymous = Boolean(replyAnonymousByComment[commentId]);
 
     const authorId = getAuthorId(comment);
     const isOwner =
-      !!currentUserId &&
-      !!authorId &&
-      String(authorId) === String(currentUserId);
+      comment?.viewer?.isOwner === true ||
+      comment?.isMine === true ||
+      (!!currentUserId &&
+        !!authorId &&
+        String(authorId) === String(currentUserId));
 
     return (
       <>
@@ -277,26 +386,35 @@ export function CommentThread({
         </View>
 
         {openReplyCommentId === commentId ? (
-          <View style={s.replyInputRow}>
-            <TextInput
-              style={s.replyInput}
-              placeholder="Write a reply..."
-              placeholderTextColor="#8A9996"
-              value={replyInputs[commentId] || ""}
-              onChangeText={(text) =>
-                setReplyInputs((prev) => ({
-                  ...prev,
-                  [commentId]: text,
-                }))
-              }
-            />
+          <View>
+            {renderIdentityToggle({
+              active: replyAsAnonymous,
+              onPress: () => toggleReplyIdentity(commentId),
+              anonymousText: `Reply as ${getAnonymousAlias(currentUser)}`,
+              realText: "Reply as me",
+            })}
 
-            <Pressable
-              style={s.replySend}
-              onPress={() => onReplyComment(postId, submitParentId, commentId)}
-            >
-              <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
-            </Pressable>
+            <View style={s.replyInputRow}>
+              <TextInput
+                style={s.replyInput}
+                placeholder="Write a reply..."
+                placeholderTextColor="#8A9996"
+                value={replyInputs[commentId] || ""}
+                onChangeText={(text) =>
+                  setReplyInputs((prev) => ({
+                    ...prev,
+                    [commentId]: text,
+                  }))
+                }
+              />
+
+              <Pressable
+                style={s.replySend}
+                onPress={() => onReplyComment(postId, submitParentId, commentId)}
+              >
+                <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
@@ -318,7 +436,9 @@ export function CommentThread({
             </Text>
 
             {comment?.isAnonymous ? (
-              <Text style={s.inlineCommentMeta}>Anonymous reply</Text>
+              <Text style={s.inlineCommentMeta}>
+                {isReply ? "Anonymous reply" : "Anonymous comment"}
+              </Text>
             ) : null}
           </View>
 
@@ -357,6 +477,13 @@ export function CommentThread({
             ) : null}
           </View>
         );
+      })}
+
+      {renderIdentityToggle({
+        active: commentAsAnonymous,
+        onPress: toggleMainCommentIdentity,
+        anonymousText: `Comment as ${getAnonymousAlias(currentUser)}`,
+        realText: "Comment as me",
       })}
 
       <View style={s.inlineCommentInputRow}>
