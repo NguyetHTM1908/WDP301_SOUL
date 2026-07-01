@@ -41,12 +41,43 @@ const mediaSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const displayAuthorSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      default: null,
+    },
+
+    fullName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
+
+    isAnonymous: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: false }
+);
+
 const postSchema = new mongoose.Schema(
   {
     authorId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+    
+    displayAuthor: {
+      type: displayAuthorSchema,
+      default: null,
     },
 
     content: {
@@ -154,6 +185,7 @@ const postSchema = new mongoose.Schema(
 );
 
 postSchema.index({ authorId: 1 });
+postSchema.index({ "displayAuthor.id": 1 });
 postSchema.index({ hashtags: 1 });
 postSchema.index({ status: 1 });
 postSchema.index({ createdAt: -1 });

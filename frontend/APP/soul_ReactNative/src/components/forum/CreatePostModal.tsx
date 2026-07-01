@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,6 +12,11 @@ import {
   View,
 } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
+import {
+  ANONYMOUS_AVATAR_URL,
+  ForumUser,
+  getCurrentForumIdentity,
+} from "@/utils/forumIdentity";
 
 type Emotion = {
   value: string;
@@ -21,19 +27,26 @@ type Emotion = {
 type Props = {
   visible: boolean;
   isEditing?: boolean;
+  currentUser?: ForumUser | null;
+
   content: string;
   mediaUrl: string;
   hashtags: string;
   emotionStatus: string;
+
   isAnonymous: boolean;
   anonymousName: string;
+
   emotions: Emotion[];
+
   setContent: (value: string) => void;
   setMediaUrl: (value: string) => void;
   setHashtags: (value: string) => void;
   setEmotionStatus: (value: string) => void;
+
   setIsAnonymous: (value: boolean) => void;
   setAnonymousName: (value: string) => void;
+
   onClose: () => void;
   onSubmit: () => void;
 };
@@ -41,24 +54,50 @@ type Props = {
 export function CreatePostModal({
   visible,
   isEditing = false,
+  currentUser,
+
   content,
   mediaUrl,
   hashtags,
   emotionStatus,
+
   isAnonymous,
   anonymousName,
+
   emotions,
+
   setContent,
   setMediaUrl,
   setHashtags,
   setEmotionStatus,
+
   setIsAnonymous,
   setAnonymousName,
+
   onClose,
   onSubmit,
 }: Props) {
+  const realIdentity = getCurrentForumIdentity({
+    ...currentUser,
+    anonymousModeEnabled: false,
+  });
+
+  const displayIdentity = isAnonymous
+    ? {
+        id: currentUser?.anonymousIdentityId || null,
+        fullName: anonymousName || currentUser?.anonymousAlias || "Anonymous Soul",
+        avatarUrl: ANONYMOUS_AVATAR_URL,
+        isAnonymous: true,
+      }
+    : realIdentity;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={s.modalBackdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -79,10 +118,83 @@ export function CreatePostModal({
             </Text>
 
             <Text style={s.modalSub}>
-              {isEditing
-                ? "Your updated post will stay published. SOUL AI may review it again to keep the space safe."
-                : "Your post will be published immediately. SOUL AI may review it to keep the community safe."}
+              Choose how you want to appear in the community.
             </Text>
+
+            <View style={s.identityPreview}>
+              <Image
+                source={{ uri: displayIdentity.avatarUrl || "" }}
+                style={s.identityPreviewAvatar}
+              />
+
+              <View style={s.identityPreviewInfo}>
+                <Text style={s.identityPreviewLabel}>
+                  {isAnonymous ? "Posting anonymously as" : "Posting as"}
+                </Text>
+
+                <Text style={s.identityPreviewName}>
+                  {displayIdentity.fullName}
+                </Text>
+
+                <Text style={s.identityPreviewMeta}>
+                  {isAnonymous
+                    ? "Your real profile will not be shown on this post."
+                    : "Your real profile name and avatar will be shown."}
+                </Text>
+              </View>
+            </View>
+
+            <View style={s.anonymousRow}>
+              <View style={s.anonLeft}>
+                <MaterialCommunityIcons
+                  name="incognito"
+                  size={24}
+                  color="#95A19E"
+                />
+                <View style={{ flex: 1 }}>
+                  <Text style={s.anonText}>Post anonymously</Text>
+                  <Text style={s.anonSubText}>
+                    Use anonymous name and anonymous avatar for this post.
+                  </Text>
+                </View>
+              </View>
+
+              <Switch
+                value={isAnonymous}
+                onValueChange={setIsAnonymous}
+                trackColor={{ false: "#D8E3E0", true: "#00866B" }}
+                thumbColor="#FFFFFF"
+              />
+            </View>
+
+            {isAnonymous ? (
+              <View style={s.formInput}>
+                <MaterialCommunityIcons
+                  name="account-question-outline"
+                  size={24}
+                  color="#7A8A87"
+                />
+
+                <TextInput
+                  style={s.formTextInput}
+                  placeholder="Anonymous name: Thỏ lém lỉnh..."
+                  placeholderTextColor="#8A9996"
+                  value={anonymousName}
+                  onChangeText={setAnonymousName}
+                />
+              </View>
+            ) : null}
+
+            <View style={s.safeNotice}>
+              <MaterialCommunityIcons
+                name="shield-check-outline"
+                size={20}
+                color="#00866B"
+              />
+              <Text style={s.safeNoticeText}>
+                SOUL AI may review posts to keep this space safe and supportive.
+              </Text>
+            </View>
 
             <View style={s.bigInputWrap}>
               <TextInput
@@ -143,41 +255,6 @@ export function CreatePostModal({
                 );
               })}
             </View>
-
-            <View style={s.anonymousRow}>
-              <View style={s.anonLeft}>
-                <MaterialCommunityIcons
-                  name="incognito"
-                  size={24}
-                  color="#95A19E"
-                />
-                <Text style={s.anonText}>Post anonymously</Text>
-              </View>
-
-              <Switch
-                value={isAnonymous}
-                onValueChange={setIsAnonymous}
-                trackColor={{ false: "#D8E3E0", true: "#00866B" }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
-            {isAnonymous ? (
-              <View style={s.formInput}>
-                <MaterialCommunityIcons
-                  name="account-question-outline"
-                  size={24}
-                  color="#7A8A87"
-                />
-                <TextInput
-                  style={s.formTextInput}
-                  placeholder="Anonymous name: Thỏ lém lỉnh..."
-                  placeholderTextColor="#8A9996"
-                  value={anonymousName}
-                  onChangeText={setAnonymousName}
-                />
-              </View>
-            ) : null}
 
             <Pressable style={s.submitButton} onPress={onSubmit}>
               <MaterialCommunityIcons

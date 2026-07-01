@@ -1051,6 +1051,7 @@ db.moderation_logs.insertMany([
 
 const event1Id = new ObjectId();
 const event2Id = new ObjectId();
+const event3Id = new ObjectId();
 
 db.events.insertMany([
   {
@@ -1065,10 +1066,15 @@ db.events.insertMany([
       { url: "https://example.com/images/workshop-room.jpg", type: "image" }
     ],
     eventType: "workshop",
+
+    // Offline event: bắt buộc có location, meetingLink null
+    eventMode: "offline",
     startDateTime: new Date("2026-08-01T09:00:00"),
     endDateTime: new Date("2026-08-01T11:00:00"),
     location: "FPT University Hall",
     meetingLink: null,
+    locationKey: "offline:fpt university hall",
+
     capacity: 100,
     registeredCount: 1,
     participants: [
@@ -1101,10 +1107,15 @@ db.events.insertMany([
       { url: "https://example.com/images/online-talkshow.jpg", type: "image" }
     ],
     eventType: "talkshow",
+
+    // Online event: bắt buộc có meetingLink, location null
+    eventMode: "online",
     startDateTime: new Date("2026-09-15T18:00:00"),
     endDateTime: new Date("2026-09-15T20:00:00"),
-    location: "Online Zoom",
+    location: null,
     meetingLink: "https://zoom.example.com/soul-talkshow",
+    locationKey: "online:https://zoom.example.com/soul-talkshow",
+
     capacity: 200,
     registeredCount: 1,
     participants: [
@@ -1120,6 +1131,38 @@ db.events.insertMany([
     approvalStatus: "approved",
     approvedBy: adminId,
     approvedAt: now,
+    rejectedReason: null,
+    lockAfterApproval: true,
+    createdAt: now,
+    updatedAt: now
+  },
+  {
+    _id: event3Id,
+    title: "Mindfulness Practice Session",
+    description: "Pending offline event waiting for admin review.",
+    speakerName: "Coach An",
+    organizerName: "SOUL Event Organizer",
+    contactEmail: "organizer@soul.com",
+    bannerImage: null,
+    images: [],
+    eventType: "community_event",
+
+    // Event này để test luồng admin duyệt pending
+    eventMode: "offline",
+    startDateTime: new Date("2026-10-05T08:30:00"),
+    endDateTime: new Date("2026-10-05T10:00:00"),
+    location: "FPT University Room B203",
+    meetingLink: null,
+    locationKey: "offline:fpt university room b203",
+
+    capacity: 50,
+    registeredCount: 0,
+    participants: [],
+    status: "upcoming",
+    createdBy: organizerId,
+    approvalStatus: "pending",
+    approvedBy: null,
+    approvedAt: null,
     rejectedReason: null,
     lockAfterApproval: true,
     createdAt: now,

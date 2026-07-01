@@ -1,233 +1,307 @@
-import { API_BASE_URL } from "./config";
+import apiClient from "../services/api";
 
 export type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
-type GetApprovedPostsParams = {
-  search?: string;
-  hashtag?: string;
-  emotionStatus?: string;
+export type MediaItem = {
+  url: string;
+  type: "image" | "video";
 };
 
-async function handleResponse(res: Response) {
-  const text = await res.text();
+export type CreatePostPayload = {
+  content: string;
+  mediaUrls?: MediaItem[];
+  emotionStatus?: string;
+  hashtags?: string[];
+  isAnonymous?: boolean;
+  anonymousName?: string;
+  visibility?: "public" | "private";
+};
 
-  let data: any = null;
+export type UpdatePostPayload = Partial<CreatePostPayload>;
 
+export type CreateCommentPayload = {
+  postId: string;
+  parentCommentId?: string | null;
+  content: string;
+  isAnonymous?: boolean;
+  anonymousName?: string;
+};
+
+function getError(error: any, fallback: string) {
+  return error?.response?.data || error || new Error(fallback);
+}
+
+/* =========================
+   POSTS
+========================= */
+
+export const getApprovedPosts = async (params?: {
+  hashtag?: string;
+  emotionStatus?: string;
+  search?: string;
+}) => {
   try {
-    data = text ? JSON.parse(text) : null;
-  } catch {
-    data = text;
+    const response = await apiClient.get("/posts", { params });
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể lấy danh sách bài viết.");
   }
+};
 
-  console.log("API RESPONSE STATUS:", res.status);
-  console.log("API RESPONSE DATA:", data);
+export const getPosts = getApprovedPosts;
 
-  if (!res.ok) {
-    throw new Error(
-      data?.message ||
-        data?.error ||
-        JSON.stringify(data) ||
-        `API error ${res.status}`
-    );
+export const getMyPosts = async () => {
+  try {
+    const response = await apiClient.get("/posts/my-posts");
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể lấy bài viết của tôi.");
   }
+};
 
-  return data;
-}
-
-function authHeaders(token: string) {
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-function jsonAuthHeaders(token: string) {
-  return {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
-  };
-}
-
-export async function getApprovedPosts(params?: GetApprovedPostsParams) {
-  const query = new URLSearchParams();
-
-  if (params?.search?.trim()) {
-    query.append("search", params.search.trim());
+export const createPost = async (payload: CreatePostPayload) => {
+  try {
+    const response = await apiClient.post("/posts", payload);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể tạo bài viết.");
   }
+};
 
-  if (params?.hashtag && params.hashtag !== "all") {
-    query.append("hashtag", params.hashtag);
-  }
-
-  if (params?.emotionStatus) {
-    query.append("emotionStatus", params.emotionStatus);
-  }
-
-  const url = `${API_BASE_URL}/posts${query.toString() ? `?${query.toString()}` : ""}`;
-  const res = await fetch(url);
-
-  return handleResponse(res);
-}
-
-export async function getMyPosts(token: string) {
-  const res = await fetch(`${API_BASE_URL}/posts/my-posts`, {
-    method: "GET",
-    headers: authHeaders(token),
-  });
-
-  return handleResponse(res);
-}
-
-export async function createPost(token: string, body: any) {
-  const res = await fetch(`${API_BASE_URL}/posts`, {
-    method: "POST",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify(body),
-  });
-
-  return handleResponse(res);
-}
-
-export async function updatePost(token: string, postId: string, body: any) {
-  const res = await fetch(`${API_BASE_URL}/posts/${postId}`, {
-    method: "PUT",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify(body),
-  });
-
-  return handleResponse(res);
-}
-
-export async function deletePost(token: string, postId: string) {
-  const res = await fetch(`${API_BASE_URL}/posts/${postId}`, {
-    method: "DELETE",
-    headers: authHeaders(token),
-  });
-
-  return handleResponse(res);
-}
-
-export async function getComments(postId: string) {
-  const res = await fetch(`${API_BASE_URL}/comments/post/${postId}`, {
-    method: "GET",
-  });
-
-  return handleResponse(res);
-}
-
-export async function createComment(token: string, body: any) {
-  const res = await fetch(`${API_BASE_URL}/comments`, {
-    method: "POST",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify(body),
-  });
-
-  return handleResponse(res);
-}
-
-export async function updateComment(
-  token: string,
-  commentId: string,
-  content: string
-) {
-  const res = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-    method: "PUT",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify({ content }),
-  });
-
-  return handleResponse(res);
-}
-
-export async function deleteComment(token: string, commentId: string) {
-  const res = await fetch(`${API_BASE_URL}/comments/${commentId}`, {
-    method: "DELETE",
-    headers: authHeaders(token),
-  });
-
-  return handleResponse(res);
-}
-
-export async function reactToPost(
-  token: string,
+export const updatePost = async (
   postId: string,
-  type: ReactionType
-) {
-  const res = await fetch(`${API_BASE_URL}/reactions/posts/${postId}`, {
-    method: "POST",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify({ type }),
-  });
+  payload: UpdatePostPayload
+) => {
+  try {
+    if (!postId) {
+      throw new Error("Thiếu postId để cập nhật bài viết.");
+    }
 
-  return handleResponse(res);
-}
+    const response = await apiClient.put(`/posts/${postId}`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể cập nhật bài viết.");
+  }
+};
 
-export async function reactToComment(
-  token: string,
+export const deletePost = async (postId: string) => {
+  try {
+    if (!postId) {
+      throw new Error("Thiếu postId để xóa bài viết.");
+    }
+
+    console.log("[DELETE POST API]", `/posts/${postId}`);
+
+    const response = await apiClient.delete(`/posts/${postId}`);
+    return response.data;
+  } catch (error: any) {
+    console.log("[DELETE POST API ERROR]", error?.response?.data || error);
+    throw getError(error, "Không thể xóa bài viết.");
+  }
+};
+
+/* =========================
+   COMMENTS
+========================= */
+
+export const getCommentsByPost = async (postId: string) => {
+  try {
+    if (!postId) {
+      throw new Error("Thiếu postId để lấy bình luận.");
+    }
+
+    const response = await apiClient.get(`/comments/post/${postId}`);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể lấy bình luận.");
+  }
+};
+
+export const createComment = async (payload: CreateCommentPayload) => {
+  try {
+    const response = await apiClient.post("/comments", payload);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể bình luận.");
+  }
+};
+
+export const updateComment = async (
+  commentId: string,
+  payload: {
+    content: string;
+    isAnonymous?: boolean;
+    anonymousName?: string;
+  }
+) => {
+  try {
+    if (!commentId) {
+      throw new Error("Thiếu commentId để cập nhật bình luận.");
+    }
+
+    const response = await apiClient.put(`/comments/${commentId}`, payload);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể cập nhật bình luận.");
+  }
+};
+
+export const deleteComment = async (commentId: string) => {
+  try {
+    if (!commentId) {
+      throw new Error("Thiếu commentId để xóa bình luận.");
+    }
+
+    const response = await apiClient.delete(`/comments/${commentId}`);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể xóa bình luận.");
+  }
+};
+
+/* =========================
+   REACTIONS
+========================= */
+
+export const reactToPost = async (postId: string, type: ReactionType) => {
+  try {
+    if (!postId) {
+      throw new Error("Thiếu postId để react bài viết.");
+    }
+
+    const response = await apiClient.post(`/reactions/posts/${postId}`, {
+      type,
+    });
+
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể react bài viết.");
+  }
+};
+
+export const removePostReaction = async (postId: string) => {
+  try {
+    if (!postId) {
+      throw new Error("Thiếu postId để gỡ reaction bài viết.");
+    }
+
+    const response = await apiClient.delete(`/reactions/posts/${postId}`);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể gỡ reaction bài viết.");
+  }
+};
+
+export const reactToComment = async (
   commentId: string,
   type: ReactionType
-) {
-  const res = await fetch(`${API_BASE_URL}/reactions/comments/${commentId}`, {
-    method: "POST",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify({ type }),
-  });
+) => {
+  try {
+    if (!commentId) {
+      throw new Error("Thiếu commentId để react bình luận.");
+    }
 
-  return handleResponse(res);
-}
+    const response = await apiClient.post(`/reactions/comments/${commentId}`, {
+      type,
+    });
 
-export async function reportPost(
-  token: string,
-  postId: string,
-  reason: string,
-  description: string
-) {
-  const res = await fetch(`${API_BASE_URL}/reports`, {
-    method: "POST",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify({
-      targetType: "post",
-      targetId: postId,
-      reason,
-      description,
-    }),
-  });
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể react bình luận.");
+  }
+};
 
-  return handleResponse(res);
-}
+export const removeCommentReaction = async (commentId: string) => {
+  try {
+    if (!commentId) {
+      throw new Error("Thiếu commentId để gỡ reaction bình luận.");
+    }
 
-export async function reportComment(
-  token: string,
-  commentId: string,
-  reason: string,
-  description: string
-) {
-  const res = await fetch(`${API_BASE_URL}/reports`, {
-    method: "POST",
-    headers: jsonAuthHeaders(token),
-    body: JSON.stringify({
-      targetType: "comment",
-      targetId: commentId,
-      reason,
-      description,
-    }),
-  });
+    const response = await apiClient.delete(`/reactions/comments/${commentId}`);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể gỡ reaction bình luận.");
+  }
+};
 
-  return handleResponse(res);
-}
+/* =========================
+   REPORTS
+========================= */
 
-export async function getMyReports(token: string) {
-  const res = await fetch(`${API_BASE_URL}/reports/my-reports`, {
-    method: "GET",
-    headers: authHeaders(token),
-  });
+export const getMyReports = async () => {
+  try {
+    const response = await apiClient.get("/reports/my-reports");
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể lấy report của tôi.");
+  }
+};
 
-  return handleResponse(res);
-}
+export const createReport = async (payload: {
+  targetType: "post" | "comment";
+  targetId: string;
+  reason: string;
+  description?: string;
+}) => {
+  try {
+    const response = await apiClient.post("/reports", payload);
+    return response.data;
+  } catch (error: any) {
+    throw getError(error, "Không thể gửi report.");
+  }
+};
 
-export async function getTags() {
-  const res = await fetch(`${API_BASE_URL}/tags`, {
-    method: "GET",
-  });
+/* =========================
+   SERVICE OBJECTS
+========================= */
 
-  return handleResponse(res);
-}
+export const forumPostService = {
+  getApprovedPosts,
+  getPosts,
+  getMyPosts,
+  createPost,
+  updatePost,
+  deletePost,
+};
+
+export const forumCommentService = {
+  getCommentsByPost,
+  createComment,
+  updateComment,
+  deleteComment,
+};
+
+export const forumReactionService = {
+  reactToPost,
+  removePostReaction,
+  reactToComment,
+  removeCommentReaction,
+};
+
+export const forumReportService = {
+  getMyReports,
+  createReport,
+};
+
+export default {
+  getApprovedPosts,
+  getPosts,
+  getMyPosts,
+  createPost,
+  updatePost,
+  deletePost,
+  getCommentsByPost,
+  createComment,
+  updateComment,
+  deleteComment,
+  reactToPost,
+  removePostReaction,
+  reactToComment,
+  removeCommentReaction,
+  getMyReports,
+  createReport,
+  forumPostService,
+  forumCommentService,
+  forumReactionService,
+  forumReportService,
+};

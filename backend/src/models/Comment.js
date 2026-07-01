@@ -22,6 +22,32 @@ const reactionSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const displayAuthorSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      default: null,
+    },
+
+    fullName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
+
+    isAnonymous: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  { _id: false }
+);
+
 const commentSchema = new mongoose.Schema(
   {
     postId: {
@@ -34,6 +60,11 @@ const commentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
+    },
+
+    displayAuthor: {
+      type: displayAuthorSchema,
+      default: null,
     },
 
     parentCommentId: {
@@ -95,6 +126,7 @@ const commentSchema = new mongoose.Schema(
 
 commentSchema.index({ postId: 1 });
 commentSchema.index({ authorId: 1 });
+commentSchema.index({ "displayAuthor.id": 1 });
 commentSchema.index({ parentCommentId: 1 });
 commentSchema.index({ status: 1 });
 

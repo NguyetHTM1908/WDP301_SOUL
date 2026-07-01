@@ -3,12 +3,14 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { Image, Pressable, Text, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
 import { CommentThread } from "./CommentThread";
+import { ForumUser, getForumAuthor } from "@/utils/forumIdentity";
 
 type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type Props = {
   item: any;
   mode: "community" | "mine";
+  currentUser?: ForumUser | null;
   moodLabel: (mood: string) => string;
   openCommentPostId: string | null;
   commentsByPost: Record<string, any[]>;
@@ -19,6 +21,16 @@ type Props = {
   setCommentInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setReplyInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setOpenReplyCommentId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  commentAnonymousByPost: Record<string, boolean>;
+  setCommentAnonymousByPost: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+  replyAnonymousByComment: Record<string, boolean>;
+  setReplyAnonymousByComment: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+
   onReactPost: (postId: string, type: ReactionType) => void;
   onReportPost: (postId: string) => void;
   onToggleComments: (postId: string) => void;
@@ -39,6 +51,16 @@ type Props = {
   onEditPost: (post: any) => void;
   onDeletePost: (postId: string) => void;
 };
+
+function getItemId(item: any) {
+  return (
+    item?._id?.toString?.() ||
+    item?.id?.toString?.() ||
+    item?._id ||
+    item?.id ||
+    ""
+  );
+}
 
 function normalizeImageUrl(url: any) {
   if (!url || typeof url !== "string") return "";
@@ -108,6 +130,7 @@ function getStatusInfo(item: any) {
 export function PostCard({
   item,
   mode,
+  currentUser,
   moodLabel,
   openCommentPostId,
   commentsByPost,
@@ -118,6 +141,10 @@ export function PostCard({
   setCommentInputs,
   setReplyInputs,
   setOpenReplyCommentId,
+  commentAnonymousByPost,
+  setCommentAnonymousByPost,
+  replyAnonymousByComment,
+  setReplyAnonymousByComment,
   onReactPost,
   onReportPost,
   onToggleComments,
@@ -132,15 +159,8 @@ export function PostCard({
 }: Props) {
   const [imageError, setImageError] = useState(false);
 
-  const postId = item?._id?.toString?.() || item?._id;
-
-  const authorName = item?.isAnonymous
-    ? item?.anonymousName || "Anonymous Soul"
-    : item?.authorId?.fullName || "SOUL User";
-
-  const avatar = item?.isAnonymous
-    ? "https://i.pravatar.cc/100?img=12"
-    : item?.authorId?.avatarUrl || "https://i.pravatar.cc/100?img=32";
+  const postId = getItemId(item);
+  const author = getForumAuthor(item);
 
   const mediaUrl = normalizeImageUrl(item?.mediaUrls?.[0]?.url);
   const shouldShowImage = isRemoteUrl(mediaUrl) && !imageError;
@@ -153,17 +173,22 @@ export function PostCard({
       ? "alert-circle-outline"
       : "shield-alert-outline";
 
+  const handleDeletePress = () => {
+    if (!postId) return;
+    onDeletePost(postId);
+  };
+
   return (
     <View style={[s.postCard, item?.isFlagged && s.postCardFlagged]}>
       <View style={s.postHeader}>
         <View style={s.authorRow}>
-          <Image source={{ uri: avatar }} style={s.avatar} />
+          <Image source={{ uri: author.avatarUrl }} style={s.avatar} />
 
           <View style={s.authorInfo}>
             <View style={s.nameRow}>
-              <Text style={s.authorName}>{authorName}</Text>
+              <Text style={s.authorName}>{author.fullName}</Text>
 
-              {item?.isAnonymous ? (
+              {author.isAnonymous ? (
                 <View style={s.anonymousBadge}>
                   <MaterialCommunityIcons
                     name="incognito"
@@ -181,7 +206,11 @@ export function PostCard({
               )}
             </View>
 
-            <Text style={s.postMeta}>{moodLabel(item?.emotionStatus)}</Text>
+            <Text style={s.postMeta}>
+              {author.isAnonymous
+                ? "Anonymous identity"
+                : moodLabel(item?.emotionStatus)}
+            </Text>
           </View>
         </View>
 
@@ -227,7 +256,7 @@ export function PostCard({
                 />
               </Pressable>
 
-              <Pressable onPress={() => onDeletePost(postId)}>
+              <Pressable onPress={handleDeletePress}>
                 <MaterialCommunityIcons
                   name="trash-can-outline"
                   size={22}
@@ -237,7 +266,13 @@ export function PostCard({
             </View>
           </View>
         ) : (
-          <Pressable style={s.iconButtonSoft} onPress={() => onReportPost(postId)}>
+          <Pressable
+            style={s.iconButtonSoft}
+            onPress={() => {
+              if (!postId) return;
+              onReportPost(postId);
+            }}
+          >
             <MaterialCommunityIcons
               name="flag-outline"
               size={21}
@@ -301,6 +336,7 @@ export function PostCard({
             size={36}
             color="#8A9996"
           />
+
           <Text style={s.mediaPlaceholderText}>
             Không thể tải ảnh. Hãy dùng link ảnh trực tiếp.
           </Text>
@@ -310,7 +346,10 @@ export function PostCard({
       <View style={s.reactionBar}>
         <Pressable
           style={s.reactionPill}
-          onPress={() => onReactPost(postId, "support")}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "support");
+          }}
         >
           <Text style={s.actionEmoji}>💚</Text>
           <Text style={s.actionText}>{stats.supportCount || 0}</Text>
@@ -318,7 +357,10 @@ export function PostCard({
 
         <Pressable
           style={s.reactionPill}
-          onPress={() => onReactPost(postId, "hug")}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "hug");
+          }}
         >
           <Text style={s.actionEmoji}>🤗</Text>
           <Text style={s.actionText}>{stats.hugCount || 0}</Text>
@@ -326,7 +368,10 @@ export function PostCard({
 
         <Pressable
           style={s.reactionPill}
-          onPress={() => onReactPost(postId, "encourage")}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "encourage");
+          }}
         >
           <Text style={s.actionEmoji}>🌟</Text>
           <Text style={s.actionText}>{stats.encourageCount || 0}</Text>
@@ -334,7 +379,10 @@ export function PostCard({
 
         <Pressable
           style={s.reactionPill}
-          onPress={() => onReactPost(postId, "thankyou")}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "thankyou");
+          }}
         >
           <Text style={s.actionEmoji}>🙏</Text>
           <Text style={s.actionText}>{stats.thankyouCount || 0}</Text>
@@ -342,7 +390,10 @@ export function PostCard({
 
         <Pressable
           style={s.commentPill}
-          onPress={() => onToggleComments(postId)}
+          onPress={() => {
+            if (!postId) return;
+            onToggleComments(postId);
+          }}
         >
           <MaterialCommunityIcons
             name="comment-outline"
@@ -360,10 +411,15 @@ export function PostCard({
           commentInput={commentInputs[postId] || ""}
           replyInputs={replyInputs}
           openReplyCommentId={openReplyCommentId}
+          currentUser={currentUser}
           currentUserId={currentUserId}
           setCommentInputs={setCommentInputs}
           setReplyInputs={setReplyInputs}
           setOpenReplyCommentId={setOpenReplyCommentId}
+          commentAnonymousByPost={commentAnonymousByPost}
+          setCommentAnonymousByPost={setCommentAnonymousByPost}
+          replyAnonymousByComment={replyAnonymousByComment}
+          setReplyAnonymousByComment={setReplyAnonymousByComment}
           onSendComment={onSendComment}
           onReplyComment={onReplyComment}
           onReactComment={onReactComment}

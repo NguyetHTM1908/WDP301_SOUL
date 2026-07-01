@@ -5,7 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // Khởi tạo instance Axios với cấu hình cơ bản
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000, // 10 giây - đủ thời gian cho backend xử lý DB operations
+  timeout: 10000,
   headers: {
     "Content-Type": "application/json",
   },
@@ -32,6 +32,19 @@ export const setAuthToken = (token: string | null) => {
   } else {
     delete apiClient.defaults.headers.common["Authorization"];
   }
+};
+
+export type UpdateProfilePayload = {
+  fullName?: string;
+  phone?: string;
+  gender?: string | null;
+  dateOfBirth?: string | null;
+  avatarUrl?: string | null;
+  bio?: string | null;
+
+  // Forum anonymous mode
+  anonymousModeEnabled?: boolean;
+  anonymousAlias?: string;
 };
 
 /**
@@ -65,7 +78,7 @@ export const authService = {
     }
   },
 
-  // Yêu cầu lấy lại mật khẩu (Gửi mã xác thực OTP)
+  // Yêu cầu lấy lại mật khẩu
   forgotPassword: async (email: string) => {
     try {
       const response = await apiClient.post("/auth/forgot-password", { email });
@@ -78,7 +91,10 @@ export const authService = {
   // Kiểm tra mã OTP
   verifyCode: async (email: string, code: string) => {
     try {
-      const response = await apiClient.post("/auth/verify-code", { email, code });
+      const response = await apiClient.post("/auth/verify-code", {
+        email,
+        code,
+      });
       return response.data;
     } catch (error: any) {
       throw error.response?.data || new Error("Mã xác thực không hợp lệ.");
@@ -99,7 +115,7 @@ export const authService = {
     }
   },
 
-  // Đăng nhập bằng Google (Gửi thông tin lên Backend để lưu/đăng nhập thật)
+  // Đăng nhập bằng Google
   googleLogin: async (
     email: string,
     fullName: string,
@@ -119,20 +135,46 @@ export const authService = {
     }
   },
 
-  // Cập nhật thông tin cá nhân
-  updateProfile: async (profileData: {
-    fullName?: string;
-    phone?: string;
-    gender?: string;
-    dateOfBirth?: string;
-    avatarUrl?: string;
-    bio?: string;
-  }) => {
+  // Cập nhật thông tin cá nhân + bật/tắt ẩn danh
+  updateProfile: async (profileData: UpdateProfilePayload) => {
     try {
       const response = await apiClient.put("/auth/profile", profileData);
       return response.data;
     } catch (error: any) {
       throw error.response?.data || new Error("Không thể kết nối đến máy chủ.");
+    }
+  },
+
+  // Bật chế độ ẩn danh
+  enableAnonymousMode: async (anonymousAlias: string) => {
+    try {
+      const alias = anonymousAlias.trim();
+
+      if (!alias) {
+        throw new Error("Vui lòng nhập tên ẩn danh trước khi bật ẩn danh.");
+      }
+
+      const response = await apiClient.put("/auth/profile", {
+        anonymousModeEnabled: true,
+        anonymousAlias: alias,
+      });
+
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || error || new Error("Không thể bật chế độ ẩn danh.");
+    }
+  },
+
+  // Thoát chế độ ẩn danh
+  disableAnonymousMode: async () => {
+    try {
+      const response = await apiClient.put("/auth/profile", {
+        anonymousModeEnabled: false,
+      });
+
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || new Error("Không thể thoát chế độ ẩn danh.");
     }
   },
 

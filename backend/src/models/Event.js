@@ -1,14 +1,15 @@
 const mongoose = require("mongoose");
 
-function normalizeLocationKey(location, meetingLink) {
-  const raw =
-    location && String(location).trim()
-      ? String(location).trim()
-      : meetingLink && String(meetingLink).trim()
-      ? `online:${String(meetingLink).trim()}`
+function normalizeLocationKey(location, meetingLink, eventMode) {
+  if (eventMode === "online") {
+    return meetingLink && String(meetingLink).trim()
+      ? `online:${String(meetingLink).trim().toLowerCase()}`
       : "online";
+  }
 
-  return raw.toLowerCase().replace(/\s+/g, " ").trim();
+  return location && String(location).trim()
+    ? `offline:${String(location).trim().toLowerCase().replace(/\s+/g, " ")}`
+    : "offline";
 }
 
 const participantSchema = new mongoose.Schema(
@@ -36,7 +37,9 @@ const participantSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const eventSchema = new mongoose.Schema(
@@ -85,6 +88,7 @@ const eventSchema = new mongoose.Schema(
           required: true,
           trim: true,
         },
+
         type: {
           type: String,
           enum: ["image"],
@@ -99,16 +103,21 @@ const eventSchema = new mongoose.Schema(
       default: null,
     },
 
+    eventMode: {
+      type: String,
+      enum: ["online", "offline"],
+      required: true,
+      default: "offline",
+    },
+
     startDateTime: {
       type: Date,
       required: true,
-      index: true,
     },
 
     endDateTime: {
       type: Date,
       required: true,
-      index: true,
     },
 
     location: {
@@ -117,16 +126,15 @@ const eventSchema = new mongoose.Schema(
       trim: true,
     },
 
-    locationKey: {
-      type: String,
-      required: true,
-      index: true,
-    },
-
     meetingLink: {
       type: String,
       default: null,
       trim: true,
+    },
+
+    locationKey: {
+      type: String,
+      required: true,
     },
 
     capacity: {
@@ -146,20 +154,16 @@ const eventSchema = new mongoose.Schema(
       default: [],
     },
 
-    // Trạng thái thời gian của event
     status: {
       type: String,
       enum: ["upcoming", "ongoing", "completed", "cancelled"],
       default: "upcoming",
-      index: true,
     },
 
-    // Trạng thái duyệt bởi admin
     approvalStatus: {
       type: String,
       enum: ["pending", "approved", "rejected"],
       default: "pending",
-      index: true,
     },
 
     approvedBy: {
@@ -188,7 +192,6 @@ const eventSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
   },
   {
@@ -197,12 +200,20 @@ const eventSchema = new mongoose.Schema(
   }
 );
 
-eventSchema.pre("validate", function (next) {
-  this.locationKey = normalizeLocationKey(this.location, this.meetingLink);
-  next();
+/**
+ * Không dùng function(next) nữa để tránh lỗi:
+ * next is not a function
+ */
+eventSchema.pre("validate", function () {
+  this.locationKey = normalizeLocationKey(
+    this.location,
+    this.meetingLink,
+    this.eventMode
+  );
 });
 
 eventSchema.index({ approvalStatus: 1, status: 1, startDateTime: 1 });
+eventSchema.index({ eventMode: 1 });
 eventSchema.index({ locationKey: 1, startDateTime: 1, endDateTime: 1 });
 eventSchema.index({ createdBy: 1 });
 eventSchema.index({ "participants.userId": 1 });

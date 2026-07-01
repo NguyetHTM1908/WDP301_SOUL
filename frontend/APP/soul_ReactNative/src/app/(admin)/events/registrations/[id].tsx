@@ -12,9 +12,9 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { colors } from "@/constants/colors";
 import { eventAdminService } from "@/services/eventApi";
 import { eventStyles as s } from "@/styles/event.styles";
+import { formatEventDateTime } from "@/utils/eventPolicy";
 
 type RegistrationStatusFilter = "all" | "registered" | "cancelled" | "attended";
 
@@ -31,28 +31,6 @@ const filters: { label: string; value: RegistrationStatusFilter }[] = [
   { label: "Cancelled", value: "cancelled" },
   { label: "Attended", value: "attended" },
 ];
-
-function formatDateTime(value?: string | null) {
-  if (!value) return "Chưa cập nhật";
-
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) return "Thời gian không hợp lệ";
-
-  return date.toLocaleString("vi-VN", {
-    weekday: "short",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function getUserId(registration: EventRegistration) {
-  if (typeof registration.userId === "string") return registration.userId;
-  return registration.userId?._id || "";
-}
 
 function getUserInfo(registration: EventRegistration) {
   if (typeof registration.userId === "string") {
@@ -124,18 +102,26 @@ export default function AdminEventRegistrations() {
     setLoading(true);
 
     try {
-      const response = await eventAdminService.getEventRegistrations(eventId, "all");
+      const response = await eventAdminService.getEventRegistrations(eventId, "all", {
+        page: 1,
+        limit: 300,
+      });
 
       if (response.success && response.data) {
         const event = response.data.event || {};
         const resultStats = response.data.stats || {};
 
         setEventTitle(event.title || "Event registrations");
-        setEventTime(`${formatDateTime(event.startDateTime)} - ${formatDateTime(event.endDateTime)}`);
+        setEventTime(
+          `${formatEventDateTime(event.startDateTime)} - ${formatEventDateTime(
+            event.endDateTime
+          )}`
+        );
         setRegistrations(response.data.registrations || []);
 
         setStats({
-          totalRegistrations: resultStats.totalRegistrations ?? event.registeredCount ?? 0,
+          totalRegistrations:
+            resultStats.totalRegistrations ?? event.registeredCount ?? 0,
           totalCancelled: resultStats.totalCancelled ?? 0,
           totalAttended: resultStats.totalAttended ?? 0,
           capacity: resultStats.capacity ?? event.capacity,
@@ -195,10 +181,10 @@ export default function AdminEventRegistrations() {
         <View style={s.registrationHeader}>
           <View style={s.avatarCircle}>
             <MaterialCommunityIcons
-  name={meta.icon as any}
-  size={24}
-  color={meta.color}
-/>
+              name={meta.icon as any}
+              size={24}
+              color={meta.color}
+            />
           </View>
 
           <View style={s.participantInfo}>
@@ -214,19 +200,17 @@ export default function AdminEventRegistrations() {
 
         <View style={s.timelineRow}>
           <MaterialCommunityIcons name="clock-outline" size={18} color="#64748B" />
-          <View>
-            <Text style={s.timelineLabel}>Thời gian đăng ký</Text>
-            <Text style={s.timelineValue}>{formatDateTime(item.registeredAt)}</Text>
-          </View>
+          <Text style={s.timelineText}>
+            Đăng ký: {formatEventDateTime(item.registeredAt)}
+          </Text>
         </View>
 
         {item.cancelledAt ? (
           <View style={s.timelineRow}>
-            <MaterialCommunityIcons name="close-circle-outline" size={18} color="#EF4444" />
-            <View>
-              <Text style={s.timelineLabel}>Thời gian hủy</Text>
-              <Text style={s.timelineValue}>{formatDateTime(item.cancelledAt)}</Text>
-            </View>
+            <MaterialCommunityIcons name="close-circle-outline" size={18} color="#DC2626" />
+            <Text style={[s.timelineText, { color: "#DC2626" }]}>
+              Hủy: {formatEventDateTime(item.cancelledAt)}
+            </Text>
           </View>
         ) : null}
       </View>
@@ -237,110 +221,101 @@ export default function AdminEventRegistrations() {
     <SafeAreaView style={s.safeArea}>
       <View style={s.adminHeader}>
         <View style={s.adminHeaderTop}>
-          <TouchableOpacity
-            style={s.iconButtonLight}
-            onPress={() => router.replace(`/(admin)/events/${eventId}`)}
-          >
+          <TouchableOpacity style={s.iconButtonLight} onPress={() => router.back()}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
           </TouchableOpacity>
 
-          <View style={[s.badge, s.badgeGreen]}>
-            <Text style={[s.badgeText, s.badgeGreenText]}>Registrations</Text>
-          </View>
+          <TouchableOpacity style={s.iconButtonGreen} onPress={fetchRegistrations}>
+            <MaterialCommunityIcons name="refresh" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
         </View>
 
-        <Text style={s.adminTitle}>Participants</Text>
-        <Text style={s.adminSubtitle} numberOfLines={2}>
-          {eventTitle}
-        </Text>
-        <Text style={[s.adminSubtitle, { color: "#00866B" }]} numberOfLines={1}>
-          {eventTime}
-        </Text>
+        <Text style={s.adminTitle}>Registrations</Text>
+        <Text style={s.adminSubtitle}>{eventTitle}</Text>
+        <Text style={s.adminSubtitle}>{eventTime}</Text>
 
         <View style={s.heroStats}>
           <View style={s.heroStatCard}>
             <Text style={s.heroStatValue}>{stats.totalRegistrations}</Text>
             <Text style={s.heroStatLabel}>Registered</Text>
           </View>
+
           <View style={s.heroStatCard}>
             <Text style={s.heroStatValue}>{stats.totalCancelled}</Text>
             <Text style={s.heroStatLabel}>Cancelled</Text>
           </View>
+
           <View style={s.heroStatCard}>
-            <Text style={s.heroStatValue}>{stats.remainingSlots ?? "∞"}</Text>
-            <Text style={s.heroStatLabel}>Remaining</Text>
+            <Text style={s.heroStatValue}>
+              {stats.remainingSlots === null ? "∞" : stats.remainingSlots}
+            </Text>
+            <Text style={s.heroStatLabel}>Còn trống</Text>
           </View>
         </View>
       </View>
 
-      <FlatList
-        data={filteredRegistrations}
-        keyExtractor={(item) => getUserId(item) || `${item.status}-${item.registeredAt}`}
-        renderItem={renderRegistration}
-        refreshing={loading}
-        onRefresh={fetchRegistrations}
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={s.listContent}
-        ListHeaderComponent={
-          <View>
-            <View style={s.searchBox}>
-              <MaterialCommunityIcons name="magnify" size={21} color="#64748B" />
-              <TextInput
-                value={searchText}
-                onChangeText={setSearchText}
-                placeholder="Tìm theo tên, email, số điện thoại"
-                placeholderTextColor="#94A3B8"
-                style={s.searchInput}
-              />
-              {searchText.length > 0 ? (
-                <TouchableOpacity onPress={() => setSearchText("")}>
-                  <MaterialCommunityIcons name="close-circle" size={18} color="#94A3B8" />
-                </TouchableOpacity>
-              ) : null}
-            </View>
-
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={{ gap: 8, paddingBottom: 14 }}
-            >
-              {filters.map((item) => {
-                const active = filter === item.value;
-                const count = counts[item.value];
-
-                return (
-                  <TouchableOpacity
-                    key={item.value}
-                    style={[s.filterChip, active && s.filterChipActive]}
-                    onPress={() => setFilter(item.value)}
-                  >
-                    <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
-                      {item.label} ({count})
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </View>
-        }
-        ListEmptyComponent={
-          loading ? (
-            <ActivityIndicator size="large" color="#00866B" style={{ marginTop: 45 }} />
-          ) : (
-            <View style={s.emptyState}>
-              <View style={s.emptyIconCircle}>
-                <MaterialCommunityIcons
-                  name="account-group-outline"
-                  size={46}
-                  color="#8FB9AE"
-                />
-              </View>
-              <Text style={s.emptyTitle}>Không có người đăng ký phù hợp</Text>
-              <Text style={s.emptyText}>Thử đổi bộ lọc hoặc kéo xuống để làm mới.</Text>
-            </View>
-          )
-        }
+      <TextInput
+        style={s.searchInput}
+        placeholder="Tìm theo tên, email hoặc số điện thoại..."
+        placeholderTextColor="#8CA8A1"
+        value={searchText}
+        onChangeText={setSearchText}
       />
+
+      <View style={s.filterScroll}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {filters.map((item) => {
+            const active = filter === item.value;
+            const count = counts[item.value];
+
+            return (
+              <TouchableOpacity
+                key={item.value}
+                style={[s.filterChip, active && s.filterChipActive]}
+                onPress={() => setFilter(item.value)}
+              >
+                <Text style={[s.filterChipText, active && s.filterChipTextActive]}>
+                  {item.label} ({count})
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      </View>
+
+      {loading ? (
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#00866B" />
+          <Text style={s.loadingText}>Đang tải danh sách...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={filteredRegistrations}
+          keyExtractor={(item, index) => {
+            const userId =
+              typeof item.userId === "string"
+                ? item.userId
+                : item.userId?._id || String(index);
+
+            return `${userId}-${item.status}-${index}`;
+          }}
+          renderItem={renderRegistration}
+          contentContainerStyle={filteredRegistrations.length ? s.listContent : undefined}
+          ListEmptyComponent={
+            <View style={s.emptyBox}>
+              <MaterialCommunityIcons
+                name="account-search-outline"
+                size={44}
+                color="#00866B"
+              />
+              <Text style={s.emptyTitle}>Không có người đăng ký</Text>
+              <Text style={s.emptyText}>
+                Chưa có dữ liệu phù hợp với bộ lọc hiện tại.
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }

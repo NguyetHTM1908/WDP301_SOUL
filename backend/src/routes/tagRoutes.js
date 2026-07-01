@@ -9,7 +9,7 @@ const {
   updateTag,
   deleteTag,
   syncTagPostCounts,
-} = require("../controllers/tagController");
+} = require("../controllers/forum/tagController");
 
 const auth = require("../middleware/auth");
 const adminOnly = require("../middleware/adminOnly");
