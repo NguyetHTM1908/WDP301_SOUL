@@ -1,242 +1,458 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
-  Alert,
-  ActivityIndicator,
-  Platform,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
-import { styles } from "@/styles/admin-events.styles";
-import { colors } from "@/constants/colors";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { eventAdminService } from "@/services/eventApi";
+import { eventStyles as s } from "@/styles/event.styles";
+import {
+  formatEventDateTime,
+  getComputedEventStatus,
+  getEventModeLabel,
+  getEventPlaceText,
+  getFillRate,
+} from "@/utils/eventPolicy";
+
+const approvalMeta: Record<string, any> = {
+  pending: {
+    label: "Pending Review",
+    bgStyle: s.badgeYellow,
+    textStyle: s.badgeYellowText,
+    icon: "clock-outline",
+  },
+  approved: {
+    label: "Approved",
+    bgStyle: s.badgeGreen,
+    textStyle: s.badgeGreenText,
+    icon: "check-decagram",
+  },
+  rejected: {
+    label: "Rejected",
+    bgStyle: s.badgeRed,
+    textStyle: s.badgeRedText,
+    icon: "close-circle-outline",
+  },
+};
+
+const scheduleMeta: Record<string, any> = {
+  upcoming: {
+    label: "Sắp diễn ra",
+    bgStyle: s.badgeYellow,
+    textStyle: s.badgeYellowText,
+  },
+  ongoing: {
+    label: "Đang diễn ra",
+    bgStyle: s.badgeGreen,
+    textStyle: s.badgeGreenText,
+  },
+  completed: {
+    label: "Đã kết thúc",
+    bgStyle: s.badgeBlue,
+    textStyle: s.badgeBlueText,
+  },
+  cancelled: {
+    label: "Đã hủy",
+    bgStyle: s.badgeRed,
+    textStyle: s.badgeRedText,
+  },
+};
+
+function showMessage(title: string, message: string, onOk?: () => void) {
+  if (Platform.OS === "web") {
+    const alertFn = (globalThis as any).alert;
+    if (typeof alertFn === "function") alertFn(`${title}: ${message}`);
+    onOk?.();
+    return;
+  }
+
+  Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
+}
+
+function askConfirm(message: string) {
+  if (Platform.OS === "web") {
+    const confirmFn = (globalThis as any).confirm;
+    return typeof confirmFn === "function" ? confirmFn(message) : true;
+  }
+
+  return null;
+}
+
+function askPrompt(message: string, defaultValue: string) {
+  if (Platform.OS === "web") {
+    const promptFn = (globalThis as any).prompt;
+    return typeof promptFn === "function" ? promptFn(message, defaultValue) : defaultValue;
+  }
+
+  return defaultValue;
+}
 
 export default function AdminEventDetail() {
   const params = useLocalSearchParams();
-  // Đảm bảo id luôn là string, không phải string[]
   const id = Array.isArray(params.id) ? params.id[0] : (params.id as string);
 
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+
+  const fetchEvent = async () => {
+    if (!id) return;
+
+    setLoading(true);
+
+    try {
+      const response = await eventAdminService.getEventById(id);
+
+      if (response.success && response.data) {
+        setEvent(response.data);
+      } else {
+        showMessage("Lỗi", "Không tìm thấy event.", () => {
+          router.replace("/(admin)/events");
+        });
+      }
+    } catch (error: any) {
+      showMessage("Lỗi", error?.message || "Không thể tải event.", () => {
+        router.replace("/(admin)/events");
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useFocusEffect(
     useCallback(() => {
-      if (!id) return;
-      const fetchEvent = async () => {
-        setLoading(true);
-        try {
-          const response = await eventAdminService.getEventById(id);
-          if (response.success && response.data) {
-            setEvent(response.data);
-          } else {
-            showAlert("Lỗi", "Không tìm thấy sự kiện");
-            router.replace("/(admin)/events");
-          }
-        } catch (error: any) {
-          const msg = error?.message || error?.error || "Không thể tải sự kiện";
-          showAlert("Lỗi", msg);
-          router.replace("/(admin)/events");
-        } finally {
-          setLoading(false);
-        }
-      };
       fetchEvent();
     }, [id])
   );
 
-  // Helper hiển thị thông báo tương thích cả Web lẫn Mobile
-  const showAlert = (title: string, message: string, onOk?: () => void) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}: ${message}`);
-      onOk?.();
-    } else {
-      Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
-    }
-  };
+  const handleApprove = async () => {
+    if (!event || approving) return;
 
-  const handleDelete = async () => {
-    if (deleting) return; // Chặn bấm nhiều lần
+    const approveNow = async () => {
+      setApproving(true);
 
-    // Hỏi xác nhận
-    const confirmed = await new Promise<boolean>((resolve) => {
-      if (Platform.OS === "web") {
-        resolve(window.confirm("Bạn có chắc chắn muốn xóa sự kiện này?\nHành động này không thể hoàn tác."));
-      } else {
-        Alert.alert(
-          "Xác nhận xóa",
-          "Bạn có chắc chắn muốn xóa sự kiện này? Hành động này không thể hoàn tác.",
-          [
-            { text: "Hủy", style: "cancel", onPress: () => resolve(false) },
-            { text: "Xóa", style: "destructive", onPress: () => resolve(true) },
-          ]
-        );
-      }
-    });
+      try {
+        const response = await eventAdminService.approveEvent(id);
 
-    if (!confirmed) return;
-
-    setDeleting(true);
-    try {
-      console.log("[Delete Event] Đang xóa id:", id);
-      const response = await eventAdminService.deleteEvent(id);
-      console.log("[Delete Event] Phản hồi:", JSON.stringify(response));
-
-      if (response.success) {
-        // Điều hướng TRƯỚC, tránh useFocusEffect kéo lại dữ liệu đã xóa
-        router.replace("/(admin)/events");
-        // Hiển thị thông báo sau khi điều hướng (trên mobile)
-        if (Platform.OS !== "web") {
-          Alert.alert("Thành công", "Đã xóa sự kiện thành công!");
+        if (response.success) {
+          showMessage(
+            "Thành công",
+            "Event đã được duyệt và hiển thị cho user đăng ký.",
+            () => fetchEvent()
+          );
+        } else {
+          showMessage("Lỗi", response.message || "Không thể duyệt event.");
         }
-      } else {
-        const msg = response.message || "Không thể xóa sự kiện";
-        showAlert("Lỗi", msg);
+      } catch (error: any) {
+        showMessage(
+          "Không thể duyệt event",
+          error?.message ||
+            "Event có thể đang trùng lịch tại cùng địa điểm/link meeting hoặc dữ liệu chưa hợp lệ."
+        );
+      } finally {
+        setApproving(false);
       }
-    } catch (error: any) {
-      console.error("[Delete Event] Lỗi:", JSON.stringify(error));
-      const msg = error?.message || error?.error || "Đã xảy ra lỗi khi xóa";
-      showAlert("Lỗi xóa sự kiện", msg);
-    } finally {
-      setDeleting(false);
+    };
+
+    const webConfirm = askConfirm(
+      "Duyệt event này? Backend sẽ check trùng lịch cùng địa điểm/link meeting trước khi approve."
+    );
+
+    if (webConfirm === false) return;
+    if (webConfirm === true) {
+      await approveNow();
+      return;
     }
+
+    Alert.alert(
+      "Duyệt event",
+      "Backend sẽ check trùng lịch cùng địa điểm/link meeting trước khi approve.",
+      [
+        { text: "Hủy", style: "cancel" },
+        { text: "Duyệt", onPress: approveNow },
+      ]
+    );
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "upcoming": return "Sắp diễn ra";
-      case "ongoing": return "Đang diễn ra";
-      case "completed": return "Đã kết thúc";
-      case "cancelled": return "Đã hủy";
-      default: return status;
-    }
-  };
+  const handleReject = async () => {
+    if (!event || rejecting) return;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("vi-VN");
+    const defaultReason = "Event không phù hợp hoặc thiếu thông tin.";
+    const inputReason = askPrompt("Nhập lý do từ chối:", defaultReason);
+
+    if (Platform.OS === "web" && inputReason === null) return;
+
+    const reason =
+      typeof inputReason === "string" && inputReason.trim()
+        ? inputReason.trim()
+        : defaultReason;
+
+    const rejectNow = async () => {
+      setRejecting(true);
+
+      try {
+        const response = await eventAdminService.rejectEvent(id, reason);
+
+        if (response.success) {
+          showMessage("Thành công", "Đã từ chối event.", () => fetchEvent());
+        } else {
+          showMessage("Lỗi", response.message || "Không thể từ chối event.");
+        }
+      } catch (error: any) {
+        showMessage("Lỗi", error?.message || "Không thể từ chối event.");
+      } finally {
+        setRejecting(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      await rejectNow();
+      return;
+    }
+
+    Alert.alert("Từ chối event", "Bạn có chắc muốn từ chối event này?", [
+      { text: "Hủy", style: "cancel" },
+      { text: "Từ chối", style: "destructive", onPress: rejectNow },
+    ]);
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/(admin)/events")}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.dark} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chi tiết Sự kiện</Text>
-          <View style={{ width: 24 }} />
+      <SafeAreaView style={s.safeArea}>
+        <View style={s.adminHeader}>
+          <View style={s.adminHeaderTop}>
+            <TouchableOpacity
+              style={s.iconButtonLight}
+              onPress={() => router.replace("/(admin)/events")}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
+            </TouchableOpacity>
+          </View>
+
+          <Text style={s.adminTitle}>Event Detail</Text>
         </View>
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+
+        <View style={s.center}>
+          <ActivityIndicator size="large" color="#00866B" />
+          <Text style={s.loadingText}>Đang tải event...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (!event) return null;
 
+  const approval = approvalMeta[event.approvalStatus || "pending"];
+  const computedStatus = getComputedEventStatus(event);
+  const schedule = scheduleMeta[computedStatus] || scheduleMeta.upcoming;
+  const registeredCount = event.registeredCount || 0;
+  const fillRate = getFillRate(event.capacity, registeredCount);
+  const isPending = event.approvalStatus === "pending";
+  const isApproved = event.approvalStatus === "approved";
+
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/(admin)/events")}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.dark} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết Sự kiện</Text>
-        <TouchableOpacity onPress={() => router.push(`/(admin)/events/edit/${id}`)}>
-          <MaterialCommunityIcons name="pencil" size={24} color={colors.primary} />
-        </TouchableOpacity>
+    <SafeAreaView style={s.safeArea}>
+      <View style={s.adminHeader}>
+        <View style={s.adminHeaderTop}>
+          <TouchableOpacity
+            style={s.iconButtonLight}
+            onPress={() => router.replace("/(admin)/events")}
+          >
+            <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={s.iconButtonGreen} onPress={() => fetchEvent()}>
+            <MaterialCommunityIcons name="refresh" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={s.adminTitle}>Event Detail</Text>
+        <Text style={s.adminSubtitle}>
+          Kiểm tra thông tin, duyệt hoặc từ chối event.
+        </Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={s.listContent}>
+        <View style={s.card}>
+          <View style={s.cardTop}>
+            <View
+              style={[
+                s.eventIconWrap,
+                event.approvalStatus === "pending" && s.eventIconWrapWarning,
+                event.approvalStatus === "rejected" && s.eventIconWrapDanger,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={approval.icon}
+                size={30}
+                color={
+                  event.approvalStatus === "approved"
+                    ? "#00866B"
+                    : event.approvalStatus === "rejected"
+                    ? "#DC2626"
+                    : "#B45309"
+                }
+              />
+            </View>
 
-        <TouchableOpacity
-          style={styles.registrationManageBtn}
-          onPress={() => router.push(`/(admin)/events/registrations/${id}`)}
-        >
-          <View style={styles.registrationManageIcon}>
-            <MaterialCommunityIcons name="account-group-outline" size={22} color={colors.primary} />
+            <View style={s.cardTitleBlock}>
+              <Text style={s.cardTitle}>{event.title}</Text>
+              <Text style={s.cardSubtitle}>
+                Organizer: {event.createdBy?.fullName || "Unknown"}
+              </Text>
+            </View>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.registrationManageTitle}>Quản lý người đăng ký</Text>
-            <Text style={styles.registrationManageSubtitle}>
-              Xem danh sách, trạng thái và xóa đăng ký khỏi sự kiện
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={22} color="#94A3B8" />
-        </TouchableOpacity>
 
-        <View style={styles.detailSection}>
-          <Text style={styles.detailTitle}>{event.title}</Text>
+          <View style={{ marginTop: 14, flexDirection: "row", gap: 8, flexWrap: "wrap" }}>
+            <View style={[s.badge, approval.bgStyle]}>
+              <Text style={[s.badgeText, approval.textStyle]}>
+                {approval.label}
+              </Text>
+            </View>
 
-          <View style={[styles.statusBadge, { alignSelf: "flex-start", marginBottom: 16, backgroundColor: "#FEF3C7" }]}>
-            <Text style={[styles.statusText, { color: "#D97706" }]}>{getStatusText(event.status)}</Text>
-          </View>
-
-          <View style={styles.eventInfoRow}>
-            <MaterialCommunityIcons name="calendar-clock" size={20} color={colors.primary} />
-            <Text style={styles.eventInfoText}>Bắt đầu: {formatDate(event.startDateTime)}</Text>
+            <View style={[s.badge, schedule.bgStyle]}>
+              <Text style={[s.badgeText, schedule.textStyle]}>
+                {schedule.label}
+              </Text>
+            </View>
           </View>
 
-          {event.endDateTime && (
-            <View style={styles.eventInfoRow}>
-              <MaterialCommunityIcons name="calendar-check" size={20} color={colors.primary} />
-              <Text style={styles.eventInfoText}>Kết thúc: {formatDate(event.endDateTime)}</Text>
+          {!!event.description && <Text style={s.description}>{event.description}</Text>}
+
+          <View style={s.infoPanel}>
+            <View style={s.infoRow}>
+              <MaterialCommunityIcons name="calendar-clock" size={18} color="#00866B" />
+              <Text style={s.infoText}>
+                Bắt đầu: {formatEventDateTime(event.startDateTime)}
+              </Text>
+            </View>
+
+            <View style={s.infoRow}>
+              <MaterialCommunityIcons name="calendar-check" size={18} color="#00866B" />
+              <Text style={s.infoText}>
+                Kết thúc: {formatEventDateTime(event.endDateTime)}
+              </Text>
+            </View>
+
+            <View style={s.infoRow}>
+              <MaterialCommunityIcons
+                name={event.eventMode === "online" ? "video-outline" : "map-marker"}
+                size={18}
+                color="#00866B"
+              />
+              <Text style={s.infoText}>
+                {getEventModeLabel(event)} · {getEventPlaceText(event)}
+              </Text>
+            </View>
+
+            <View style={[s.infoRow, { marginBottom: 0 }]}>
+              <MaterialCommunityIcons name="link-variant" size={18} color="#00866B" />
+              <Text style={s.infoText}>
+                Location key: {event.locationKey || "Chưa có"}
+              </Text>
+            </View>
+          </View>
+
+          <View style={s.statsRow}>
+            <View style={s.statMiniCard}>
+              <Text style={s.statMiniValue}>{registeredCount}</Text>
+              <Text style={s.statMiniLabel}>Đăng ký</Text>
+            </View>
+
+            <View style={s.statMiniCard}>
+              <Text style={s.statMiniValue}>{event.capacity || "∞"}</Text>
+              <Text style={s.statMiniLabel}>Sức chứa</Text>
+            </View>
+
+            <View style={s.statMiniCard}>
+              <Text style={s.statMiniValue}>{fillRate}%</Text>
+              <Text style={s.statMiniLabel}>Lấp đầy</Text>
+            </View>
+          </View>
+
+          <View style={s.progressBlock}>
+            <View style={s.progressHeader}>
+              <Text style={s.progressText}>Fill rate</Text>
+              <Text style={s.progressText}>{fillRate}%</Text>
+            </View>
+
+            <View style={s.progressTrack}>
+              <View style={[s.progressFill, { width: `${fillRate}%` }]} />
+            </View>
+          </View>
+
+          {!!event.rejectedReason && (
+            <View
+              style={[
+                s.infoPanel,
+                { backgroundColor: "#FEF2F2", borderColor: "#FCA5A5" },
+              ]}
+            >
+              <View style={[s.infoRow, { marginBottom: 0 }]}>
+                <MaterialCommunityIcons
+                  name="alert-circle-outline"
+                  size={18}
+                  color="#DC2626"
+                />
+                <Text style={[s.infoText, { color: "#DC2626" }]}>
+                  Lý do từ chối: {event.rejectedReason}
+                </Text>
+              </View>
             </View>
           )}
 
-          <View style={styles.eventInfoRow}>
-            <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
-            <Text style={styles.eventInfoText}>{event.location || "Chưa xác định"}</Text>
-          </View>
+          {isPending && (
+            <View style={s.adminActions}>
+              <TouchableOpacity
+                style={[s.approveButton, approving && s.disabled]}
+                onPress={handleApprove}
+                disabled={approving || rejecting}
+              >
+                {approving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="check" size={20} color="#FFFFFF" />
+                    <Text style={s.actionTextWhite}>Duyệt</Text>
+                  </>
+                )}
+              </TouchableOpacity>
 
-          <View style={styles.eventInfoRow}>
-            <MaterialCommunityIcons name="account-tie" size={20} color={colors.primary} />
-            <Text style={styles.eventInfoText}>Diễn giả: {event.speakerName || "Chưa cập nhật"}</Text>
-          </View>
+              <TouchableOpacity
+                style={[s.rejectButton, rejecting && s.disabled]}
+                onPress={handleReject}
+                disabled={approving || rejecting}
+              >
+                {rejecting ? (
+                  <ActivityIndicator color="#DC2626" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="close" size={20} color="#DC2626" />
+                    <Text style={s.actionTextRed}>Từ chối</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {isApproved && (
+            <TouchableOpacity
+              style={s.primaryButton}
+              onPress={() => router.push(`/(admin)/events/${id}/registrations`)}
+            >
+              <MaterialCommunityIcons name="account-group" size={20} color="#FFFFFF" />
+              <Text style={s.primaryButtonText}>Xem người đăng ký</Text>
+            </TouchableOpacity>
+          )}
         </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{event.registeredCount ?? 0}</Text>
-            <Text style={styles.statLabel}>Đã đăng ký</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{event.capacity || "∞"}</Text>
-            <Text style={styles.statLabel}>Sức chứa</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>
-              {event.capacity ? Math.round(((event.registeredCount ?? 0) / event.capacity) * 100) : 0}%
-            </Text>
-            <Text style={styles.statLabel}>Lấp đầy</Text>
-          </View>
-        </View>
-
-        <View style={styles.detailSection}>
-          <Text style={styles.detailTitle}>Mô tả chi tiết</Text>
-          <Text style={styles.descText}>{event.description || "Chưa có mô tả."}</Text>
-        </View>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => router.push(`/(admin)/events/edit/${id}`)}
-          >
-            <Text style={styles.btnText}>Cập nhật</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.deleteBtn, deleting && { opacity: 0.6 }]}
-            onPress={handleDelete}
-            disabled={deleting}
-          >
-            <Text style={styles.btnText}>{deleting ? "Đang xóa..." : "Xóa Sự kiện"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );

@@ -1,6 +1,6 @@
 // src/controllers/tagController.js
-const Tag = require("../models/Tag");
-const Post = require("../models/Post");
+const Tag = require("../../models/Tag");
+const Post = require("../../models/Post");
 
 exports.getActiveTags = async (req, res) => {
   try {

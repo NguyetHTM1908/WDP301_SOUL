@@ -9,20 +9,26 @@ export function EventCard() {
   return (
     <View style={styles.panel}>
       <View style={styles.panelHeader}>
-        <Text style={styles.panelTitle}>Upcoming Event</Text>
+        <Text style={styles.panelTitle}>Sự kiện sắp diễn ra</Text>
         <TouchableOpacity onPress={openEvents}>
-          <Text style={styles.panelLink}>See all</Text>
+          <Text style={styles.panelLink}>Xem tất cả</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.communityWrap}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.eventTitle}>Mindfulness & Meditation Workshop</Text>
-          <Text style={styles.eventMeta}>View the latest SOUL event schedule</Text>
-          <Text style={styles.eventMeta}>Online and campus activities</Text>
+          <Text style={styles.eventTitle}>
+            Workshop Chánh niệm & Thiền định
+          </Text>
+          <Text style={styles.eventMeta}>
+            Xem lịch sự kiện mới nhất của SOUL
+          </Text>
+          <Text style={styles.eventMeta}>
+            Hoạt động trực tuyến và tại trường
+          </Text>
 
           <TouchableOpacity style={styles.joinButton} onPress={openEvents}>
-            <Text style={styles.joinText}>Browse Events</Text>
+            <Text style={styles.joinText}>Khám phá sự kiện</Text>
           </TouchableOpacity>
         </View>
 

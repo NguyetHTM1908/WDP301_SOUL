@@ -737,12 +737,16 @@ db.createCollection("emotional_tests", {
               },
 
               imageUrl: {
-                bsonType: ["string", "null"]
-              },
+  bsonType: ["string", "null"]
+},
 
-              correctAnswer: {
-                bsonType: ["string", "null"]
-              },
+answerImageUrl: {
+  bsonType: ["string", "null"]
+},
+
+correctAnswer: {
+  bsonType: ["string", "null"]
+},
 
               explanation: {
                 bsonType: ["string", "null"]
@@ -769,29 +773,41 @@ db.createCollection("emotional_tests", {
         },
 
         resultRules: {
-          bsonType: "array",
-          items: {
-            bsonType: "object",
-            required: ["level", "minScore", "maxScore", "suggestion"],
-            properties: {
-              level: {
-                enum: ["low", "medium", "high"]
-              },
+  bsonType: "array",
+  items: {
+    bsonType: "object",
+    required: ["level", "minScore", "maxScore", "suggestion"],
+    properties: {
+      level: {
+        enum: ["rat_thap", "duoi_trung_binh", "trung_binh", "tot", "xuat_sac"]
+      },
 
-              minScore: {
-                bsonType: "int"
-              },
+      minScore: {
+        bsonType: "int"
+      },
 
-              maxScore: {
-                bsonType: "int"
-              },
+      maxScore: {
+        bsonType: "int"
+      },
 
-              suggestion: {
-                bsonType: "string"
-              }
-            }
-          }
-        },
+      title: {
+        bsonType: ["string", "null"]
+      },
+
+      description: {
+        bsonType: ["string", "null"]
+      },
+
+      advice: {
+        bsonType: ["string", "null"]
+      },
+
+      suggestion: {
+        bsonType: "string"
+      }
+    }
+  }
+},
 
         isActive: {
           bsonType: "bool"
@@ -867,8 +883,8 @@ db.createCollection("test_results", {
         },
 
         resultLevel: {
-          enum: ["low", "medium", "high"]
-        },
+  enum: ["rat_thap", "duoi_trung_binh", "trung_binh", "tot", "xuat_sac"]
+},
 
         suggestion: {
           bsonType: ["string", "null"]
@@ -1312,7 +1328,20 @@ db.createCollection("events", {
   validator: {
     $jsonSchema: {
       bsonType: "object",
-      required: ["title", "startDateTime", "createdBy", "createdAt"],
+      required: [
+        "title",
+        "eventMode",
+        "startDateTime",
+        "endDateTime",
+        "locationKey",
+        "registeredCount",
+        "participants",
+        "status",
+        "approvalStatus",
+        "lockAfterApproval",
+        "createdBy",
+        "createdAt"
+      ],
       properties: {
         title: {
           bsonType: "string"
@@ -1359,28 +1388,42 @@ db.createCollection("events", {
           enum: ["workshop", "talkshow", "webinar", "community_event", null]
         },
 
+        // online/offline để backend và frontend phân biệt rõ luồng
+        eventMode: {
+          enum: ["online", "offline"]
+        },
+
         startDateTime: {
           bsonType: "date"
         },
 
         endDateTime: {
-          bsonType: ["date", "null"]
+          bsonType: "date"
         },
 
+        // Event offline bắt buộc có location ở backend validate
         location: {
           bsonType: ["string", "null"]
         },
 
+        // Event online bắt buộc có meetingLink ở backend validate
         meetingLink: {
           bsonType: ["string", "null"]
         },
 
+        // Dùng để check trùng lịch cùng địa điểm hoặc cùng link meeting
+        locationKey: {
+          bsonType: "string"
+        },
+
         capacity: {
-          bsonType: ["int", "null"]
+          bsonType: ["int", "double", "null"],
+          minimum: 1
         },
 
         registeredCount: {
-          bsonType: "int"
+          bsonType: ["int", "double"],
+          minimum: 0
         },
 
         participants: {
@@ -1413,7 +1456,7 @@ db.createCollection("events", {
         },
 
         approvalStatus: {
-          enum: ["pending", "approved", "rejected", null]
+          enum: ["pending", "approved", "rejected"]
         },
 
         approvedBy: {
@@ -1428,10 +1471,12 @@ db.createCollection("events", {
           bsonType: ["string", "null"]
         },
 
+        // Nếu approved thì organizer không được sửa/xóa
         lockAfterApproval: {
           bsonType: "bool"
         },
 
+        // Người tạo event, backend sẽ bắt role = event_organizer
         createdBy: {
           bsonType: "objectId"
         },
@@ -1448,10 +1493,10 @@ db.createCollection("events", {
   }
 });
 
-db.events.createIndex({ status: 1 });
-db.events.createIndex({ startDateTime: 1 });
+db.events.createIndex({ approvalStatus: 1, status: 1, startDateTime: 1 });
+db.events.createIndex({ eventMode: 1 });
+db.events.createIndex({ locationKey: 1, startDateTime: 1, endDateTime: 1 });
 db.events.createIndex({ createdBy: 1 });
-db.events.createIndex({ approvalStatus: 1 });
 db.events.createIndex({ "participants.userId": 1 });
 
 // =========================================

@@ -9,13 +9,15 @@ export function EmptyForum({ mode }: Props) {
   return (
     <View style={s.emptyBox}>
       <Text style={s.emptyIcon}>🌿</Text>
+
       <Text style={s.emptyTitle}>
-        {mode === "mine" ? "No personal posts yet" : "No posts yet"}
+        {mode === "mine" ? "Bạn chưa có bài viết nào" : "Chưa có bài viết nào"}
       </Text>
+
       <Text style={s.emptyText}>
         {mode === "mine"
-          ? "Your pending and approved posts will appear here."
-          : "Approved community posts will appear here."}
+          ? "Các bài viết đang chờ duyệt và đã được duyệt của bạn sẽ hiển thị tại đây."
+          : "Các bài viết cộng đồng đã được duyệt sẽ hiển thị tại đây."}
       </Text>
     </View>
   );

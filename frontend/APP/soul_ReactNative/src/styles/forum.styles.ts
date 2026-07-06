@@ -1050,5 +1050,188 @@ export const forumStyles = StyleSheet.create({
   crisisReviewText: {
     color: "#991B1B",
   },
+identityPreview: {
+  marginTop: 18,
+  borderRadius: 20,
+  backgroundColor: "#F0FBF7",
+  borderWidth: 1,
+  borderColor: "#D8EFE7",
+  padding: 14,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+
+identityAvatar: {
+  width: 52,
+  height: 52,
+  borderRadius: 26,
+  backgroundColor: "#D7F2EA",
+},
+
+identityInfo: {
+  flex: 1,
+},
+
+identityLabel: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#00866B",
+  textTransform: "uppercase",
+},
+
+identityName: {
+  marginTop: 3,
+  fontSize: 17,
+  fontWeight: "900",
+  color: "#064D3D",
+},
+
+identityMeta: {
+  marginTop: 3,
+  fontSize: 12,
+  lineHeight: 17,
+  color: "#6A807B",
+  fontWeight: "600",
+},
+
+identityEditButton: {
+  width: 38,
+  height: 38,
+  borderRadius: 19,
+  backgroundColor: "#FFFFFF",
+  alignItems: "center",
+  justifyContent: "center",
+  borderWidth: 1,
+  borderColor: "#D8EFE7",
+},
+
+commentAuthorWrap: {
+  flex: 1,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 9,
+},
+
+commentAvatar: {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  backgroundColor: "#D7F2EA",
+},
+
+commentNameRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 5,
+},
+
+commentComposerHint: {
+  marginTop: 6,
+  marginBottom: 8,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+commentComposerHintText: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#60706C",
+},
+identitySettingsCard: {
+  marginTop: 16,
+  borderRadius: 22,
+  backgroundColor: "#FFFFFF",
+  borderWidth: 1,
+  borderColor: "#DDEBE7",
+  padding: 16,
+},
+
+identitySettingsTop: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+
+
+exitAnonymousButton: {
+  marginTop: 14,
+  minHeight: 48,
+  borderRadius: 16,
+  backgroundColor: "#FEF2F2",
+  borderWidth: 1,
+  borderColor: "#FCA5A5",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
+
+exitAnonymousText: {
+  color: "#DC2626",
+  fontSize: 15,
+  fontWeight: "900",
+},
+
+enableAnonymousButton: {
+  marginTop: 14,
+  minHeight: 48,
+  borderRadius: 16,
+  backgroundColor: "#EAF7F3",
+  borderWidth: 1,
+  borderColor: "#BFE8DC",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
+anonSubText: {
+  marginTop: 3,
+  fontSize: 12,
+  color: "#7A8A87",
+  fontWeight: "600",
+  lineHeight: 17,
+},
+enableAnonymousText: {
+  color: "#00866B",
+  fontSize: 15,
+  fontWeight: "900",
+},
+
+
+identityPreviewAvatar: {
+  width: 52,
+  height: 52,
+  borderRadius: 26,
+  backgroundColor: "#D7F2EA",
+},
+
+identityPreviewInfo: {
+  flex: 1,
+},
+
+identityPreviewLabel: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#00866B",
+  textTransform: "uppercase",
+},
+
+identityPreviewName: {
+  marginTop: 3,
+  fontSize: 17,
+  fontWeight: "900",
+  color: "#064D3D",
+},
+
+identityPreviewMeta: {
+  marginTop: 3,
+  fontSize: 12,
+  lineHeight: 17,
+  color: "#6A807B",
+  fontWeight: "600",
+},
+
 
 });

@@ -1,7 +1,7 @@
-const Report = require("../models/Report");
-const Post = require("../models/Post");
-const Comment = require("../models/Comment");
-const ModerationLog = require("../models/ModerationLog");
+const Report = require("../../models/Report");
+const Post = require("../../models/Post");
+const Comment = require("../../models/Comment");
+const ModerationLog = require("../../models/ModerationLog");
 
 exports.getMyReports = async (req, res) => {
   try {

@@ -1,99 +1,134 @@
-export type EventStatus = "upcoming" | "ongoing" | "completed" | "cancelled";
-export type RegistrationStatus = "registered" | "cancelled";
+export type ComputedEventStatus =
+  | "upcoming"
+  | "ongoing"
+  | "completed"
+  | "cancelled";
 
-export type EventRegistration = {
-  status: RegistrationStatus;
-  registeredAt?: string;
-  cancelledAt?: string | null;
+type EventLike = {
+  status?: string | null;
+  startDateTime?: string | Date | null;
+  endDateTime?: string | Date | null;
 };
 
-export type EventRegistrationMap = Record<string, EventRegistration>;
+export function getFillRate(
+  capacity?: number | string | null,
+  registeredCount?: number | string | null
+) {
+  const capacityNumber = Number(capacity || 0);
+  const registeredNumber = Number(registeredCount || 0);
 
-export const eventStatusMeta: Record<
-  EventStatus,
-  { label: string; bg: string; color: string }
-> = {
-  upcoming: { label: "Upcoming", bg: "#D1FAE5", color: "#047857" },
-  ongoing: { label: "Ongoing", bg: "#DBEAFE", color: "#2563EB" },
-  completed: { label: "Completed", bg: "#E5E7EB", color: "#4B5563" },
-  cancelled: { label: "Cancelled", bg: "#FEE2E2", color: "#DC2626" },
-};
-
-export const registrationMeta: Record<
-  RegistrationStatus,
-  { label: string; bg: string; color: string }
-> = {
-  registered: { label: "Registered", bg: "#D1FAE5", color: "#047857" },
-  cancelled: { label: "Cancelled", bg: "#FEE2E2", color: "#DC2626" },
-};
-
-export const buildRegistrationMap = <
-  T extends { _id: string; registration?: EventRegistration }
->(
-  events: T[]
-): EventRegistrationMap =>
-  events.reduce<EventRegistrationMap>((map, event) => {
-    if (event.registration?.status) {
-      map[event._id] = event.registration;
-    }
-
-    return map;
-  }, {});
-
-export const getRemainingSlots = (
-  capacity?: number | null,
-  registeredCount = 0
-) => {
-  if (capacity === null || capacity === undefined) {
-    return null;
-  }
-
-  return Math.max(capacity - registeredCount, 0);
-};
-
-export const getFillRate = (
-  capacity?: number | null,
-  registeredCount = 0
-) => {
-  if (!capacity || capacity <= 0) {
+  if (!capacityNumber || capacityNumber <= 0) {
     return 0;
   }
 
-  return Math.min(Math.round((registeredCount / capacity) * 100), 100);
-};
+  const rate = Math.round((registeredNumber / capacityNumber) * 100);
 
-export const getComputedEventStatus = (event: {
-  status?: EventStatus;
-  startDateTime?: string | Date | null;
-  endDateTime?: string | Date | null;
-}): EventStatus => {
+  if (rate < 0) return 0;
+  if (rate > 100) return 100;
+
+  return rate;
+}
+
+export function getRemainingSlots(
+  capacity?: number | string | null,
+  registeredCount?: number | string | null
+) {
+  if (capacity === null || capacity === undefined || capacity === "") {
+    return null;
+  }
+
+  const capacityNumber = Number(capacity);
+  const registeredNumber = Number(registeredCount || 0);
+
+  if (!Number.isFinite(capacityNumber) || capacityNumber <= 0) {
+    return null;
+  }
+
+  return Math.max(capacityNumber - registeredNumber, 0);
+}
+
+export function isEventFull(
+  capacity?: number | string | null,
+  registeredCount?: number | string | null
+) {
+  const remainingSlots = getRemainingSlots(capacity, registeredCount);
+
+  if (remainingSlots === null) {
+    return false;
+  }
+
+  return remainingSlots <= 0;
+}
+
+export function getComputedEventStatus(event: EventLike): ComputedEventStatus {
   if (event.status === "cancelled") {
     return "cancelled";
   }
 
-  const now = Date.now();
-  const startTime = event.startDateTime
-    ? new Date(event.startDateTime).getTime()
-    : NaN;
-  const endTime = event.endDateTime
-    ? new Date(event.endDateTime).getTime()
-    : NaN;
+  const now = new Date();
 
-  if (!Number.isNaN(endTime) && now > endTime) {
-    return "completed";
+  const start = event.startDateTime ? new Date(event.startDateTime) : null;
+  const end = event.endDateTime ? new Date(event.endDateTime) : null;
+
+  if (!start || Number.isNaN(start.getTime())) {
+    return (event.status as ComputedEventStatus) || "upcoming";
   }
 
-  if (!Number.isNaN(startTime) && now < startTime) {
+  if (!end || Number.isNaN(end.getTime())) {
+    if (now < start) return "upcoming";
+    return (event.status as ComputedEventStatus) || "ongoing";
+  }
+
+  if (now < start) {
     return "upcoming";
   }
 
-  return "ongoing";
-};
+  if (now >= start && now <= end) {
+    return "ongoing";
+  }
 
-export const isEventFull = (
-  capacity?: number | null,
-  registeredCount = 0
-) => {
-  const remainingSlots = getRemainingSlots(capacity, registeredCount);
-  return remainingSlots !== null && remainingSlots <= 0;
-};
+  return "completed";
+}
+
+export function canRegisterEvent(event: EventLike & {
+  approvalStatus?: string | null;
+  capacity?: number | string | null;
+  registeredCount?: number | string | null;
+}) {
+  if (event.approvalStatus !== "approved") {
+    return false;
+  }
+
+  const status = getComputedEventStatus(event);
+
+  if (status !== "upcoming" && status !== "ongoing") {
+    return false;
+  }
+
+  if (isEventFull(event.capacity, event.registeredCount)) {
+    return false;
+  }
+
+  return true;
+}
+
+export function formatEventDateTime(value?: string | Date | null) {
+  if (!value) {
+    return "Chưa cập nhật";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Thời gian không hợp lệ";
+  }
+
+  return date.toLocaleString("vi-VN", {
+    weekday: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}

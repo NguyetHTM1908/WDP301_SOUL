@@ -1,5 +1,17 @@
 const mongoose = require("mongoose");
 
+function normalizeLocationKey(location, meetingLink, eventMode) {
+  if (eventMode === "online") {
+    return meetingLink && String(meetingLink).trim()
+      ? `online:${String(meetingLink).trim().toLowerCase()}`
+      : "online";
+  }
+
+  return location && String(location).trim()
+    ? `offline:${String(location).trim().toLowerCase().replace(/\s+/g, " ")}`
+    : "offline";
+}
+
 const participantSchema = new mongoose.Schema(
   {
     userId: {
@@ -7,22 +19,27 @@ const participantSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     status: {
       type: String,
       enum: ["registered", "cancelled", "attended"],
       required: true,
       default: "registered",
     },
+
     registeredAt: {
       type: Date,
       default: Date.now,
     },
+
     cancelledAt: {
       type: Date,
       default: null,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const eventSchema = new mongoose.Schema(
@@ -32,33 +49,46 @@ const eventSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     description: {
-      type: String,
-      default: null,
-    },
-    speakerName: {
-      type: String,
-      default: null,
-    },
-    organizerName: {
-      type: String,
-      default: null,
-    },
-    contactEmail: {
       type: String,
       default: null,
       trim: true,
     },
+
+    speakerName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    organizerName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    contactEmail: {
+      type: String,
+      default: null,
+      trim: true,
+      lowercase: true,
+    },
+
     bannerImage: {
       type: String,
       default: null,
+      trim: true,
     },
+
     images: [
       {
         url: {
           type: String,
           required: true,
+          trim: true,
         },
+
         type: {
           type: String,
           enum: ["image"],
@@ -66,41 +96,98 @@ const eventSchema = new mongoose.Schema(
         },
       },
     ],
+
     eventType: {
       type: String,
       enum: ["workshop", "talkshow", "webinar", "community_event", null],
       default: null,
     },
+
+    eventMode: {
+      type: String,
+      enum: ["online", "offline"],
+      required: true,
+      default: "offline",
+    },
+
     startDateTime: {
       type: Date,
       required: true,
     },
+
     endDateTime: {
       type: Date,
-      default: null,
+      required: true,
     },
+
     location: {
       type: String,
       default: null,
+      trim: true,
     },
+
     meetingLink: {
       type: String,
       default: null,
+      trim: true,
     },
+
+    locationKey: {
+      type: String,
+      required: true,
+    },
+
     capacity: {
       type: Number,
       default: null,
+      min: 1,
     },
+
     registeredCount: {
       type: Number,
       default: 0,
+      min: 0,
     },
-    participants: [participantSchema],
+
+    participants: {
+      type: [participantSchema],
+      default: [],
+    },
+
     status: {
       type: String,
       enum: ["upcoming", "ongoing", "completed", "cancelled"],
       default: "upcoming",
     },
+
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "rejected"],
+      default: "pending",
+    },
+
+    approvedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    approvedAt: {
+      type: Date,
+      default: null,
+    },
+
+    rejectedReason: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    lockAfterApproval: {
+      type: Boolean,
+      default: true,
+    },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -109,15 +196,26 @@ const eventSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    collection: "events",
   }
 );
 
-// Indexes
-eventSchema.index({ status: 1 });
-eventSchema.index({ startDateTime: 1 });
+/**
+ * Không dùng function(next) nữa để tránh lỗi:
+ * next is not a function
+ */
+eventSchema.pre("validate", function () {
+  this.locationKey = normalizeLocationKey(
+    this.location,
+    this.meetingLink,
+    this.eventMode
+  );
+});
+
+eventSchema.index({ approvalStatus: 1, status: 1, startDateTime: 1 });
+eventSchema.index({ eventMode: 1 });
+eventSchema.index({ locationKey: 1, startDateTime: 1, endDateTime: 1 });
 eventSchema.index({ createdBy: 1 });
 eventSchema.index({ "participants.userId": 1 });
 
-const Event = mongoose.model("Event", eventSchema);
-
-module.exports = Event;
+module.exports = mongoose.model("Event", eventSchema);

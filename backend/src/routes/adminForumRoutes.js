@@ -12,7 +12,7 @@ const {
   hideComment,
   deleteCommentByAdmin,
   resolveAppeal,
-} = require("../controllers/adminForumController");
+} = require("../controllers/forum/adminForumController");
 
 const auth = require("../middleware/auth");
 const adminOnly = require("../middleware/adminOnly");

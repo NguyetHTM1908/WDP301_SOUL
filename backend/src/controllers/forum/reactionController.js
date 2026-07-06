@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
-const Post = require("../models/Post");
-const Comment = require("../models/Comment");
+const Post = require("../../models/Post");
+const Comment = require("../../models/Comment");
 
 const ALLOWED_REACTIONS = ["support", "hug", "encourage", "thankyou"];
 

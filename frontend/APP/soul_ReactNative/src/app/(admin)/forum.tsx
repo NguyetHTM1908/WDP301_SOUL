@@ -1,19 +1,28 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   FlatList,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { adminForumStyles as s } from "@/styles/adminForum.styles";
+import apiClient from "@/services/api";
 
-type ForumStatus = "all" | "pending" | "approved" | "hidden" | "reported";
+type ForumStatus =
+  | "all"
+  | "pending"
+  | "approved"
+  | "hidden"
+  | "reported"
+  | "deleted";
 
 type ForumPost = {
   id: string;
@@ -21,75 +30,109 @@ type ForumPost = {
   title: string;
   content: string;
   status: Exclude<ForumStatus, "all">;
+  realStatus?: string;
   reports: number;
   comments: number;
   createdAt: string;
   isAnonymous: boolean;
+  isFlagged?: boolean;
+  toxicityLevel?: string | null;
 };
 
-const mockPosts: ForumPost[] = [
-  {
-    id: "1",
-    author: "Anonymous Student",
-    title: "I feel stressed about exams",
-    content:
-      "Recently I have been feeling overwhelmed with deadlines and exams. I do not know how to balance everything.",
-    status: "reported",
-    reports: 3,
-    comments: 12,
-    createdAt: "23/06/2026",
-    isAnonymous: true,
-  },
-  {
-    id: "2",
-    author: "Minh Anh",
-    title: "A small positive habit that helped me",
-    content:
-      "I started writing three things I am grateful for every night. It helps me sleep better.",
-    status: "approved",
-    reports: 0,
-    comments: 5,
-    createdAt: "22/06/2026",
-    isAnonymous: false,
-  },
-  {
-    id: "3",
-    author: "Anonymous Student",
-    title: "Need someone to listen",
-    content:
-      "I have been feeling lonely lately. I just want to share my feelings with someone.",
-    status: "pending",
-    reports: 0,
-    comments: 2,
-    createdAt: "21/06/2026",
-    isAnonymous: true,
-  },
-  {
-    id: "4",
-    author: "Quang Huy",
-    title: "Inappropriate comment in forum",
-    content:
-      "This post has been hidden because it may violate community guidelines.",
-    status: "hidden",
-    reports: 5,
-    comments: 8,
-    createdAt: "20/06/2026",
-    isAnonymous: false,
-  },
+const filters: { label: string; value: ForumStatus; icon: any }[] = [
+  { label: "Tất cả", value: "all", icon: "view-grid-outline" },
+  { label: "Chờ duyệt", value: "pending", icon: "clock-outline" },
+  { label: "Đã duyệt", value: "approved", icon: "check-circle-outline" },
+  { label: "Bị báo cáo", value: "reported", icon: "flag-outline" },
+  { label: "Đã ẩn", value: "hidden", icon: "eye-off-outline" },
+  { label: "Đã xóa", value: "deleted", icon: "trash-can-outline" },
 ];
 
-const filters: { label: string; value: ForumStatus; icon: any }[] = [
-  { label: "All", value: "all", icon: "view-grid-outline" },
-  { label: "Pending", value: "pending", icon: "clock-outline" },
-  { label: "Approved", value: "approved", icon: "check-circle-outline" },
-  { label: "Reported", value: "reported", icon: "flag-outline" },
-  { label: "Hidden", value: "hidden", icon: "eye-off-outline" },
-];
+function getPostId(item: any) {
+  return (
+    item?._id?.toString?.() ||
+    item?.id?.toString?.() ||
+    item?._id ||
+    item?.id ||
+    ""
+  );
+}
+
+function formatDate(value?: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleDateString("vi-VN");
+}
+
+function getAuthorName(item: any) {
+  if (item?.isAnonymous) {
+    return (
+      item?.displayAuthor?.fullName ||
+      item?.anonymousName ||
+      item?.authorId?.anonymousAlias ||
+      "Ẩn danh SOUL"
+    );
+  }
+
+  return (
+    item?.displayAuthor?.fullName ||
+    item?.authorId?.fullName ||
+    item?.author?.fullName ||
+    "Người dùng SOUL"
+  );
+}
+
+function mapApiPostToForumPost(item: any): ForumPost {
+  const id = getPostId(item);
+  const reportCount = Number(item?.statistics?.reportCount || 0);
+  const commentCount = Number(item?.statistics?.commentCount || 0);
+  const realStatus = item?.status || "pending";
+
+  let uiStatus: ForumPost["status"] = realStatus;
+
+  if (realStatus === "deleted" || realStatus === "rejected") {
+    uiStatus = "deleted";
+  } else if (realStatus === "hidden") {
+    uiStatus = "hidden";
+  } else if (item?.isFlagged || reportCount > 0) {
+    uiStatus = "reported";
+  } else if (realStatus === "approved") {
+    uiStatus = "approved";
+  } else {
+    uiStatus = "pending";
+  }
+
+  return {
+    id,
+    author: getAuthorName(item),
+    title:
+      item?.hashtags?.length > 0
+        ? `#${item.hashtags[0]}`
+        : item?.emotionStatus
+          ? `Cảm xúc: ${item.emotionStatus}`
+          : "Bài viết diễn đàn",
+    content: item?.content || "",
+    status: uiStatus,
+    realStatus,
+    reports: reportCount,
+    comments: commentCount,
+    createdAt: formatDate(item?.createdAt),
+    isAnonymous: Boolean(item?.isAnonymous),
+    isFlagged: Boolean(item?.isFlagged),
+    toxicityLevel: item?.toxicityLevel || null,
+  };
+}
 
 function getStatusInfo(status: ForumPost["status"]) {
   if (status === "pending") {
     return {
-      label: "Pending",
+      label: "Chờ duyệt",
       color: "#F59E0B",
       bg: "#FFF7E6",
       icon: "clock-outline",
@@ -98,7 +141,7 @@ function getStatusInfo(status: ForumPost["status"]) {
 
   if (status === "approved") {
     return {
-      label: "Approved",
+      label: "Đã duyệt",
       color: "#00866B",
       bg: "#E8F8F3",
       icon: "check-circle-outline",
@@ -107,15 +150,24 @@ function getStatusInfo(status: ForumPost["status"]) {
 
   if (status === "reported") {
     return {
-      label: "Reported",
+      label: "Bị báo cáo",
       color: "#DC2626",
       bg: "#FEECEC",
       icon: "flag-outline",
     };
   }
 
+  if (status === "deleted") {
+    return {
+      label: "Đã xóa",
+      color: "#DC2626",
+      bg: "#FEECEC",
+      icon: "trash-can-outline",
+    };
+  }
+
   return {
-    label: "Hidden",
+    label: "Đã ẩn",
     color: "#64748B",
     bg: "#F1F5F9",
     icon: "eye-off-outline",
@@ -125,7 +177,37 @@ function getStatusInfo(status: ForumPost["status"]) {
 export default function AdminForumScreen() {
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<ForumStatus>("all");
-  const [posts, setPosts] = useState<ForumPost[]>(mockPosts);
+  const [posts, setPosts] = useState<ForumPost[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+
+  const fetchPosts = useCallback(async () => {
+    try {
+      const response = await apiClient.get("/adminForum/posts");
+
+      const rawPosts = response?.data?.data || [];
+      const mappedPosts = Array.isArray(rawPosts)
+        ? rawPosts.map(mapApiPostToForumPost)
+        : [];
+
+      setPosts(mappedPosts);
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Không thể lấy danh sách bài viết diễn đàn."
+      );
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchPosts();
+  }, [fetchPosts]);
 
   const visiblePosts = useMemo(() => {
     return posts.filter((post) => {
@@ -148,49 +230,141 @@ export default function AdminForumScreen() {
   const totalPending = posts.filter((item) => item.status === "pending").length;
   const totalHidden = posts.filter((item) => item.status === "hidden").length;
 
-  const updateStatus = (id: string, status: ForumPost["status"]) => {
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchPosts();
+  };
+
+  const updatePostStatusLocal = (
+    id: string,
+    status: ForumPost["status"],
+    realStatus?: string
+  ) => {
     setPosts((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, status } : item))
+      prev.map((item) =>
+        item.id === id
+          ? {
+              ...item,
+              status,
+              realStatus: realStatus || status,
+              isFlagged: status === "reported" ? item.isFlagged : false,
+            }
+          : item
+      )
     );
   };
 
-  const handleApprove = (id: string) => {
-    updateStatus(id, "approved");
-    Alert.alert("Approved", "The post has been approved.");
-  };
-
-  const handleHide = (id: string) => {
-    updateStatus(id, "hidden");
-    Alert.alert("Hidden", "The post has been hidden from the forum.");
-  };
-
-  const handleDelete = (id: string) => {
-    const deleteNow = () => {
-      setPosts((prev) => prev.filter((item) => item.id !== id));
-      Alert.alert("Deleted", "The post has been deleted.");
-    };
-
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm("Are you sure you want to delete this post?");
-      if (confirmed) deleteNow();
+  const handleApprove = async (id: string) => {
+    if (!id) {
+      Alert.alert("Lỗi", "Không tìm thấy ID bài viết.");
       return;
     }
 
-    Alert.alert("Delete post", "Are you sure you want to delete this post?", [
+    try {
+      setActionLoadingId(id);
+
+      await apiClient.patch(`/adminForum/posts/${id}/approve`);
+
+      updatePostStatusLocal(id, "approved", "approved");
+
+      Alert.alert("Đã duyệt", "Bài viết đã được duyệt.");
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Không thể duyệt bài viết."
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleHide = async (id: string) => {
+    if (!id) {
+      Alert.alert("Lỗi", "Không tìm thấy ID bài viết.");
+      return;
+    }
+
+    try {
+      setActionLoadingId(id);
+
+      await apiClient.patch(`/adminForum/posts/${id}/hide`, {
+        reason: "Bài viết đã bị quản trị viên ẩn.",
+      });
+
+      updatePostStatusLocal(id, "hidden", "hidden");
+
+      Alert.alert("Đã ẩn", "Bài viết đã được ẩn khỏi diễn đàn.");
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Không thể ẩn bài viết."
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const deletePostNow = async (id: string) => {
+    try {
+      setActionLoadingId(id);
+
+      await apiClient.patch(`/adminForum/posts/${id}/reject`, {
+        reason: "Bài viết đã bị quản trị viên xóa.",
+      });
+
+      setPosts((prev) => prev.filter((item) => item.id !== id));
+
+      Alert.alert("Đã xóa", "Bài viết đã được xóa.");
+    } catch (error: any) {
+      Alert.alert(
+        "Lỗi",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Không thể xóa bài viết."
+      );
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleDelete = (id: string) => {
+    if (!id) {
+      Alert.alert("Lỗi", "Không tìm thấy ID bài viết.");
+      return;
+    }
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        "Bạn có chắc muốn xóa bài viết này không?"
+      );
+
+      if (confirmed) {
+        deletePostNow(id);
+      }
+
+      return;
+    }
+
+    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài viết này không?", [
       {
-        text: "Cancel",
+        text: "Hủy",
         style: "cancel",
       },
       {
-        text: "Delete",
+        text: "Xóa",
         style: "destructive",
-        onPress: deleteNow,
+        onPress: () => deletePostNow(id),
       },
     ]);
   };
 
   const renderPost = ({ item }: { item: ForumPost }) => {
     const statusInfo = getStatusInfo(item.status);
+    const isActionLoading = actionLoadingId === item.id;
 
     return (
       <View style={s.postCard}>
@@ -216,6 +390,7 @@ export default function AdminForumScreen() {
               size={14}
               color={statusInfo.color}
             />
+
             <Text style={[s.statusText, { color: statusInfo.color }]}>
               {statusInfo.label}
             </Text>
@@ -235,7 +410,7 @@ export default function AdminForumScreen() {
               size={17}
               color="#64748B"
             />
-            <Text style={s.metaText}>{item.comments} comments</Text>
+            <Text style={s.metaText}>{item.comments} bình luận</Text>
           </View>
 
           <View style={s.metaItem}>
@@ -244,6 +419,7 @@ export default function AdminForumScreen() {
               size={17}
               color={item.reports > 0 ? "#DC2626" : "#64748B"}
             />
+
             <Text
               style={[
                 s.metaText,
@@ -253,7 +429,7 @@ export default function AdminForumScreen() {
                 },
               ]}
             >
-              {item.reports} reports
+              {item.reports} báo cáo
             </Text>
           </View>
         </View>
@@ -261,46 +437,56 @@ export default function AdminForumScreen() {
         <View style={s.actionRow}>
           <Pressable
             style={[s.actionButton, s.viewButton]}
-            onPress={() => Alert.alert("View detail", "Open post detail screen.")}
+            onPress={() => Alert.alert("Chi tiết bài viết", item.content)}
+            disabled={isActionLoading}
           >
-            <MaterialCommunityIcons name="eye-outline" size={18} color="#2563EB" />
-            <Text style={[s.actionText, { color: "#2563EB" }]}>View</Text>
+            <MaterialCommunityIcons
+              name="eye-outline"
+              size={18}
+              color="#2563EB"
+            />
+            <Text style={[s.actionText, { color: "#2563EB" }]}>Xem</Text>
           </Pressable>
 
           <Pressable
             style={[s.actionButton, s.approveButton]}
             onPress={() => handleApprove(item.id)}
+            disabled={isActionLoading}
           >
             <MaterialCommunityIcons
               name="check-circle-outline"
               size={18}
               color="#00866B"
             />
-            <Text style={[s.actionText, { color: "#00866B" }]}>Approve</Text>
+            <Text style={[s.actionText, { color: "#00866B" }]}>Duyệt</Text>
           </Pressable>
 
           <Pressable
             style={[s.actionButton, s.hideButton]}
             onPress={() => handleHide(item.id)}
+            disabled={isActionLoading}
           >
             <MaterialCommunityIcons
               name="eye-off-outline"
               size={18}
               color="#F59E0B"
             />
-            <Text style={[s.actionText, { color: "#F59E0B" }]}>Hide</Text>
+            <Text style={[s.actionText, { color: "#F59E0B" }]}>Ẩn</Text>
           </Pressable>
 
           <Pressable
             style={[s.actionButton, s.deleteButton]}
             onPress={() => handleDelete(item.id)}
+            disabled={isActionLoading}
           >
             <MaterialCommunityIcons
               name="trash-can-outline"
               size={18}
               color="#DC2626"
             />
-            <Text style={[s.actionText, { color: "#DC2626" }]}>Delete</Text>
+            <Text style={[s.actionText, { color: "#DC2626" }]}>
+              {isActionLoading ? "Đang xóa..." : "Xóa"}
+            </Text>
           </Pressable>
         </View>
       </View>
@@ -315,7 +501,11 @@ export default function AdminForumScreen() {
             style={s.backButton}
             onPress={() => router.replace("/(admin)" as any)}
           >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color="#064D3D"
+            />
           </Pressable>
 
           <View style={s.headerIcon}>
@@ -327,50 +517,46 @@ export default function AdminForumScreen() {
           </View>
         </View>
 
-        <Text style={s.title}>Forum Moderation</Text>
+        <Text style={s.title}>Kiểm duyệt diễn đàn</Text>
 
         <Text style={s.subtitle}>
-          Review community posts, handle reports, and keep SOUL forum safe.
+          Xem xét bài viết cộng đồng, xử lý báo cáo và giữ diễn đàn SOUL an toàn.
         </Text>
 
         <View style={s.statsRow}>
           <View style={s.statCard}>
             <Text style={s.statValue}>{posts.length}</Text>
-            <Text style={s.statLabel}>Total posts</Text>
+            <Text style={s.statLabel}>Tổng bài viết</Text>
           </View>
 
           <View style={s.statCard}>
             <Text style={[s.statValue, { color: "#F59E0B" }]}>
               {totalPending}
             </Text>
-            <Text style={s.statLabel}>Pending</Text>
+            <Text style={s.statLabel}>Chờ duyệt</Text>
           </View>
 
           <View style={s.statCard}>
             <Text style={[s.statValue, { color: "#DC2626" }]}>
               {totalReported}
             </Text>
-            <Text style={s.statLabel}>Reported</Text>
+            <Text style={s.statLabel}>Bị báo cáo</Text>
           </View>
 
           <View style={s.statCard}>
             <Text style={[s.statValue, { color: "#64748B" }]}>
               {totalHidden}
             </Text>
-            <Text style={s.statLabel}>Hidden</Text>
+            <Text style={s.statLabel}>Đã ẩn</Text>
           </View>
         </View>
 
         <View style={s.searchBox}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={22}
-            color="#7A8F89"
-          />
+          <MaterialCommunityIcons name="magnify" size={22} color="#7A8F89" />
 
           <TextInput
             style={s.searchInput}
-            placeholder="Search posts, author, content..."
+            placeholder="Tìm kiếm bài viết, tác giả, nội dung..."
             placeholderTextColor="#8A9996"
             value={search}
             onChangeText={setSearch}
@@ -416,22 +602,32 @@ export default function AdminForumScreen() {
         </ScrollView>
       </View>
 
-      <FlatList
-        data={visiblePosts}
-        keyExtractor={(item) => item.id}
-        renderItem={renderPost}
-        contentContainerStyle={s.list}
-        showsVerticalScrollIndicator={false}
-        ListEmptyComponent={
-          <View style={s.emptyBox}>
-            <Text style={s.emptyIcon}>🛡️</Text>
-            <Text style={s.emptyTitle}>No posts found</Text>
-            <Text style={s.emptyText}>
-              There are no forum posts matching your current filter.
-            </Text>
-          </View>
-        }
-      />
+      {loading ? (
+        <View style={s.emptyBox}>
+          <ActivityIndicator size="large" color="#00866B" />
+          <Text style={s.emptyText}>Đang tải bài viết diễn đàn...</Text>
+        </View>
+      ) : (
+        <FlatList
+          data={visiblePosts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          contentContainerStyle={s.list}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+          ListEmptyComponent={
+            <View style={s.emptyBox}>
+              <Text style={s.emptyIcon}>🛡️</Text>
+              <Text style={s.emptyTitle}>Không tìm thấy bài viết</Text>
+              <Text style={s.emptyText}>
+                Không có bài viết diễn đàn nào khớp với bộ lọc hiện tại.
+              </Text>
+            </View>
+          }
+        />
+      )}
     </View>
   );
 }

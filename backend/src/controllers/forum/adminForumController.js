@@ -1,8 +1,8 @@
-const Post = require("../models/Post");
-const Comment = require("../models/Comment");
-const Report = require("../models/Report");
-const User = require("../models/User");
-const ModerationLog = require("../models/ModerationLog");
+const Post = require("../../models/Post");
+const Comment = require("../../models/Comment");
+const Report = require("../../models/Report");
+const User = require("../../models/User");
+const ModerationLog = require("../../models/ModerationLog");
 
 const updateMoodReputation = async (userId) => {
   const oneMonthAgo = new Date();

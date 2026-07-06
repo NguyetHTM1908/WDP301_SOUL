@@ -1,5 +1,20 @@
-const Post = require("../models/Post");
-const forumModerationService = require("../services/forumModerationService");
+const Post = require("../../models/Post");
+const forumModerationService = require("../../services/forumModerationService");
+
+const forumIdentity = require("../../utils/forumIdentity");
+
+const {
+  isUserAnonymousModeOn,
+  buildRealDisplayAuthor,
+  maskAnonymousPost,
+} = forumIdentity;
+
+const ANONYMOUS_AVATAR_URL =
+  forumIdentity.ANONYMOUS_AVATAR_URL ||
+  "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg";
+
+const AUTHOR_POPULATE_FIELDS =
+  "fullName email avatarUrl anonymousAlias anonymousIdentityId anonymousAvatarUrl anonymousModeEnabled";
 
 function getAuthUserId(req) {
   return (
@@ -11,8 +26,17 @@ function getAuthUserId(req) {
   );
 }
 
-function getAnonymousAlias(req) {
-  return req.user?.anonymousAlias || req.user?.fullName || "Anonymous Soul";
+function toId(value) {
+  if (!value) return null;
+
+  if (typeof value === "string") return value;
+
+  return (
+    value?._id?.toString?.() ||
+    value?.id?.toString?.() ||
+    value?.toString?.() ||
+    null
+  );
 }
 
 const normalizeHashtags = (hashtags = []) => {
@@ -23,20 +47,108 @@ const normalizeHashtags = (hashtags = []) => {
     .filter(Boolean);
 };
 
-const maskAnonymousPost = (post) => {
-  const obj = post.toObject ? post.toObject() : post;
+function buildRealDisplayAuthorSafe(user) {
+  if (typeof buildRealDisplayAuthor === "function") {
+    return buildRealDisplayAuthor(user);
+  }
 
-  if (obj.isAnonymous) {
-    obj.authorId = {
-      fullName: obj.anonymousName || "Anonymous Soul",
-      email: null,
-      avatarUrl: null,
-      anonymousAlias: obj.anonymousName || "Anonymous Soul",
+  return {
+    id: toId(user),
+    fullName: user?.fullName || "SOUL User",
+    avatarUrl: user?.avatarUrl || null,
+    isAnonymous: false,
+  };
+}
+
+function buildDisplayAuthorForPost(req, wantAnonymous, anonymousName) {
+  const user = req.user;
+  const userId = getAuthUserId(req);
+
+  if (wantAnonymous) {
+    const alias =
+      String(anonymousName || "").trim() ||
+      String(user?.anonymousAlias || "").trim() ||
+      "Anonymous Soul";
+
+    const anonymousId =
+      user?.anonymousIdentityId ||
+      `anon_${String(userId || "unknown")}`;
+
+    return {
+      id: anonymousId,
+      fullName: alias,
+      avatarUrl: ANONYMOUS_AVATAR_URL,
+      isAnonymous: true,
     };
   }
 
+  return buildRealDisplayAuthorSafe(user);
+}
+
+function fallbackMaskPost(post) {
+  const obj = post?.toObject ? post.toObject() : post;
+
+  if (!obj) return obj;
+
+  if (obj.isAnonymous) {
+    const anonymousName =
+      obj.anonymousName ||
+      obj.displayAuthor?.fullName ||
+      obj.authorId?.anonymousAlias ||
+      "Anonymous Soul";
+
+    const anonymousId =
+      obj.displayAuthor?.id ||
+      obj.authorId?.anonymousIdentityId ||
+      `anon_${obj._id?.toString?.() || "unknown"}`;
+
+    const anonymousAuthor = {
+      _id: anonymousId,
+      id: anonymousId,
+      fullName: anonymousName,
+      email: null,
+      avatarUrl: ANONYMOUS_AVATAR_URL,
+      anonymousAlias: anonymousName,
+      isAnonymous: true,
+    };
+
+    obj.displayAuthor = anonymousAuthor;
+    obj.authorId = anonymousAuthor;
+
+    return obj;
+  }
+
+  const author = obj.authorId || {};
+
+  obj.displayAuthor = {
+    _id: author?._id || author?.id || null,
+    id: author?._id || author?.id || null,
+    fullName: author?.fullName || obj.displayAuthor?.fullName || "SOUL User",
+    email: author?.email || null,
+    avatarUrl: author?.avatarUrl || obj.displayAuthor?.avatarUrl || null,
+    isAnonymous: false,
+  };
+
   return obj;
-};
+}
+
+function safeMaskPost(post) {
+  try {
+    if (typeof maskAnonymousPost === "function") {
+      return maskAnonymousPost(post);
+    }
+
+    return fallbackMaskPost(post);
+  } catch (error) {
+    console.error("[MASK POST ERROR]", {
+      postId: post?._id,
+      message: error.message,
+      stack: error.stack,
+    });
+
+    return fallbackMaskPost(post);
+  }
+}
 
 exports.createPost = async (req, res) => {
   try {
@@ -66,23 +178,35 @@ exports.createPost = async (req, res) => {
       });
     }
 
+    const anonymousMode =
+      isAnonymous !== undefined
+        ? Boolean(isAnonymous)
+        : typeof isUserAnonymousModeOn === "function"
+          ? isUserAnonymousModeOn(req.user)
+          : Boolean(req.user?.anonymousModeEnabled);
+
+    const displayAuthor = buildDisplayAuthorForPost(
+      req,
+      anonymousMode,
+      anonymousName
+    );
+
     const post = await Post.create({
       authorId: userId,
+      displayAuthor,
+
       content: content.trim(),
       mediaUrls: Array.isArray(mediaUrls) ? mediaUrls : [],
       emotionStatus: emotionStatus || "neutral",
       hashtags: normalizeHashtags(hashtags || []),
 
-      isAnonymous: Boolean(isAnonymous),
-      anonymousName: isAnonymous
-        ? anonymousName || getAnonymousAlias(req)
-        : null,
+      isAnonymous: anonymousMode,
+      anonymousName: anonymousMode ? displayAuthor.fullName : null,
 
       visibility: visibility || "public",
 
-      // Bài được tạo trước, AI kiểm tra ngay sau đó.
-      status: "approved",
-      approvedAt: new Date(),
+      status: "pending",
+      approvedAt: null,
       approvedBy: null,
       rejectedReason: null,
 
@@ -98,26 +222,37 @@ exports.createPost = async (req, res) => {
     } catch (error) {
       moderationWarning = error.message;
       console.error("Forum moderation failed:", error);
+
+      post.status = "pending";
+      post.isFlagged = true;
+      post.toxicityLevel = "medium";
+      post.approvedAt = null;
+      post.rejectedReason =
+        "Không thể kiểm duyệt bằng AI tại thời điểm đăng bài. Cần admin xem xét.";
+
+      await post.save();
     }
 
     const updatedPost = await Post.findById(post._id).populate(
       "authorId",
-      "fullName email avatarUrl anonymousAlias"
+      AUTHOR_POPULATE_FIELDS
     );
 
     return res.status(201).json({
       success: true,
-      message: moderation?.isViolationSuspected
-        ? "Tạo bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
-        : "Tạo bài viết thành công.",
-      data: updatedPost || post,
+      message:
+        moderationWarning ||
+        moderation?.isViolationSuspected
+          ? "Tạo bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
+          : "Tạo bài viết thành công.",
+      data: safeMaskPost(updatedPost || post),
       moderation,
       moderationWarning,
     });
   } catch (error) {
     console.error("CREATE POST ERROR FULL:", error);
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Không thể tạo bài viết.",
       errorName: error.name,
@@ -134,29 +269,47 @@ exports.getApprovedPosts = async (req, res) => {
     const filter = {
       status: "approved",
       visibility: "public",
-
-      // Quan trọng:
-      // Bài đang bị AI flag thì không hiện lên Community.
-      isFlagged: false,
+      isFlagged: { $ne: true },
     };
 
-    if (hashtag) {
+    if (hashtag && String(hashtag).trim()) {
       filter.hashtags = String(hashtag).replace("#", "").trim().toLowerCase();
     }
 
-    if (emotionStatus) {
-      filter.emotionStatus = emotionStatus;
+    if (emotionStatus && String(emotionStatus).trim()) {
+      filter.emotionStatus = String(emotionStatus).trim();
     }
 
-    if (search) {
-      filter.content = { $regex: String(search), $options: "i" };
+    const keyword = String(search || "").trim();
+
+    if (keyword) {
+      filter.$or = [
+        {
+          content: {
+            $regex: keyword,
+            $options: "i",
+          },
+        },
+        {
+          hashtags: {
+            $regex: keyword,
+            $options: "i",
+          },
+        },
+        {
+          anonymousName: {
+            $regex: keyword,
+            $options: "i",
+          },
+        },
+      ];
     }
 
     const posts = await Post.find(filter)
-      .populate("authorId", "fullName email avatarUrl anonymousAlias")
+      .populate("authorId", AUTHOR_POPULATE_FIELDS)
       .sort({ createdAt: -1 });
 
-    const data = posts.map(maskAnonymousPost);
+    const data = posts.map(safeMaskPost);
 
     return res.status(200).json({
       success: true,
@@ -182,7 +335,7 @@ exports.getPostDetail = async (req, res) => {
 
     const post = await Post.findById(req.params.id).populate(
       "authorId",
-      "fullName email avatarUrl anonymousAlias"
+      AUTHOR_POPULATE_FIELDS
     );
 
     if (!post || post.status === "deleted") {
@@ -194,10 +347,7 @@ exports.getPostDetail = async (req, res) => {
 
     const isAdmin = req.user && req.user.role === "admin";
 
-    const authorId =
-      post.authorId?._id?.toString?.() ||
-      post.authorId?.toString?.() ||
-      null;
+    const authorId = toId(post.authorId);
 
     const isAuthor = userId && authorId && authorId === String(userId);
 
@@ -216,7 +366,7 @@ exports.getPostDetail = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "Lấy chi tiết bài viết thành công.",
-      data: isAuthor || isAdmin ? post : maskAnonymousPost(post),
+      data: safeMaskPost(post),
     });
   } catch (error) {
     console.error("GET POST DETAIL ERROR FULL:", error);
@@ -246,13 +396,13 @@ exports.getMyPosts = async (req, res) => {
       authorId: userId,
       status: { $ne: "deleted" },
     })
-      .populate("authorId", "fullName email avatarUrl anonymousAlias")
+      .populate("authorId", AUTHOR_POPULATE_FIELDS)
       .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
       message: "Lấy bài viết của tôi thành công.",
-      data: posts,
+      data: posts.map(safeMaskPost),
     });
   } catch (error) {
     console.error("GET MY POSTS ERROR FULL:", error);
@@ -287,7 +437,7 @@ exports.updateMyPost = async (req, res) => {
       });
     }
 
-    if (post.authorId.toString() !== String(userId)) {
+    if (toId(post.authorId) !== String(userId)) {
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền sửa bài viết này.",
@@ -314,8 +464,12 @@ exports.updateMyPost = async (req, res) => {
         });
       }
 
-      post.content = content.trim();
-      contentChanged = true;
+      const newContent = content.trim();
+
+      if (newContent !== post.content) {
+        post.content = newContent;
+        contentChanged = true;
+      }
     }
 
     if (mediaUrls !== undefined) {
@@ -331,32 +485,32 @@ exports.updateMyPost = async (req, res) => {
     }
 
     if (isAnonymous !== undefined) {
-      post.isAnonymous = Boolean(isAnonymous);
-      post.anonymousName = isAnonymous
-        ? anonymousName || getAnonymousAlias(req)
-        : null;
+      const wantAnonymous = Boolean(isAnonymous);
+
+      const displayAuthor = buildDisplayAuthorForPost(
+        req,
+        wantAnonymous,
+        anonymousName
+      );
+
+      post.isAnonymous = wantAnonymous;
+      post.anonymousName = wantAnonymous ? displayAuthor.fullName : null;
+      post.displayAuthor = displayAuthor;
     }
 
     if (visibility !== undefined) {
       post.visibility = visibility || "public";
     }
 
-    if (
-      post.status === "hidden" ||
-      post.status === "rejected" ||
-      post.status === "pending"
-    ) {
-      post.status = "approved";
-      post.approvedAt = new Date();
-      post.rejectedReason = null;
-    }
-
-    post.editedAt = new Date();
-
     if (contentChanged) {
+      post.status = "pending";
+      post.approvedAt = null;
+      post.rejectedReason = null;
       post.isFlagged = false;
       post.toxicityLevel = "low";
     }
+
+    post.editedAt = new Date();
 
     await post.save();
 
@@ -369,27 +523,38 @@ exports.updateMyPost = async (req, res) => {
       } catch (error) {
         moderationWarning = error.message;
         console.error("Forum moderation failed:", error);
+
+        post.status = "pending";
+        post.isFlagged = true;
+        post.toxicityLevel = "medium";
+        post.approvedAt = null;
+        post.rejectedReason =
+          "Không thể kiểm duyệt bằng AI tại thời điểm cập nhật bài viết. Cần admin xem xét.";
+
+        await post.save();
       }
     }
 
     const updatedPost = await Post.findById(post._id).populate(
       "authorId",
-      "fullName email avatarUrl anonymousAlias"
+      AUTHOR_POPULATE_FIELDS
     );
 
     return res.status(200).json({
       success: true,
-      message: moderation?.isViolationSuspected
-        ? "Cập nhật bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
-        : "Cập nhật bài viết thành công.",
-      data: updatedPost || post,
+      message:
+        moderationWarning ||
+        moderation?.isViolationSuspected
+          ? "Cập nhật bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
+          : "Cập nhật bài viết thành công.",
+      data: safeMaskPost(updatedPost || post),
       moderation,
       moderationWarning,
     });
   } catch (error) {
     console.error("UPDATE POST ERROR FULL:", error);
 
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message || "Không thể cập nhật bài viết.",
       errorName: error.name,
@@ -419,7 +584,7 @@ exports.deleteMyPost = async (req, res) => {
       });
     }
 
-    if (post.authorId.toString() !== String(userId)) {
+    if (toId(post.authorId) !== String(userId)) {
       return res.status(403).json({
         success: false,
         message: "Bạn không có quyền xóa bài viết này.",

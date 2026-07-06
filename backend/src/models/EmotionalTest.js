@@ -10,6 +10,7 @@ const testOptionSchema = new mongoose.Schema(
     score: {
       type: Number,
       required: true,
+      default: 0,
     },
   },
   { _id: false }
@@ -22,7 +23,32 @@ const testQuestionSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-    options: [testOptionSchema],
+
+    imageUrl: {
+      type: String,
+      default: null,
+    },
+
+    answerImageUrl: {
+      type: String,
+      default: null,
+    },
+
+    correctAnswer: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    explanation: {
+      type: String,
+      default: null,
+    },
+
+    options: {
+      type: [testOptionSchema],
+      default: [],
+    },
   },
   { _id: false }
 );
@@ -31,17 +57,35 @@ const resultRuleSchema = new mongoose.Schema(
   {
     level: {
       type: String,
-      enum: ["low", "medium", "high"],
+      enum: ["rat_thap", "duoi_trung_binh", "trung_binh", "tot", "xuat_sac"],
       required: true,
     },
+
     minScore: {
       type: Number,
       required: true,
     },
+
     maxScore: {
       type: Number,
       required: true,
     },
+
+    title: {
+      type: String,
+      default: null,
+    },
+
+    description: {
+      type: String,
+      default: null,
+    },
+
+    advice: {
+      type: String,
+      default: null,
+    },
+
     suggestion: {
       type: String,
       required: true,
@@ -57,16 +101,27 @@ const emotionalTestSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+
     description: {
       type: String,
       default: null,
     },
-    questions: [testQuestionSchema],
-    resultRules: [resultRuleSchema],
+
+    questions: {
+      type: [testQuestionSchema],
+      default: [],
+    },
+
+    resultRules: {
+      type: [resultRuleSchema],
+      default: [],
+    },
+
     isActive: {
       type: Boolean,
       default: true,
     },
+
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
@@ -78,10 +133,11 @@ const emotionalTestSchema = new mongoose.Schema(
   }
 );
 
-// Indexes
 emotionalTestSchema.index({ isActive: 1 });
 emotionalTestSchema.index({ createdBy: 1 });
 
-const EmotionalTest = mongoose.model("EmotionalTest", emotionalTestSchema, "emotional_tests");
-
-module.exports = EmotionalTest;
+module.exports = mongoose.model(
+  "EmotionalTest",
+  emotionalTestSchema,
+  "emotional_tests"
+);

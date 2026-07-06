@@ -10,42 +10,43 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import TestOptionCard from "../../components/emotional-test/TestOptionCard";
-import { TestType } from "../../api/emotionalTestApi";
 import { router } from "expo-router";
+
+const GREEN = "#2FBF71";
+const GREEN_DARK = "#1F9D5C";
+const TEXT_DARK = "#1D1B38";
 
 type Props = {
   navigation?: any;
 };
 
 export default function EmotionalTestMainScreen({ navigation }: Props) {
-  const goToAssessment = (testType: TestType) => {
+  const goToAssessment = (testId?: string) => {
     router.push({
       pathname: "/emotional-test/assessment" as any,
-      params: { testType },
+      params: testId ? { testId } : {},
     });
   };
 
-  const goHome = () => {
-    router.replace("/home" as any);
-  };
-
   return (
-    <LinearGradient colors={["#BFD7FF", "#D9C2FF"]} style={styles.container}>
+    <LinearGradient colors={["#DDFBE7", "#B9F5D0"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.header}>
-            <TouchableOpacity style={styles.backHomeButton} onPress={() => router.replace("/(tabs)" as any)}
->
+            <TouchableOpacity
+              style={styles.backHomeButton}
+              onPress={() => router.replace("/(tabs)" as any)}
+            >
               <Text style={styles.backHomeText}>‹</Text>
             </TouchableOpacity>
 
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>🧘</Text>
+              <Text style={styles.avatarText}>🌿</Text>
             </View>
 
             <View style={styles.headerTextBox}>
-              <Text style={styles.hello}>Hello, user</Text>
-              <Text style={styles.subHello}>How are you today?</Text>
+              <Text style={styles.hello}>Xin chào, bạn</Text>
+              <Text style={styles.subHello}>Hôm nay bạn cảm thấy thế nào?</Text>
             </View>
 
             <TouchableOpacity style={styles.bell}>
@@ -55,17 +56,17 @@ export default function EmotionalTestMainScreen({ navigation }: Props) {
 
           <View style={styles.checkInCard}>
             <View>
-              <Text style={styles.checkTitle}>Daily check-in</Text>
-              <Text style={styles.checkSub}>How are you today?</Text>
+              <Text style={styles.checkTitle}>Kiểm tra cảm xúc hằng ngày</Text>
+              <Text style={styles.checkSub}>Hôm nay bạn cảm thấy thế nào?</Text>
             </View>
 
             <View style={styles.moodRow}>
               {[
-                { icon: "😄", label: "Great" },
-                { icon: "🙂", label: "Good" },
-                { icon: "😐", label: "Okay" },
-                { icon: "😟", label: "Bad" },
-                { icon: "😣", label: "Awful" },
+                { icon: "😄", label: "Rất tốt" },
+                { icon: "🙂", label: "Ổn" },
+                { icon: "😐", label: "Bình thường" },
+                { icon: "😟", label: "Không tốt" },
+                { icon: "😣", label: "Rất tệ" },
               ].map((item) => (
                 <View key={item.label} style={styles.moodItem}>
                   <Text style={styles.moodIcon}>{item.icon}</Text>
@@ -77,36 +78,36 @@ export default function EmotionalTestMainScreen({ navigation }: Props) {
 
           <View style={styles.featureCard}>
             <View style={styles.featureLeft}>
-              <Text style={styles.featureTitle}>WHO-5 Well-being Check</Text>
+              <Text style={styles.featureTitle}>Kiểm tra trí tuệ cảm xúc</Text>
               <Text style={styles.featureDescription}>
-                Hiểu nhanh trạng thái cảm xúc và well-being của bạn gần đây.
+                Luyện khả năng nhận diện cảm xúc qua biểu cảm khuôn mặt.
               </Text>
 
               <View style={styles.featureInfoRow}>
                 <Text style={styles.featureInfo}>5-7 phút</Text>
-                <Text style={styles.featureInfo}>5 câu hỏi</Text>
+                <Text style={styles.featureInfo}>20 câu hỏi</Text>
               </View>
             </View>
 
             <View style={styles.featureRight}>
-              <Text style={styles.featureIllustration}>💜</Text>
+              <Text style={styles.featureIllustration}>😊</Text>
               <TouchableOpacity
                 style={styles.featureButton}
-                onPress={() => goToAssessment("WHO5")}
+                onPress={() => goToAssessment()}
               >
-                <Text style={styles.featureButtonText}>Start Test</Text>
+                <Text style={styles.featureButtonText}>Bắt đầu</Text>
               </TouchableOpacity>
             </View>
           </View>
 
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Test</Text>
+            <Text style={styles.sectionTitle}>Bài kiểm tra</Text>
 
             <View style={styles.searchBox}>
               <Text style={styles.searchIcon}>⌕</Text>
               <TextInput
-                placeholder="Search test, topic, keyword..."
-                placeholderTextColor="#FFFFFF"
+                placeholder="Tìm bài kiểm tra, chủ đề, từ khóa..."
+                placeholderTextColor="#6FAF83"
                 style={styles.searchInput}
               />
             </View>
@@ -117,34 +118,34 @@ export default function EmotionalTestMainScreen({ navigation }: Props) {
           </View>
 
           <TestOptionCard
-            icon="🌿"
-            title="WHO-5 Well-being Check"
-            description="Đánh giá nhanh mức độ well-being và trạng thái cảm xúc gần đây."
-            duration="5-7m"
-            onPress={() => goToAssessment("WHO5")}
+            icon="😊"
+            title="Kiểm tra trí tuệ cảm xúc"
+            description="Nhận diện cảm xúc qua khuôn mặt và xem khả năng đọc cảm xúc của bạn."
+            duration="5-7 phút"
+            onPress={() => goToAssessment()}
           />
 
           <TestOptionCard
-            icon="📘"
-            title="PSS-10 Student Stress Check"
-            description="Tự nhìn lại mức độ căng thẳng trong học tập và cuộc sống."
-            duration="5-10m"
-            onPress={() => goToAssessment("PSS10")}
+            icon="🌱"
+            title="Tự nhìn lại sức khỏe tinh thần"
+            description="Tự nhìn lại trạng thái cảm xúc và mức độ cân bằng tinh thần."
+            duration="5 phút"
+            disabled
           />
 
           <TestOptionCard
             icon="☁️"
-            title="Anxiety Reflection"
+            title="Tự nhìn lại mức độ lo lắng"
             description="Tự nhìn lại các dấu hiệu lo lắng và căng thẳng cảm xúc."
-            duration="3-4m"
+            duration="3-4 phút"
             disabled
           />
 
           <TestOptionCard
             icon="🔥"
-            title="Burnout Reflection"
+            title="Tự nhìn lại tình trạng kiệt sức"
             description="Nhận diện dấu hiệu kiệt sức học tập và mệt mỏi kéo dài."
-            duration="5-10m"
+            duration="5-10 phút"
             disabled
           />
 
@@ -180,7 +181,7 @@ const styles = StyleSheet.create({
   backHomeText: {
     fontSize: 32,
     lineHeight: 34,
-    color: "#6F62D8",
+    color: GREEN,
     fontWeight: "800",
   },
   avatar: {
@@ -201,11 +202,11 @@ const styles = StyleSheet.create({
   hello: {
     fontSize: 22,
     fontWeight: "800",
-    color: "#1D1B38",
+    color: TEXT_DARK,
   },
   subHello: {
     fontSize: 13,
-    color: "#7B78A5",
+    color: "#4E8C63",
     marginTop: 2,
   },
   bell: {
@@ -230,12 +231,12 @@ const styles = StyleSheet.create({
   },
   checkTitle: {
     fontWeight: "800",
-    color: "#1D1B38",
+    color: TEXT_DARK,
     fontSize: 13,
   },
   checkSub: {
     fontSize: 11,
-    color: "#9A96B8",
+    color: "#6FAF83",
     marginTop: 3,
   },
   moodRow: {
@@ -250,12 +251,12 @@ const styles = StyleSheet.create({
   },
   moodLabel: {
     fontSize: 9,
-    color: "#77739C",
+    color: "#4E8C63",
     marginTop: 2,
   },
   featureCard: {
     marginTop: 14,
-    backgroundColor: "rgba(255,255,255,0.75)",
+    backgroundColor: "rgba(255,255,255,0.78)",
     borderRadius: 24,
     padding: 16,
     flexDirection: "row",
@@ -265,13 +266,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   featureTitle: {
-    color: "#1D1B38",
+    color: TEXT_DARK,
     fontSize: 14,
     fontWeight: "900",
     marginBottom: 12,
   },
   featureDescription: {
-    color: "#504C73",
+    color: "#4E6B5A",
     fontSize: 12,
     lineHeight: 17,
     maxWidth: 165,
@@ -282,7 +283,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   featureInfo: {
-    color: "#1D1B38",
+    color: TEXT_DARK,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -295,7 +296,7 @@ const styles = StyleSheet.create({
     fontSize: 52,
   },
   featureButton: {
-    backgroundColor: "#B891F6",
+    backgroundColor: GREEN,
     borderRadius: 22,
     paddingHorizontal: 28,
     paddingVertical: 10,
@@ -314,26 +315,26 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 24,
     fontWeight: "900",
-    color: "#262346",
+    color: TEXT_DARK,
     marginRight: 14,
   },
   searchBox: {
     flex: 1,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "rgba(255,255,255,0.25)",
+    backgroundColor: "rgba(255,255,255,0.55)",
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
   },
   searchIcon: {
-    color: "#FFFFFF",
+    color: GREEN_DARK,
     fontSize: 16,
     marginRight: 6,
   },
   searchInput: {
     flex: 1,
-    color: "#FFFFFF",
+    color: "#2F6B48",
     fontSize: 12,
   },
   filterButton: {
@@ -346,44 +347,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   filterText: {
-    color: "#8B7BF4",
+    color: GREEN,
     fontSize: 18,
-  },
-  supportCard: {
-    marginTop: 8,
-    backgroundColor: "rgba(255,255,255,0.65)",
-    borderRadius: 24,
-    padding: 16,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  supportIcon: {
-    fontSize: 44,
-    marginRight: 12,
-  },
-  supportContent: {
-    flex: 1,
-  },
-  supportTitle: {
-    fontSize: 14,
-    fontWeight: "900",
-    color: "#1D1B38",
-  },
-  supportSub: {
-    marginTop: 6,
-    fontSize: 11,
-    color: "#8A85A8",
-    lineHeight: 15,
-  },
-  supportButton: {
-    backgroundColor: "#FFFFFF",
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-    borderRadius: 20,
-  },
-  supportButtonText: {
-    color: "#6F62D8",
-    fontSize: 12,
-    fontWeight: "800",
   },
 });

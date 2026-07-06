@@ -23,13 +23,14 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.page}>
-      {/* Sidebar trái */}
-      {showSidebar && <Sidebar />}
+      {showSidebar ? (
+        <Sidebar onClose={() => setShowSidebar(false)} />
+      ) : null}
 
       <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
         <HomeHeader
           showSidebar={showSidebar}
-          onToggleSidebar={() => setShowSidebar(!showSidebar)}
+          onToggleSidebar={() => setShowSidebar((prev) => !prev)}
           showProfileMenu={showProfileMenu}
           onToggleProfileMenu={() => setShowProfileMenu(!showProfileMenu)}
           onCloseProfileMenu={() => setShowProfileMenu(false)}

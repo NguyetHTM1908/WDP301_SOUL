@@ -121,6 +121,8 @@ export default function ProfileScreen() {
   const [replyInputs, setReplyInputs] = useState<Record<string, string>>({});
   const [openReplyCommentId, setOpenReplyCommentId] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<{ type: "post" | "comment"; id: string } | null>(null);
+  const [commentAnonymousByPost, setCommentAnonymousByPost] = useState<Record<string, boolean>>({});
+  const [replyAnonymousByComment, setReplyAnonymousByComment] = useState<Record<string, boolean>>({});
 
   // Load cover photo local cache
   useEffect(() => {
@@ -701,6 +703,10 @@ export default function ProfileScreen() {
                     setCommentInputs={setCommentInputs}
                     setReplyInputs={setReplyInputs}
                     setOpenReplyCommentId={setOpenReplyCommentId}
+                    commentAnonymousByPost={commentAnonymousByPost}
+                    setCommentAnonymousByPost={setCommentAnonymousByPost}
+                    replyAnonymousByComment={replyAnonymousByComment}
+                    setReplyAnonymousByComment={setReplyAnonymousByComment}
                     onReactPost={handleReactPost}
                     onReportPost={(postId) => setReportTarget({ type: "post", id: postId })}
                     onToggleComments={toggleComments}

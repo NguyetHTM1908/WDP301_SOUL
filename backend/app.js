@@ -23,6 +23,9 @@ const usersRouter = require("./src/routes/users");
 const app = express();
 const emotionalTestRoutes = require("./src/routes/emotionalTestRoutes");
 
+//AI
+const aiRoutes = require("./src/routes/aiRoutes");
+
 connectDB();
 
 app.use(cors());
@@ -46,6 +49,9 @@ app.use("/api/emotion-analysis", emotionAnalysisRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/emotional-tests", emotionalTestRoutes);
 app.use("/api/users", usersRouter);
+
+// AI routes
+app.use("/api/ai", aiRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({

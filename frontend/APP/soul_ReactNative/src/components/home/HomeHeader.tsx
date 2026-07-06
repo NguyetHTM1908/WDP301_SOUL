@@ -27,12 +27,10 @@ export function HomeHeader({
 }: Props) {
   const { user } = useAuthStore();
 
-  // Lấy tên gọi thân mật (từ đầu tiên của họ tên, mặc định là Vy)
   const greetingName = user ? user.fullName.split(" ")[0] : "Vy";
 
   return (
     <View style={styles.header}>
-      {/* Nút mở Sidebar trái */}
       <TouchableOpacity
         style={[styles.menuButton, showSidebar && styles.menuButtonActive]}
         onPress={onToggleSidebar}
@@ -44,15 +42,13 @@ export function HomeHeader({
         />
       </TouchableOpacity>
 
-      {/* Lời chào mừng */}
       <View style={styles.greetingBox}>
-        <Text style={styles.headerTitle}>Hi, {greetingName} 👋</Text>
+        <Text style={styles.headerTitle}>Chào, {greetingName} 👋</Text>
         <Text style={styles.headerSubtitle}>
-          Welcome back to your safe space
+          Chào mừng bạn trở lại không gian an toàn của mình
         </Text>
       </View>
 
-      {/* Thông báo & Avatar */}
       <View style={styles.headerRight}>
         <View style={styles.bellWrap}>
           <MaterialCommunityIcons
@@ -65,13 +61,15 @@ export function HomeHeader({
           </View>
         </View>
 
-        {/* Bấm Avatar để toggle menu (menu render ở tầng root) */}
+        {/* Bấm Avatar để hiển thị menu hồ sơ (menu render ở tầng root) */}
         <Pressable
           style={styles.profileWrapper}
           onPress={onToggleProfileMenu}
         >
           <Image
-            source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+            source={{
+              uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47",
+            }}
             style={styles.avatar}
           />
         </Pressable>
@@ -91,12 +89,12 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
 
   const handleActionPress = (text: string) => {
     onClose();
-    if (text === "Log out") {
+    if (text === "Đăng xuất") {
       logout();
       router.replace("/(auth)/login");
-    } else if (text === "My Profile") {
+    } else if (text === "Hồ sơ của tôi") {
       router.push(`/profile/${user?._id || "me"}` as any);
-    } else if (text === "Edit Profile") {
+    } else if (text === "Chỉnh sửa hồ sơ") {
       // Mở modal Edit Profile — render ở tầng root (index.tsx)
       onEditProfile();
     }
@@ -122,17 +120,17 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
           <View>
             <Text style={styles.profileName}>{user?.fullName || "Vy Nguyễn"}</Text>
             <Text style={styles.profileSub}>
-              {user?.bio || "Take care of your mind 🌱"}
+              {user?.bio || "Chăm sóc tâm trí của bạn 🌱"}
             </Text>
           </View>
         </TouchableOpacity>
 
         {[
-          ["account-outline", "My Profile"],
-          ["pencil-outline", "Edit Profile"],
-          ["trophy-outline", "Achievements"],
-          ["bell-outline", "Reminders"],
-          ["logout", "Log out"],
+          ["account-outline", "Hồ sơ của tôi"],
+          ["pencil-outline", "Chỉnh sửa hồ sơ"],
+          ["trophy-outline", "Thành tích"],
+          ["bell-outline", "Lời nhắc"],
+          ["logout", "Đăng xuất"],
         ].map(([icon, text], index) => (
           <TouchableOpacity
             key={text}

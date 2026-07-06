@@ -8,62 +8,80 @@ import {
   ActivityIndicator,
   Alert,
   SafeAreaView,
+  Image,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   getEmotionalTestQuestions,
   submitEmotionalTest,
   EmotionalQuestion,
-  AnswerOption,
   EmotionalAnswer,
-  TestType,
 } from "../../api/emotionalTestApi";
-import { router, useLocalSearchParams } from "expo-router";
-type Props = {
-  route?: {
-    params?: {
-      testType?: TestType;
-    };
-  };
-  navigation?: any;
-};
 
-export default function EmotionalAssessmentScreen({ navigation }: Props) {
+const GREEN = "#2FBF71";
+const GREEN_DARK = "#1F9D5C";
+const GREEN_LIGHT = "#ECFFF4";
+const TEXT_DARK = "#1D1B38";
+
+export default function EmotionalAssessmentScreen() {
   const params = useLocalSearchParams();
 
-  const testType = Array.isArray(params.testType)
-    ? (params.testType[0] as TestType)
-    : ((params.testType as TestType) || "WHO5");
+  const testId = Array.isArray(params.testId)
+    ? params.testId[0]
+    : (params.testId as string | undefined);
 
-  const [title, setTitle] = useState("");
-  const [source, setSource] = useState("");
-  const [questions, setQuestions] = useState<EmotionalQuestion[]>([]);
-  const [answerOptions, setAnswerOptions] = useState<AnswerOption[]>([]);
+  const [testTitle, setTestTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [disclaimer, setDisclaimer] = useState("");
-  const [answers, setAnswers] = useState<Record<number, number>>({});
+  const [questions, setQuestions] = useState<EmotionalQuestion[]>([]);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>(
+    {}
+  );
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
 
-  const totalAnswered = useMemo(() => Object.keys(answers).length, [answers]);
+  const currentQuestion = questions[currentIndex];
+
+  const selectedAnswer = currentQuestion
+    ? selectedAnswers[currentQuestion.questionIndex]
+    : undefined;
+
+  const isAnswered = Boolean(selectedAnswer);
+
+  const progressText = questions.length
+    ? `${currentIndex + 1}/${questions.length}`
+    : "0/0";
+
+  const progressPercent = questions.length
+    ? ((currentIndex + 1) / questions.length) * 100
+    : 0;
+
+  const displayImage = useMemo(() => {
+    if (!currentQuestion) return null;
+
+    if (isAnswered && currentQuestion.answerImageUrl) {
+      return currentQuestion.answerImageUrl;
+    }
+
+    return currentQuestion.imageUrl || null;
+  }, [currentQuestion, isAnswered]);
 
   useEffect(() => {
     loadQuestions();
-  }, [testType]);
+  }, [testId]);
 
   async function loadQuestions() {
     try {
       setLoading(true);
-      setAnswers({});
+      setSelectedAnswers({});
+      setCurrentIndex(0);
 
-      const data = await getEmotionalTestQuestions(testType);
+      const data = await getEmotionalTestQuestions(testId);
 
-      setTitle(data.title);
-      setSource(data.source);
-      setQuestions(data.questions);
-      setAnswerOptions(data.answerOptions);
+      setTestTitle(data.title);
       setDescription(data.description);
-      setDisclaimer(data.disclaimer);
+      setQuestions(data.questions);
     } catch (error: any) {
       Alert.alert("Lỗi", error.message || "Không thể tải câu hỏi.");
     } finally {
@@ -71,35 +89,32 @@ export default function EmotionalAssessmentScreen({ navigation }: Props) {
     }
   }
 
-  function selectAnswer(questionId: number, score: number) {
-    setAnswers((prev) => ({
+  function selectAnswer(answer: string) {
+    if (!currentQuestion || isAnswered) return;
+
+    setSelectedAnswers((prev) => ({
       ...prev,
-      [questionId]: score,
+      [currentQuestion.questionIndex]: answer,
     }));
   }
 
-  async function handleSubmit() {
-    if (totalAnswered !== questions.length) {
-      Alert.alert("Chưa hoàn thành", "Bạn vui lòng trả lời đủ tất cả câu hỏi.");
-      return;
-    }
-
+  async function submitFinalResult() {
     try {
       setSubmitting(true);
 
       const payload: EmotionalAnswer[] = questions.map((question) => ({
-        questionId: question.id,
-        score: answers[question.id],
+        questionIndex: question.questionIndex,
+        answer: selectedAnswers[question.questionIndex],
       }));
 
-      const result = await submitEmotionalTest(testType, payload);
+      const result = await submitEmotionalTest(payload, testId);
 
       router.push({
-  pathname: "/emotional-test/result" as any,
-  params: {
-    result: JSON.stringify(result),
-  },
-});
+        pathname: "/emotional-test/result" as any,
+        params: {
+          result: JSON.stringify(result),
+        },
+      });
     } catch (error: any) {
       Alert.alert("Lỗi", error.message || "Không thể nộp bài kiểm tra.");
     } finally {
@@ -107,129 +122,199 @@ export default function EmotionalAssessmentScreen({ navigation }: Props) {
     }
   }
 
+  function handleNext() {
+    if (!isAnswered) {
+      Alert.alert("Chưa chọn đáp án", "Bạn hãy chọn một đáp án trước.");
+      return;
+    }
+
+    if (currentIndex < questions.length - 1) {
+      setCurrentIndex((prev) => prev + 1);
+      return;
+    }
+
+    submitFinalResult();
+  }
+
+  function handleBackQuestion() {
+    if (currentIndex > 0) {
+      setCurrentIndex((prev) => prev - 1);
+    }
+  }
+
   if (loading) {
     return (
-      <LinearGradient colors={["#BFD7FF", "#D9C2FF"]} style={styles.loadingBox}>
-        <ActivityIndicator size="large" color="#7B61FF" />
-        <Text style={styles.loadingText}>Đang tải câu hỏi...</Text>
+      <LinearGradient colors={["#DDFBE7", "#B9F5D0"]} style={styles.loadingBox}>
+        <ActivityIndicator size="large" color={GREEN} />
+        <Text style={styles.loadingText}>Đang tải bài test...</Text>
       </LinearGradient>
     );
   }
 
+  if (!currentQuestion) {
+    return (
+      <LinearGradient colors={["#DDFBE7", "#B9F5D0"]} style={styles.loadingBox}>
+        <Text style={styles.loadingText}>Không có câu hỏi nào.</Text>
+      </LinearGradient>
+    );
+  }
+
+  const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+
   return (
-    <LinearGradient colors={["#BFD7FF", "#D9C2FF"]} style={styles.container}>
+    <LinearGradient colors={["#DDFBE7", "#B9F5D0"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
-            <TouchableOpacity
-  style={styles.backButton}
-        onPress={() => router.replace("/(tabs)" as any)}
->
-  <Text style={styles.backText}>‹</Text>
-</TouchableOpacity>
+            <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+              <Text style={styles.backText}>‹</Text>
+            </TouchableOpacity>
 
-            <Text style={styles.title}>{title}</Text>
+            <Text style={styles.headerTitle}>Emotional Test</Text>
 
-            <View style={{ width: 38 }} />
+            <View style={styles.progressPill}>
+              <Text style={styles.progressText}>{progressText}</Text>
+            </View>
           </View>
 
-          <View style={styles.heroBox}>
-            <Text style={styles.heroIcon}>
-              {testType === "WHO5" ? "🧘‍♀️" : "📘"}
-            </Text>
+          <View style={styles.introCard}>
+            <Text style={styles.testTitle}>{testTitle}</Text>
+            <Text style={styles.description}>{description}</Text>
+
+            <View style={styles.progressBarOuter}>
+              <View
+                style={[styles.progressBarInner, { width: `${progressPercent}%` }]}
+              />
+            </View>
           </View>
 
-          <View style={styles.infoCard}>
-            <View style={styles.infoHeader}>
-              <View style={styles.infoIconCircle}>
-                <Text style={styles.infoIcon}>i</Text>
+          <View style={styles.questionCard}>
+            <View style={styles.questionNumberRow}>
+              <View style={styles.numberCircle}>
+                <Text style={styles.numberText}>{currentIndex + 1}</Text>
               </View>
-              <Text style={styles.infoTitle}>HOW TO PROCEED</Text>
+
+              <Text style={styles.questionLabel}>Câu hỏi</Text>
             </View>
 
-            <Text style={styles.infoText}>{description}</Text>
+            <Text style={styles.questionText}>{currentQuestion.question}</Text>
 
-            <Text style={styles.sourceText}>{source}</Text>
+            <View style={styles.imageCard}>
+              {displayImage ? (
+                <Image
+                  source={{ uri: displayImage }}
+                  style={styles.questionImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.imagePlaceholder}>
+                  <Text style={styles.placeholderEmoji}>🖼️</Text>
+                  <Text style={styles.placeholderText}>Chưa có ảnh cho câu này</Text>
+                </View>
+              )}
+            </View>
 
-            <Text style={styles.disclaimer}>{disclaimer}</Text>
+            <View style={styles.optionsBox}>
+              {currentQuestion.options.map((option) => {
+                const selected = selectedAnswer === option.label;
+                const correct = currentQuestion.correctAnswer === option.label;
+
+                const showCorrect = isAnswered && correct;
+                const showWrong = isAnswered && selected && !correct;
+
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    style={[
+                      styles.optionButton,
+                      selected && styles.optionSelected,
+                      showCorrect && styles.optionCorrect,
+                      showWrong && styles.optionWrong,
+                    ]}
+                    onPress={() => selectAnswer(option.label)}
+                    activeOpacity={0.85}
+                    disabled={isAnswered}
+                  >
+                    <View
+                      style={[
+                        styles.optionRadio,
+                        selected && styles.optionRadioSelected,
+                        showCorrect && styles.radioCorrect,
+                        showWrong && styles.radioWrong,
+                      ]}
+                    >
+                      {selected && !isAnswered && <View style={styles.optionDot} />}
+                      {showCorrect && <Text style={styles.optionIcon}>✓</Text>}
+                      {showWrong && <Text style={styles.optionIcon}>✕</Text>}
+                    </View>
+
+                    <Text
+                      style={[
+                        styles.optionText,
+                        selected && styles.optionTextSelected,
+                        showCorrect && styles.correctText,
+                        showWrong && styles.wrongText,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {isAnswered && (
+              <View
+                style={[
+                  styles.explanationCard,
+                  isCorrect ? styles.correctCard : styles.wrongCard,
+                ]}
+              >
+                <Text style={styles.resultStatus}>
+                  {isCorrect ? "Chính xác 🎉" : "Chưa chính xác"}
+                </Text>
+
+                <Text style={styles.correctAnswer}>
+                  Đáp án đúng: {currentQuestion.correctAnswer}
+                </Text>
+
+                <Text style={styles.explanationText}>
+                  {currentQuestion.explanation ||
+                    "Không có giải thích cho câu hỏi này."}
+                </Text>
+              </View>
+            )}
           </View>
 
-          {questions.map((question, index) => (
-            <View key={question.id} style={styles.questionCard}>
-              <View style={styles.questionHeader}>
-                <View
-                  style={[
-                    styles.numberBox,
-                    index % 3 === 1 && styles.numberBoxBlue,
-                    index % 3 === 2 && styles.numberBoxOrange,
-                  ]}
-                >
-                  <Text style={styles.numberText}>{index + 1}</Text>
-                </View>
+          <View style={styles.bottomRow}>
+            <TouchableOpacity
+              style={[
+                styles.navButton,
+                currentIndex === 0 && styles.navButtonDisabled,
+              ]}
+              onPress={handleBackQuestion}
+              disabled={currentIndex === 0}
+            >
+              <Text style={styles.navButtonText}>Back</Text>
+            </TouchableOpacity>
 
-                <Text style={styles.questionText}>{question.text}</Text>
-              </View>
-
-              {question.reverseScore && (
-                <Text style={styles.reverseNote}>
-                  Câu này được đảo điểm khi tính kết quả.
+            <TouchableOpacity
+              style={[styles.nextButton, !isAnswered && styles.nextDisabled]}
+              onPress={handleNext}
+              disabled={submitting}
+              activeOpacity={0.85}
+            >
+              {submitting ? (
+                <ActivityIndicator color="#FFFFFF" />
+              ) : (
+                <Text style={styles.nextText}>
+                  {currentIndex === questions.length - 1 ? "Xem kết quả" : "Next"}
                 </Text>
               )}
+            </TouchableOpacity>
+          </View>
 
-              <View style={styles.optionsBox}>
-                {answerOptions.map((option) => {
-                  const selected = answers[question.id] === option.value;
-
-                  return (
-                    <TouchableOpacity
-                      key={option.value}
-                      style={styles.optionRow}
-                      onPress={() => selectAnswer(question.id, option.value)}
-                      activeOpacity={0.8}
-                    >
-                      <View
-                        style={[
-                          styles.radio,
-                          selected && styles.radioSelected,
-                        ]}
-                      >
-                        {selected && <View style={styles.radioDot} />}
-                      </View>
-
-                      <Text
-                        style={[
-                          styles.optionText,
-                          selected && styles.optionTextSelected,
-                        ]}
-                      >
-                        {option.label}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-
-          <TouchableOpacity
-            style={[
-              styles.submitButton,
-              totalAnswered !== questions.length && styles.submitButtonDisabled,
-            ]}
-            onPress={handleSubmit}
-            disabled={submitting}
-            activeOpacity={0.85}
-          >
-            {submitting ? (
-              <ActivityIndicator color="#FFFFFF" />
-            ) : (
-              <Text style={styles.submitText}>
-                Submit Result ({totalAnswered}/{questions.length})
-              </Text>
-            )}
-          </TouchableOpacity>
-
-          <View style={{ height: 70 }} />
+          <View style={{ height: 80 }} />
         </ScrollView>
       </SafeAreaView>
     </LinearGradient>
@@ -242,7 +327,7 @@ const styles = StyleSheet.create({
   },
   safe: {
     flex: 1,
-    paddingHorizontal: 22,
+    paddingHorizontal: 20,
   },
   loadingBox: {
     flex: 1,
@@ -251,19 +336,18 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    color: "#4B4774",
-    fontWeight: "700",
+    color: "#2F6B48",
+    fontWeight: "800",
   },
   topBar: {
-    marginTop: 20,
+    marginTop: 18,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
   },
   backButton: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
@@ -271,161 +355,258 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 34,
     lineHeight: 34,
-    color: "#6F62D8",
+    color: GREEN,
   },
-  title: {
+  headerTitle: {
     flex: 1,
     textAlign: "center",
     fontSize: 17,
     fontWeight: "900",
-    color: "#121027",
+    color: TEXT_DARK,
   },
-  heroBox: {
-    alignItems: "center",
-    justifyContent: "center",
-    height: 130,
-  },
-  heroIcon: {
-    fontSize: 82,
-  },
-  infoCard: {
+  progressPill: {
+    minWidth: 46,
+    height: 34,
+    borderRadius: 17,
     backgroundColor: "#FFFFFF",
-    borderRadius: 26,
-    padding: 20,
-    marginBottom: 14,
-  },
-  infoHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  infoIconCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#B891F6",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 12,
+    paddingHorizontal: 10,
   },
-  infoIcon: {
-    color: "#FFFFFF",
-    fontWeight: "900",
-  },
-  infoTitle: {
+  progressText: {
+    color: GREEN_DARK,
     fontSize: 12,
     fontWeight: "900",
-    color: "#1D1B38",
   },
-  infoText: {
+  introCard: {
+    marginTop: 20,
+    backgroundColor: "rgba(255,255,255,0.78)",
+    borderRadius: 26,
+    padding: 18,
+  },
+  testTitle: {
+    fontSize: 20,
+    fontWeight: "900",
+    color: TEXT_DARK,
+  },
+  description: {
+    marginTop: 8,
     fontSize: 12,
-    color: "#34304F",
-    lineHeight: 19,
+    lineHeight: 18,
+    color: "#4E6B5A",
   },
-  sourceText: {
-    marginTop: 10,
-    fontSize: 11,
-    color: "#6F62D8",
-    fontWeight: "800",
+  progressBarOuter: {
+    marginTop: 16,
+    height: 9,
+    borderRadius: 99,
+    backgroundColor: "rgba(47,191,113,0.18)",
+    overflow: "hidden",
   },
-  disclaimer: {
-    marginTop: 12,
-    fontSize: 11,
-    color: "#8A85A8",
-    lineHeight: 17,
+  progressBarInner: {
+    height: "100%",
+    borderRadius: 99,
+    backgroundColor: GREEN,
   },
   questionCard: {
+    marginTop: 18,
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 16,
-    marginBottom: 14,
+    borderRadius: 30,
+    padding: 18,
+    shadowColor: GREEN,
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+    elevation: 3,
   },
-  questionHeader: {
+  questionNumberRow: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     marginBottom: 12,
   },
-  numberBox: {
-    width: 24,
-    height: 24,
-    borderRadius: 7,
-    backgroundColor: "#FFC7DE",
+  numberCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: GREEN,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 10,
   },
-  numberBoxBlue: {
-    backgroundColor: "#CAD8FF",
-  },
-  numberBoxOrange: {
-    backgroundColor: "#FFE0B5",
-  },
   numberText: {
     color: "#FFFFFF",
     fontWeight: "900",
+  },
+  questionLabel: {
     fontSize: 12,
+    fontWeight: "900",
+    color: "#6BA67F",
+    textTransform: "uppercase",
   },
   questionText: {
-    flex: 1,
-    fontSize: 13,
+    fontSize: 18,
     fontWeight: "900",
-    color: "#1D1B38",
-    lineHeight: 18,
+    color: TEXT_DARK,
+    lineHeight: 25,
   },
-  reverseNote: {
-    marginBottom: 10,
-    fontSize: 11,
-    color: "#9B7DF5",
+  imageCard: {
+    marginTop: 18,
+    height: 250,
+    borderRadius: 24,
+    overflow: "hidden",
+    backgroundColor: "#EFFFF5",
+  },
+  questionImage: {
+    width: "100%",
+    height: "100%",
+  },
+  imagePlaceholder: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  placeholderEmoji: {
+    fontSize: 42,
+  },
+  placeholderText: {
+    marginTop: 8,
+    color: "#58986B",
+    fontSize: 12,
     fontWeight: "700",
   },
   optionsBox: {
-    marginTop: 4,
+    marginTop: 18,
   },
-  optionRow: {
+  optionButton: {
+    minHeight: 54,
+    borderRadius: 18,
+    backgroundColor: "#F7FFF9",
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 9,
-  },
-  radio: {
-    width: 11,
-    height: 11,
-    borderRadius: 6,
+    paddingHorizontal: 14,
+    marginBottom: 10,
     borderWidth: 1,
-    borderColor: "#F1CFE0",
-    marginRight: 9,
+    borderColor: "transparent",
+  },
+  optionSelected: {
+    borderColor: GREEN,
+    backgroundColor: GREEN_LIGHT,
+  },
+  optionCorrect: {
+    borderColor: "#46B97A",
+    backgroundColor: "#EFFFF5",
+  },
+  optionWrong: {
+    borderColor: "#EF6A7A",
+    backgroundColor: "#FFF0F2",
+  },
+  optionRadio: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    borderColor: "#BFE8CD",
+    marginRight: 12,
     justifyContent: "center",
     alignItems: "center",
   },
-  radioSelected: {
-    borderColor: "#B891F6",
+  optionRadioSelected: {
+    borderColor: GREEN,
   },
-  radioDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: "#B891F6",
+  radioCorrect: {
+    borderColor: "#46B97A",
+    backgroundColor: "#46B97A",
+  },
+  radioWrong: {
+    borderColor: "#EF6A7A",
+    backgroundColor: "#EF6A7A",
+  },
+  optionDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    backgroundColor: GREEN,
+  },
+  optionIcon: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "900",
+    position: "absolute",
   },
   optionText: {
-    fontSize: 12,
-    color: "#36314E",
     flex: 1,
+    fontSize: 14,
+    color: "#33463B",
+    fontWeight: "700",
   },
   optionTextSelected: {
-    color: "#6F62D8",
-    fontWeight: "800",
+    color: GREEN_DARK,
   },
-  submitButton: {
+  correctText: {
+    color: "#237A4E",
+  },
+  wrongText: {
+    color: "#C33B4A",
+  },
+  explanationCard: {
+    marginTop: 12,
+    borderRadius: 22,
+    padding: 16,
+  },
+  correctCard: {
+    backgroundColor: "#EFFFF5",
+  },
+  wrongCard: {
+    backgroundColor: "#FFF0F2",
+  },
+  resultStatus: {
+    fontSize: 16,
+    fontWeight: "900",
+    color: TEXT_DARK,
+  },
+  correctAnswer: {
     marginTop: 8,
+    fontSize: 13,
+    fontWeight: "900",
+    color: GREEN_DARK,
+  },
+  explanationText: {
+    marginTop: 8,
+    fontSize: 13,
+    lineHeight: 20,
+    color: "#4E6B5A",
+  },
+  bottomRow: {
+    marginTop: 18,
+    flexDirection: "row",
+    gap: 12,
+  },
+  navButton: {
+    flex: 1,
     height: 54,
     borderRadius: 27,
-    backgroundColor: "#9B7DF5",
+    backgroundColor: "#FFFFFF",
     justifyContent: "center",
     alignItems: "center",
   },
-  submitButtonDisabled: {
-    backgroundColor: "#C7BAEF",
+  navButtonDisabled: {
+    opacity: 0.45,
   },
-  submitText: {
+  navButtonText: {
+    color: GREEN_DARK,
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  nextButton: {
+    flex: 2,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: GREEN,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nextDisabled: {
+    backgroundColor: "#A9E6BF",
+  },
+  nextText: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "900",

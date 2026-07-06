@@ -9,59 +9,11 @@ import {
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { EmotionalTestResult } from "../../api/emotionalTestApi";
+import { EmotionalTestResult, ResultLevel } from "../../api/emotionalTestApi";
 
-function getEmoji(result?: EmotionalTestResult) {
-  if (!result) return "🌿";
-
-  if (result.testType === "PSS10") {
-    if (result.level === "low_stress") return "🌱";
-    if (result.level === "moderate_stress") return "🌤️";
-    return "🌧️";
-  }
-
-  if (result.level === "good") return "🌞";
-  if (result.level === "moderate") return "🌤️";
-  return "🌧️";
-}
-
-function getResultMessage(result?: EmotionalTestResult) {
-  if (!result) {
-    return "Kết quả giúp bạn tự nhìn lại trạng thái cảm xúc hiện tại.";
-  }
-
-  if (result.testType === "PSS10") {
-    if (result.level === "low_stress") {
-      return "Mức căng thẳng của bạn hiện đang tương đối thấp.";
-    }
-
-    if (result.level === "moderate_stress") {
-      return "Bạn có thể đang gặp một mức căng thẳng nhất định trong học tập hoặc cuộc sống.";
-    }
-
-    return "Bạn có thể đang chịu khá nhiều áp lực và nên quan tâm hơn đến việc nghỉ ngơi, giảm tải.";
-  }
-
-  if (result.level === "good") {
-    return "Gần đây bạn đang có trạng thái cảm xúc khá tích cực.";
-  }
-
-  if (result.level === "moderate") {
-    return "Bạn có thể đang có một vài dấu hiệu mệt mỏi hoặc căng thẳng.";
-  }
-
-  return "Bạn có thể đang cần quan tâm hơn đến cảm xúc và sức khỏe tinh thần của mình.";
-}
-
-function getScoreLabel(result?: EmotionalTestResult) {
-  if (!result) return "Score";
-
-  if (result.testType === "PSS10") {
-    return `${result.rawScore}/40`;
-  }
-
-  return `${result.percentageScore}/100`;
-}
+const GREEN = "#2FBF71";
+const GREEN_DARK = "#1F9D5C";
+const TEXT_DARK = "#1D1B38";
 
 function parseResultParam(resultParam: string | string[] | undefined) {
   try {
@@ -78,6 +30,24 @@ function parseResultParam(resultParam: string | string[] | undefined) {
   }
 }
 
+function getEmoji(level?: ResultLevel) {
+  if (level === "rat_thap") return "🌧️";
+  if (level === "duoi_trung_binh") return "🌥️";
+  if (level === "trung_binh") return "🌤️";
+  if (level === "tot") return "🌞";
+  if (level === "xuat_sac") return "✨";
+  return "🌿";
+}
+
+function getLevelLabel(level?: ResultLevel) {
+  if (level === "rat_thap") return "Rất thấp";
+  if (level === "duoi_trung_binh") return "Dưới trung bình";
+  if (level === "trung_binh") return "Trung bình";
+  if (level === "tot") return "Tốt";
+  if (level === "xuat_sac") return "Xuất sắc";
+  return "Kết quả";
+}
+
 export default function EmotionalResultScreen() {
   const params = useLocalSearchParams();
 
@@ -86,73 +56,83 @@ export default function EmotionalResultScreen() {
   }, [params.result]);
 
   return (
-    <LinearGradient colors={["#BFD7FF", "#D9C2FF"]} style={styles.container}>
+    <LinearGradient colors={["#DDFBE7", "#B9F5D0"]} style={styles.container}>
       <SafeAreaView style={styles.safe}>
         <ScrollView showsVerticalScrollIndicator={false}>
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.backButton}
-        onPress={() => router.replace("/(tabs)" as any)}
+              onPress={() => router.replace("/(tabs)" as any)}
             >
               <Text style={styles.backText}>‹</Text>
             </TouchableOpacity>
 
-            <Text style={styles.title}>Your Result</Text>
+            <Text style={styles.title}>Kết quả của bạn</Text>
 
             <View style={{ width: 38 }} />
           </View>
 
           <View style={styles.resultCard}>
-            <Text style={styles.emoji}>{getEmoji(result)}</Text>
+            <Text style={styles.emoji}>{getEmoji(result?.resultLevel)}</Text>
 
             <Text style={styles.testTitle}>
-              {result?.testTitle || "Emotional Check"}
+              {result?.testTitle || "Kiểm tra trí tuệ cảm xúc"}
             </Text>
 
-            <Text style={styles.score}>{getScoreLabel(result)}</Text>
+            <Text style={styles.score}>
+              {result ? `${result.totalScore}/${result.maxScore}` : "0/20"}
+            </Text>
 
             <Text style={styles.levelLabel}>
-              {result?.levelLabel || "Emotional well-being"}
+              {getLevelLabel(result?.resultLevel)}
             </Text>
 
-            <Text style={styles.message}>{getResultMessage(result)}</Text>
+            <Text style={styles.resultTitle}>
+              {result?.title ||
+                "Kết quả giúp bạn tự nhìn lại khả năng đọc cảm xúc."}
+            </Text>
+
+            <Text style={styles.message}>
+              {result?.description ||
+                "Bài test này chỉ mang tính tham khảo và giúp bạn luyện khả năng nhận diện cảm xúc qua nét mặt."}
+            </Text>
           </View>
 
           <View style={styles.suggestionCard}>
             <Text style={styles.cardTitle}>Gợi ý cho bạn</Text>
             <Text style={styles.cardText}>
               {result?.suggestion ||
-                "Hãy dành một chút thời gian nghỉ ngơi, hít thở sâu hoặc viết nhật ký cảm xúc."}
+                "Hãy luyện quan sát nét mặt, ánh mắt, lông mày và biểu cảm miệng để cải thiện khả năng nhận diện cảm xúc."}
             </Text>
           </View>
 
-          <View style={styles.warningCard}>
-            <Text style={styles.warningTitle}>Lưu ý an toàn</Text>
-            <Text style={styles.warningText}>
-              {result?.disclaimer ||
-                "Kết quả này chỉ nhằm hỗ trợ bạn tự nhìn lại trạng thái cảm xúc, không phải chẩn đoán y khoa hoặc thay thế chuyên gia tâm lý."}
+          <View style={styles.adviceCard}>
+            <Text style={styles.cardTitle}>Lời khuyên</Text>
+            <Text style={styles.cardText}>
+              {result?.advice ||
+                "Khi giao tiếp, đừng chỉ nhìn vào nét mặt. Hãy kết hợp với giọng nói, ngữ cảnh và cách người đó phản hồi."}
             </Text>
           </View>
 
           <TouchableOpacity
             style={styles.primaryButton}
-            onPress={() => router.push("/ai-chat" as any)}
+            onPress={() => router.push("/emotional-test/assessment" as any)}
           >
-            <Text style={styles.primaryButtonText}>Talk with SOUL AI</Text>
+            <Text style={styles.primaryButtonText}>Làm lại bài test</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.secondaryButton}
-            onPress={() => router.push("/diary" as any)}
+            onPress={() => router.push("/ai-chat" as any)}
           >
-            <Text style={styles.secondaryButtonText}>Write emotional diary</Text>
+            <Text style={styles.secondaryButtonText}>Trò chuyện với SOUL AI</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.homeButton}
             onPress={() => router.push("/emotional-test" as any)}
           >
-            <Text style={styles.homeButtonText}>Back to Tests</Text>
+            <Text style={styles.homeButtonText}>Quay lại danh sách test</Text>
           </TouchableOpacity>
 
           <View style={{ height: 80 }} />
@@ -187,47 +167,59 @@ const styles = StyleSheet.create({
   backText: {
     fontSize: 34,
     lineHeight: 34,
-    color: "#6F62D8",
+    color: GREEN,
   },
   title: {
     fontSize: 18,
     fontWeight: "900",
-    color: "#121027",
+    color: TEXT_DARK,
   },
   resultCard: {
     marginTop: 32,
     backgroundColor: "#FFFFFF",
     borderRadius: 30,
-    padding: 28,
+    padding: 26,
     alignItems: "center",
+    shadowColor: GREEN,
+    shadowOpacity: 0.12,
+    shadowRadius: 14,
+    elevation: 3,
   },
   emoji: {
-    fontSize: 72,
+    fontSize: 74,
     marginBottom: 8,
   },
   testTitle: {
     fontSize: 15,
     fontWeight: "900",
-    color: "#1D1B38",
+    color: TEXT_DARK,
     textAlign: "center",
     marginBottom: 8,
   },
   score: {
-    fontSize: 44,
+    fontSize: 46,
     fontWeight: "900",
-    color: "#6F62D8",
+    color: GREEN,
   },
   levelLabel: {
     marginTop: 6,
     fontSize: 20,
     fontWeight: "900",
-    color: "#1D1B38",
+    color: TEXT_DARK,
     textAlign: "center",
+  },
+  resultTitle: {
+    marginTop: 14,
+    fontSize: 16,
+    fontWeight: "900",
+    color: TEXT_DARK,
+    textAlign: "center",
+    lineHeight: 22,
   },
   message: {
     marginTop: 12,
     fontSize: 13,
-    color: "#6F6A91",
+    color: "#4E6B5A",
     textAlign: "center",
     lineHeight: 20,
   },
@@ -237,39 +229,28 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 20,
   },
-  warningCard: {
+  adviceCard: {
     marginTop: 14,
-    backgroundColor: "rgba(255,255,255,0.65)",
+    backgroundColor: "rgba(255,255,255,0.76)",
     borderRadius: 24,
     padding: 20,
   },
   cardTitle: {
     fontSize: 16,
     fontWeight: "900",
-    color: "#1D1B38",
+    color: TEXT_DARK,
     marginBottom: 10,
   },
   cardText: {
     fontSize: 13,
-    color: "#5C577C",
+    color: "#4E6B5A",
     lineHeight: 20,
-  },
-  warningTitle: {
-    fontSize: 15,
-    fontWeight: "900",
-    color: "#1D1B38",
-    marginBottom: 10,
-  },
-  warningText: {
-    fontSize: 12,
-    color: "#6F6A91",
-    lineHeight: 19,
   },
   primaryButton: {
     marginTop: 22,
     height: 54,
     borderRadius: 27,
-    backgroundColor: "#9B7DF5",
+    backgroundColor: GREEN,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -287,7 +268,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   secondaryButtonText: {
-    color: "#7B61FF",
+    color: GREEN_DARK,
     fontSize: 15,
     fontWeight: "900",
   },
@@ -298,7 +279,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   homeButtonText: {
-    color: "#4F4A73",
+    color: "#2F6B48",
     fontSize: 14,
     fontWeight: "800",
   },

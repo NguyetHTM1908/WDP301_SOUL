@@ -92,10 +92,23 @@ const userSchema = new mongoose.Schema(
       default: false,
     },
 
+    anonymousIdentityId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      trim: true,
+      default: null,
+    },
+
     anonymousAlias: {
       type: String,
       trim: true,
       default: null,
+    },
+
+    anonymousAvatarUrl: {
+      type: String,
+      default: "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg",
     },
 
     anonymousModeUpdatedAt: {
