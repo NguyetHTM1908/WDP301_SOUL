@@ -6,6 +6,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  RefreshControl,
   SafeAreaView,
   ScrollView,
   Text,
@@ -13,7 +14,7 @@ import {
   View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { eventService, normalizeListResponse } from "@/services/eventApi";
 import { scheduleEventReminder } from "@/services/eventNotification";
 import { eventStyles as s } from "@/styles/event.styles";
@@ -152,7 +153,7 @@ export default function UserEventsScreen() {
         await loadRegisteredEvents();
       }
     } catch (error: any) {
-      showMessage("Lỗi", error?.message || "Không thể tải danh sách event.");
+      showMessage("Lỗi", error?.message || "Không thể tải danh sách sự kiện.");
     } finally {
       setLoading(false);
     }
@@ -181,12 +182,12 @@ export default function UserEventsScreen() {
 
   const handleRegister = async (event: any) => {
     if (registeredIds.has(event._id)) {
-      showMessage("Đã đăng ký", "Event này đã có trong lịch của bạn.");
+      showMessage("Đã đăng ký", "Sự kiện này đã có trong lịch của bạn.");
       return;
     }
 
     if (!canRegisterEvent(event)) {
-      showMessage("Không thể đăng ký", "Event này không còn mở đăng ký.");
+      showMessage("Không thể đăng ký", "Sự kiện này không còn mở đăng ký.");
       return;
     }
 
@@ -200,16 +201,16 @@ export default function UserEventsScreen() {
 
         showMessage(
           "Đăng ký thành công",
-          "Event đã được thêm vào lịch của bạn. Hệ thống sẽ nhắc trước 24 giờ nếu thiết bị cho phép thông báo."
+          "Sự kiện đã được thêm vào lịch của bạn. Hệ thống sẽ nhắc trước 24 giờ nếu thiết bị cho phép thông báo."
         );
 
         await loadPublicEvents();
         closeDetail();
       } else {
-        showMessage("Lỗi", response.message || "Không thể đăng ký event.");
+        showMessage("Lỗi", response.message || "Không thể đăng ký sự kiện.");
       }
     } catch (error: any) {
-      showMessage("Lỗi", error?.message || "Không thể đăng ký event.");
+      showMessage("Lỗi", error?.message || "Không thể đăng ký sự kiện.");
     } finally {
       setActionLoadingId(null);
     }
@@ -219,7 +220,7 @@ export default function UserEventsScreen() {
     if (!canCancelRegistration(event)) {
       showMessage(
         "Không thể hủy",
-        "Bạn chỉ được hủy đăng ký trước khi event diễn ra ít nhất 24 giờ."
+        "Bạn chỉ được hủy đăng ký trước khi sự kiện diễn ra ít nhất 24 giờ."
       );
       return;
     }
@@ -235,7 +236,10 @@ export default function UserEventsScreen() {
             prev.filter((item) => item._id !== event._id)
           );
 
-          showMessage("Đã hủy đăng ký", "Bạn đã hủy tham dự event thành công.");
+          showMessage(
+            "Đã hủy đăng ký",
+            "Bạn đã hủy tham dự sự kiện thành công."
+          );
           closeDetail();
         } else {
           showMessage("Lỗi", response.message || "Không thể hủy đăng ký.");
@@ -247,14 +251,14 @@ export default function UserEventsScreen() {
       }
     };
 
-    const webConfirm = askConfirm("Bạn có chắc muốn hủy đăng ký event này?");
+    const webConfirm = askConfirm("Bạn có chắc muốn hủy đăng ký sự kiện này?");
     if (webConfirm === false) return;
     if (webConfirm === true) {
       await cancelNow();
       return;
     }
 
-    Alert.alert("Hủy đăng ký", "Bạn có chắc muốn hủy đăng ký event này?", [
+    Alert.alert("Hủy đăng ký", "Bạn có chắc muốn hủy đăng ký sự kiện này?", [
       { text: "Không", style: "cancel" },
       { text: "Hủy đăng ký", style: "destructive", onPress: cancelNow },
     ]);
@@ -290,7 +294,7 @@ export default function UserEventsScreen() {
               {item.title}
             </Text>
             <Text style={s.cardSubtitle}>
-              {item.organizerName || item.createdBy?.fullName || "SOUL Event"}
+              {item.organizerName || item.createdBy?.fullName || "Sự kiện SOUL"}
             </Text>
           </View>
 
@@ -383,8 +387,8 @@ export default function UserEventsScreen() {
                   {isRegistered
                     ? "Đã có trong lịch"
                     : registerable
-                    ? "Đăng ký tham dự"
-                    : "Không thể đăng ký"}
+                      ? "Đăng ký tham dự"
+                      : "Không thể đăng ký"}
                 </Text>
               </>
             )}
@@ -418,7 +422,23 @@ export default function UserEventsScreen() {
   return (
     <SafeAreaView style={s.safeArea}>
       <View style={s.hero}>
-        <Text style={s.heroTitle}>SOUL Events</Text>
+        <TouchableOpacity
+          activeOpacity={0.75}
+          onPress={() => router.replace("/(tabs)" as any)}
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 21,
+            backgroundColor: "#FFFFFF",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 14,
+          }}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
+        </TouchableOpacity>
+
+        <Text style={s.heroTitle}>Sự kiện SOUL</Text>
         <Text style={s.heroSubtitle}>
           Xem sự kiện đã được duyệt, đăng ký tham dự và theo dõi lịch cá nhân.
         </Text>
@@ -464,7 +484,7 @@ export default function UserEventsScreen() {
       {loading ? (
         <View style={s.center}>
           <ActivityIndicator size="large" color="#00866B" />
-          <Text style={s.loadingText}>Đang tải event...</Text>
+          <Text style={s.loadingText}>Đang tải sự kiện...</Text>
         </View>
       ) : (
         <FlatList
@@ -472,6 +492,10 @@ export default function UserEventsScreen() {
           keyExtractor={(item) => item._id}
           renderItem={renderEventCard}
           contentContainerStyle={currentData.length ? s.listContent : undefined}
+          refreshControl={
+            <RefreshControl refreshing={loading} onRefresh={loadData} />
+          }
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={s.emptyBox}>
               <MaterialCommunityIcons
@@ -479,11 +503,11 @@ export default function UserEventsScreen() {
                 size={44}
                 color="#00866B"
               />
-              <Text style={s.emptyTitle}>Chưa có event</Text>
+              <Text style={s.emptyTitle}>Chưa có sự kiện</Text>
               <Text style={s.emptyText}>
                 {activeTab === "explore"
                   ? "Hiện chưa có sự kiện nào được admin duyệt."
-                  : "Bạn chưa đăng ký tham dự event nào."}
+                  : "Bạn chưa đăng ký tham dự sự kiện nào."}
               </Text>
             </View>
           }
@@ -495,9 +519,7 @@ export default function UserEventsScreen() {
         event={selectedEvent}
         mode={activeTab}
         actionLoading={!!selectedEvent && actionLoadingId === selectedEvent._id}
-        isRegistered={
-          !!selectedEvent && registeredIds.has(selectedEvent._id)
-        }
+        isRegistered={!!selectedEvent && registeredIds.has(selectedEvent._id)}
         onClose={closeDetail}
         onRegister={() => selectedEvent && handleRegister(selectedEvent)}
         onCancel={() => selectedEvent && handleCancel(selectedEvent)}
@@ -546,6 +568,7 @@ function Bubble({
         <Text style={{ color: "#64748B", fontSize: 12, fontWeight: "800" }}>
           {label}
         </Text>
+
         <Text
           style={{
             color: "#0A3F36",
@@ -600,7 +623,7 @@ function EventDetailBubbleModal({
               </TouchableOpacity>
             </View>
 
-            <Text style={s.adminTitle}>Chi tiết event</Text>
+            <Text style={s.adminTitle}>Chi tiết sự kiện</Text>
             <Text style={s.adminSubtitle}>{event.title}</Text>
           </View>
 
@@ -618,7 +641,9 @@ function EventDetailBubbleModal({
             />
 
             <Bubble
-              icon={eventMode === "Online" ? "video-outline" : "map-marker-outline"}
+              icon={
+                eventMode === "Online" ? "video-outline" : "map-marker-outline"
+              }
               label={eventMode === "Online" ? "Link Zoom/Meet" : "Địa điểm"}
               value={place}
             />
@@ -626,7 +651,9 @@ function EventDetailBubbleModal({
             <Bubble
               icon="account-group-outline"
               label="Số lượng"
-              value={`${event.registeredCount || 0}/${event.capacity || "∞"} người`}
+              value={`${event.registeredCount || 0}/${
+                event.capacity || "∞"
+              } người`}
             />
 
             <Bubble
@@ -668,7 +695,8 @@ function EventDetailBubbleModal({
               <TouchableOpacity
                 style={[
                   s.primaryButton,
-                  (!registerable || actionLoading || isRegistered) && s.disabled,
+                  (!registerable || actionLoading || isRegistered) &&
+                    s.disabled,
                 ]}
                 onPress={onRegister}
                 disabled={!registerable || actionLoading || isRegistered}
@@ -680,14 +708,17 @@ function EventDetailBubbleModal({
                     {isRegistered
                       ? "Đã có trong lịch"
                       : registerable
-                      ? "Đăng ký tham dự"
-                      : "Không thể đăng ký"}
+                        ? "Đăng ký tham dự"
+                        : "Không thể đăng ký"}
                   </Text>
                 )}
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
-                style={[s.cancelButton, (!cancelable || actionLoading) && s.disabled]}
+                style={[
+                  s.cancelButton,
+                  (!cancelable || actionLoading) && s.disabled,
+                ]}
                 onPress={onCancel}
                 disabled={!cancelable || actionLoading}
               >
