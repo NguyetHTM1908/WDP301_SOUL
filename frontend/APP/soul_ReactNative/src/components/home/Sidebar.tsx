@@ -6,8 +6,8 @@ import { styles } from "@/styles/home.styles";
 const menuItems = [
   { icon: "home", label: "Home", route: "/" },
   { icon: "brain", label: "AI Companion" },
-  { icon: "book-outline", label: "Diary" },
-  { icon: "heart-pulse", label: "Emotional Test" },
+  { icon: "book-outline", label: "Diary", route: "/diary" },
+  { icon: "heart-pulse", label: "Emotional Test", route: "/emotional-test" },
   { icon: "calendar-month-outline", label: "Events", route: "/user-events" },
   { icon: "chart-line", label: "Insights" },
   { icon: "emoticon-happy-outline", label: "Mood Tracker" },

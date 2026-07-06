@@ -109,6 +109,32 @@ export const styles = StyleSheet.create({
     zIndex: 99999,
   },
 
+  // Dropdown render ở tầng root để không bị clip bởi ScrollView
+  profileMenuFloating: {
+    position: "absolute",
+    top: 100,
+    right: 18,
+    width: 280,
+    borderRadius: 22,
+    padding: 18,
+    backgroundColor: "#FFFFFF",
+    elevation: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    zIndex: 99999,
+  },
+
+  profileOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 9998,
+  },
+
   profileTop: {
     flexDirection: "row",
     alignItems: "center",

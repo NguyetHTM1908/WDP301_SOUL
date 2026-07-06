@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, Alert } from "react-native";
+import { router } from "expo-router";
 import { forumStyles as s } from "@/styles/forum.styles";
 import { CommentThread } from "./CommentThread";
 
@@ -156,7 +157,19 @@ export function PostCard({
   return (
     <View style={[s.postCard, item?.isFlagged && s.postCardFlagged]}>
       <View style={s.postHeader}>
-        <View style={s.authorRow}>
+        <Pressable
+          style={s.authorRow}
+          onPress={() => {
+            if (item?.isAnonymous) {
+              Alert.alert("Thông báo", "Tài khoản đăng dưới dạng ẩn danh nên không thể xem trang cá nhân.");
+              return;
+            }
+            const authorId = item?.authorId?._id || item?.authorId;
+            if (authorId) {
+              router.push(`/profile/${authorId}` as any);
+            }
+          }}
+        >
           <Image source={{ uri: avatar }} style={s.avatar} />
 
           <View style={s.authorInfo}>
@@ -183,7 +196,7 @@ export function PostCard({
 
             <Text style={s.postMeta}>{moodLabel(item?.emotionStatus)}</Text>
           </View>
-        </View>
+        </Pressable>
 
         {mode === "mine" ? (
           <View style={s.mineActions}>
