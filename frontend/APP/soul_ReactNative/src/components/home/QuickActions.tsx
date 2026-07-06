@@ -10,6 +10,7 @@ const features = [
     sub: "Trò chuyện thấu hiểu cảm xúc",
     bg: "#D8F8EC",
     color: "#009688",
+    route: "/ai-chat",
   },
   {
     icon: "book-outline",
