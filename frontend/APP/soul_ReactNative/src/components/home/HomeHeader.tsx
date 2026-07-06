@@ -9,6 +9,7 @@ import {
 import { router } from "expo-router";
 import { useAuthStore } from "@/store";
 import { styles } from "@/styles/home.styles";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type Props = {
   showSidebar: boolean;
@@ -66,10 +67,10 @@ export function HomeHeader({
           style={styles.profileWrapper}
           onPress={onToggleProfileMenu}
         >
-          <Image
-            source={{
-              uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47",
-            }}
+          <AvatarFallback
+            uri={user?.avatarUrl}
+            name={user?.fullName || "Người dùng SOUL"}
+            size={40}
             style={styles.avatar}
           />
         </Pressable>
@@ -113,8 +114,10 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
             router.push(`/profile/${user?._id || "me"}` as any);
           }}
         >
-          <Image
-            source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+          <AvatarFallback
+            uri={user?.avatarUrl}
+            name={user?.fullName || "Người dùng SOUL"}
+            size={50}
             style={styles.profileImg}
           />
           <View>

@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useAuthStore } from "@/store";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type ProfileModalsProps = {
   showMyProfile: boolean;
@@ -47,9 +48,9 @@ export function ProfileModals({
 
   // Danh sách chủ đề quan tâm có thể chọn
   const INTEREST_OPTIONS = [
-    "stress", "anxiety", "mindfulness", "depression", "selfcare",
-    "healing", "study", "relationship", "loneliness", "motivation",
-    "sleep", "exercise", "gratitude", "confidence", "work",
+    "áp lực", "lo âu", "chánh niệm", "trầm cảm", "chăm sóc bản thân",
+    "chữa lành", "học tập", "mối quan hệ", "cô đơn", "động lực",
+    "giấc ngủ", "thể dục", "lòng biết ơn", "sự tự tin", "công việc",
   ];
 
   const toggleInterest = (tag: string) => {
@@ -168,8 +169,10 @@ export function ProfileModals({
 
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.profileHeaderBox}>
-              <Image
-                source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+              <AvatarFallback
+                uri={user?.avatarUrl}
+                name={user?.fullName || "Người dùng SOUL"}
+                size={80}
                 style={styles.profileHeaderAvatar}
               />
               <View style={styles.profileHeaderText}>
@@ -274,8 +277,10 @@ export function ProfileModals({
               
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarLargeWrapper}>
-                  <Image
-                    source={{ uri: avatarUrl || user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+                  <AvatarFallback
+                    uri={avatarUrl || user?.avatarUrl}
+                    name={user?.fullName || "Người dùng SOUL"}
+                    size={110}
                     style={styles.avatarLarge}
                   />
                   <View style={styles.cameraBadge}>
