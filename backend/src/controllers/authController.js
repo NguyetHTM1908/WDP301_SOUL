@@ -18,7 +18,7 @@ const generateToken = (userId) => {
  */
 const register = async (req, res) => {
   try {
-    const { fullName, email, password, phone, gender, dateOfBirth } = req.body;
+    const { fullName, email, password, phone, gender, dateOfBirth, role } = req.body;
 
     // 1. Kiểm tra các trường bắt buộc
     if (!fullName || !email || !password) {
@@ -70,11 +70,15 @@ const register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // 7. Tạo người dùng mới
+    // Chỉ cho phép chọn user hoặc event_organizer khi đăng ký, không cho phép tự gán admin
+    const allowedRoles = ["user", "event_organizer"];
+    const finalRole = (role && allowedRoles.includes(role)) ? role : "user";
+
     const userFields = {
       fullName,
       email,
       passwordHash,
-      role: "user",
+      role: finalRole,
       status: "active",
       isEmailVerified: false,
     };
@@ -413,7 +417,7 @@ const googleLogin = async (req, res) => {
         user.avatarUrl = avatarUrl;
         isUpdated = true;
       }
-      
+
       user.lastLoginAt = new Date();
       await user.save();
 
@@ -422,8 +426,8 @@ const googleLogin = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: isUpdated 
-          ? "Liên kết tài khoản và đăng nhập bằng Google thành công." 
+        message: isUpdated
+          ? "Liên kết tài khoản và đăng nhập bằng Google thành công."
           : "Đăng nhập bằng Google thành công.",
         data: {
           user,
