@@ -49,6 +49,7 @@ import { ProfileIntro } from "@/components/profile/ProfileIntro";
 import { ProfilePhotos } from "@/components/profile/ProfilePhotos";
 import { ProfileFriends } from "@/components/profile/ProfileFriends";
 import { ProfileModals } from "@/components/profile/ProfileModals";
+import { AvatarFallback } from "@/components/profile/AvatarFallback";
 
 const emotions = [
   { value: "happy", label: "😊", text: "Happy" },
@@ -349,6 +350,7 @@ export default function ProfileScreen() {
       isAnonymous,
       anonymousName: isAnonymous ? (anonymousName.trim() || "Anonymous Soul") : undefined,
       visibility: "public" as "public" | "private",
+      postType: "profile" as "forum" | "profile",
     };
 
     try {
@@ -676,8 +678,10 @@ export default function ProfileScreen() {
               {/* Box đăng bài giống FB (chỉ hiển thị trên profile của mình) */}
               {isMe && (
                 <View style={s.createPostBar}>
-                  <Image
-                    source={{ uri: userProfile?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+                  <AvatarFallback
+                    uri={userProfile?.avatarUrl}
+                    name={userProfile?.fullName || "Người dùng SOUL"}
+                    size={40}
                     style={s.createPostAvatar}
                   />
                   <TouchableOpacity style={s.createPostPlaceholder} onPress={openCreateModal}>
@@ -782,6 +786,8 @@ export default function ProfileScreen() {
       <CreatePostModal
         visible={showCreatePost}
         isEditing={!!editingPost}
+        currentUser={currentUser}
+        hideAnonymous={true}
         content={content}
         mediaUrl={mediaUrl}
         hashtags={hashtags}

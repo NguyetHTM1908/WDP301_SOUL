@@ -5,6 +5,7 @@ import { router } from "expo-router";
 import { forumStyles as s } from "@/styles/forum.styles";
 import { CommentThread } from "./CommentThread";
 import { ForumUser, getForumAuthor } from "@/utils/forumIdentity";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
@@ -195,7 +196,12 @@ export function PostCard({
             }
           }}
         >
-          <Image source={{ uri: author.avatarUrl }} style={s.avatar} />
+          <AvatarFallback
+            uri={author.avatarUrl}
+            name={author.fullName || "Người dùng SOUL"}
+            size={40}
+            style={s.avatar}
+          />
 
           <View style={s.authorInfo}>
             <View style={s.nameRow}>

@@ -37,7 +37,8 @@ exports.getUserPosts = async (req, res) => {
       authorId: id,
       status: "approved",
       visibility: "public",
-      isFlagged: false
+      isFlagged: false,
+      postType: "profile"
     })
     .populate("authorId", "fullName email avatarUrl anonymousAlias")
     .sort({ createdAt: -1 });
