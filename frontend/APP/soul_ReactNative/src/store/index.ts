@@ -14,6 +14,7 @@ interface User {
   dateOfBirth?: string;
   avatarUrl?: string;
   bio?: string;
+  interests?: string[];
 }
 
 // Định nghĩa giao diện trạng thái quản lý của Zustand Store
@@ -35,6 +36,7 @@ interface AuthState {
     phone?: string;
     gender?: string;
     dateOfBirth?: string;
+    role?: string;
   }) => Promise<{ success: boolean; message: string }>;
   loginWithGoogle: (
     email: string,
@@ -50,6 +52,7 @@ interface AuthState {
     dateOfBirth?: string;
     avatarUrl?: string;
     bio?: string;
+    interests?: string[];
   }) => Promise<{ success: boolean; message: string }>;
   changePassword: (passwordData: {
     currentPassword?: string;

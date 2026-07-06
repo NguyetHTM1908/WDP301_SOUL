@@ -41,6 +41,7 @@ export type UpdateProfilePayload = {
   dateOfBirth?: string | null;
   avatarUrl?: string | null;
   bio?: string | null;
+  interests?: string[];
 
   // Forum anonymous mode
   anonymousModeEnabled?: boolean;
@@ -69,6 +70,7 @@ export const authService = {
     phone?: string;
     gender?: string;
     dateOfBirth?: string;
+    role?: string;
   }) => {
     try {
       const response = await apiClient.post("/auth/register", userData);

@@ -24,13 +24,18 @@ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default function RegisterScreen() {
   const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [gender, setGender] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<"user" | "event_organizer">("user");
 
   // States inline validation
   const [nameError, setNameError] = useState("");
+  const [phoneError, setPhoneError] = useState("");
+  const [genderError, setGenderError] = useState("");
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [serverError, setServerError] = useState("");
@@ -49,6 +54,24 @@ export default function RegisterScreen() {
       setNameError("Vui lòng nhập họ tên");
     } else {
       setNameError("");
+    }
+  };
+
+  const validatePhone = (value: string) => {
+    if (!value.trim()) {
+      setPhoneError("Vui lòng nhập số điện thoại");
+    } else if (value.trim().length < 10) {
+      setPhoneError("Số điện thoại không hợp lệ (ít nhất 10 số)");
+    } else {
+      setPhoneError("");
+    }
+  };
+
+  const validateGender = (value: string) => {
+    if (!value) {
+      setGenderError("Vui lòng chọn giới tính");
+    } else {
+      setGenderError("");
     }
   };
 
@@ -77,6 +100,12 @@ export default function RegisterScreen() {
     setFullName(value);
     setServerError("");
     validateName(value);
+  };
+
+  const handlePhoneChange = (value: string) => {
+    setPhone(value);
+    setServerError("");
+    validatePhone(value);
   };
 
   const handleEmailChange = (value: string) => {
@@ -141,16 +170,25 @@ export default function RegisterScreen() {
   const handleRegister = async () => {
     // Validate tất cả fields trước khi gọi API
     validateName(fullName);
+    validatePhone(phone);
+    validateGender(gender);
     validateEmail(email);
     validatePassword(password);
 
-    if (!fullName.trim() || !emailRegex.test(email) || password.length < 6) {
+    if (
+      !fullName.trim() ||
+      !phone.trim() ||
+      phone.trim().length < 10 ||
+      !gender ||
+      !emailRegex.test(email) ||
+      password.length < 6
+    ) {
       return;
     }
 
     setServerError("");
     setLoading(true);
-    const result = await registerAction({ fullName, email, password });
+    const result = await registerAction({ fullName, email, password, phone, gender, role: selectedRole });
     setLoading(false);
 
     if (result.success) {
@@ -209,6 +247,26 @@ export default function RegisterScreen() {
           </View>
           {nameError ? <Text style={styles.errorText}>{nameError}</Text> : null}
 
+          {/* Ô nhập Số điện thoại */}
+          <View style={styles.inputGroup}>
+            <MaterialCommunityIcons
+              name="phone-outline"
+              size={22}
+              color="#8193A5"
+              style={styles.inputIcon}
+            />
+            <TextInput
+              placeholder="Số điện thoại"
+              placeholderTextColor="#A0AEC0"
+              style={styles.input}
+              value={phone}
+              onChangeText={handlePhoneChange}
+              keyboardType="phone-pad"
+              autoCapitalize="none"
+            />
+          </View>
+          {phoneError ? <Text style={styles.errorText}>{phoneError}</Text> : null}
+
           {/* Ô nhập Email */}
           <View style={styles.inputGroup}>
             <MaterialCommunityIcons
@@ -228,6 +286,90 @@ export default function RegisterScreen() {
             />
           </View>
           {emailError ? <Text style={styles.errorText}>{emailError}</Text> : null}
+
+          {/* Chọn giới tính */}
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#466986", marginBottom: 8, marginTop: 4 }}>
+            Giới tính
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+            {["male", "female", "other"].map((g) => (
+              <TouchableOpacity
+                key={g}
+                style={{
+                  flex: 1,
+                  height: 48,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: gender === g ? "#0F766E" : "#D1EFE6",
+                  backgroundColor: gender === g ? "#D8F8EC" : "#F3FAF8",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+                onPress={() => {
+                  setGender(g);
+                  setGenderError("");
+                  setServerError("");
+                }}
+              >
+                <Text
+                  style={{
+                    color: gender === g ? "#0F766E" : "#8193A5",
+                    fontWeight: "600",
+                    fontSize: 14,
+                    textTransform: "capitalize",
+                  }}
+                >
+                  {g === "male" ? "Nam" : g === "female" ? "Nữ" : "Khác"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {genderError ? <Text style={styles.errorText}>{genderError}</Text> : null}
+
+          {/* Chọn loại tài khoản */}
+          <Text style={{ fontSize: 14, fontWeight: "600", color: "#466986", marginBottom: 8, marginTop: 4 }}>
+            Loại tài khoản
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+            {([
+              { value: "user", label: "Người dùng thường", icon: "account-outline" },
+              { value: "event_organizer", label: "Người tổ chức\nsự kiện", icon: "calendar-star" },
+            ] as { value: "user" | "event_organizer"; label: string; icon: string }[]).map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={{
+                  flex: 1,
+                  minHeight: 64,
+                  borderRadius: 14,
+                  borderWidth: 1,
+                  borderColor: selectedRole === opt.value ? "#0F766E" : "#D1EFE6",
+                  backgroundColor: selectedRole === opt.value ? "#D8F8EC" : "#F3FAF8",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  paddingVertical: 8,
+                  paddingHorizontal: 4,
+                  gap: 4,
+                }}
+                onPress={() => setSelectedRole(opt.value)}
+              >
+                <MaterialCommunityIcons
+                  name={opt.icon as any}
+                  size={20}
+                  color={selectedRole === opt.value ? "#0F766E" : "#8193A5"}
+                />
+                <Text
+                  style={{
+                    color: selectedRole === opt.value ? "#0F766E" : "#8193A5",
+                    fontWeight: "600",
+                    fontSize: 12,
+                    textAlign: "center",
+                  }}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {/* Ô nhập Mật khẩu */}
           <View style={styles.inputGroup}>

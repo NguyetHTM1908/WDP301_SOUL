@@ -1,9 +1,11 @@
 import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, Alert } from "react-native";
+import { router } from "expo-router";
 import { forumStyles as s } from "@/styles/forum.styles";
 import { CommentThread } from "./CommentThread";
 import { ForumUser, getForumAuthor } from "@/utils/forumIdentity";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
@@ -181,8 +183,25 @@ export function PostCard({
   return (
     <View style={[s.postCard, item?.isFlagged && s.postCardFlagged]}>
       <View style={s.postHeader}>
-        <View style={s.authorRow}>
-          <Image source={{ uri: author.avatarUrl }} style={s.avatar} />
+        <Pressable
+          style={s.authorRow}
+          onPress={() => {
+            if (item?.isAnonymous) {
+              Alert.alert("Thông báo", "Tài khoản đăng dưới dạng ẩn danh nên không thể xem trang cá nhân.");
+              return;
+            }
+            const authorId = item?.authorId?._id || item?.authorId;
+            if (authorId) {
+              router.push(`/profile/${authorId}` as any);
+            }
+          }}
+        >
+          <AvatarFallback
+            uri={author.avatarUrl}
+            name={author.fullName || "Người dùng SOUL"}
+            size={40}
+            style={s.avatar}
+          />
 
           <View style={s.authorInfo}>
             <View style={s.nameRow}>
@@ -212,7 +231,7 @@ export function PostCard({
                 : moodLabel(item?.emotionStatus)}
             </Text>
           </View>
-        </View>
+        </Pressable>
 
         {mode === "mine" ? (
           <View style={s.mineActions}>

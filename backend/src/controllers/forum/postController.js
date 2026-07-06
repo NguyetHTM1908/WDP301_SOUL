@@ -169,6 +169,7 @@ exports.createPost = async (req, res) => {
       isAnonymous,
       anonymousName,
       visibility,
+      postType,
     } = req.body;
 
     if (!content || content.trim() === "") {
@@ -204,6 +205,7 @@ exports.createPost = async (req, res) => {
       anonymousName: anonymousMode ? displayAuthor.fullName : null,
 
       visibility: visibility || "public",
+      postType: postType || "forum",
 
       status: "pending",
       approvedAt: null,
@@ -270,6 +272,7 @@ exports.getApprovedPosts = async (req, res) => {
       status: "approved",
       visibility: "public",
       isFlagged: { $ne: true },
+      postType: { $ne: "profile" },
     };
 
     if (hashtag && String(hashtag).trim()) {
@@ -395,6 +398,7 @@ exports.getMyPosts = async (req, res) => {
     const posts = await Post.find({
       authorId: userId,
       status: { $ne: "deleted" },
+      postType: { $ne: "profile" },
     })
       .populate("authorId", AUTHOR_POPULATE_FIELDS)
       .sort({ createdAt: -1 });

@@ -49,6 +49,7 @@ type Props = {
 
   onClose: () => void;
   onSubmit: () => void;
+  hideAnonymous?: boolean;
 };
 
 export function CreatePostModal({
@@ -76,13 +77,14 @@ export function CreatePostModal({
 
   onClose,
   onSubmit,
+  hideAnonymous = false,
 }: Props) {
   const realIdentity = getCurrentForumIdentity({
     ...currentUser,
     anonymousModeEnabled: false,
   });
 
-  const displayIdentity = isAnonymous
+  const displayIdentity = (!hideAnonymous && isAnonymous)
     ? {
         id: currentUser?.anonymousIdentityId || null,
         fullName: anonymousName || currentUser?.anonymousAlias || "Anonymous Soul",
@@ -118,7 +120,9 @@ export function CreatePostModal({
             </Text>
 
             <Text style={s.modalSub}>
-              Chọn cách bạn muốn hiển thị trong cộng đồng SOUL.
+              {hideAnonymous
+                ? "Chia sẻ suy nghĩ và câu chuyện của bạn lên trang cá nhân."
+                : "Chọn cách bạn muốn hiển thị trong cộng đồng SOUL."}
             </Text>
 
             <View style={s.identityPreview}>
@@ -129,7 +133,11 @@ export function CreatePostModal({
 
               <View style={s.identityPreviewInfo}>
                 <Text style={s.identityPreviewLabel}>
-                  {isAnonymous ? "Đăng ẩn danh với tên" : "Đăng bài với tên"}
+                  {hideAnonymous
+                    ? "Đăng lên trang cá nhân"
+                    : isAnonymous
+                    ? "Đăng ẩn danh với tên"
+                    : "Đăng bài với tên"}
                 </Text>
 
                 <Text style={s.identityPreviewName}>
@@ -137,54 +145,60 @@ export function CreatePostModal({
                 </Text>
 
                 <Text style={s.identityPreviewMeta}>
-                  {isAnonymous
+                  {hideAnonymous
+                    ? "Bài viết sẽ hiển thị công khai trên dòng thời gian của bạn."
+                    : isAnonymous
                     ? "Hồ sơ thật của bạn sẽ không hiển thị trong bài viết này."
                     : "Tên và ảnh đại diện thật của bạn sẽ được hiển thị."}
                 </Text>
               </View>
             </View>
 
-            <View style={s.anonymousRow}>
-              <View style={s.anonLeft}>
-                <MaterialCommunityIcons
-                  name="incognito"
-                  size={24}
-                  color="#95A19E"
-                />
+            {!hideAnonymous && (
+              <>
+                <View style={s.anonymousRow}>
+                  <View style={s.anonLeft}>
+                    <MaterialCommunityIcons
+                      name="incognito"
+                      size={24}
+                      color="#95A19E"
+                    />
 
-                <View style={{ flex: 1 }}>
-                  <Text style={s.anonText}>Đăng bài ẩn danh</Text>
-                  <Text style={s.anonSubText}>
-                    Sử dụng tên và ảnh đại diện ẩn danh cho bài viết này.
-                  </Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.anonText}>Đăng bài ẩn danh</Text>
+                      <Text style={s.anonSubText}>
+                        Sử dụng tên và ảnh đại diện ẩn danh cho bài viết này.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Switch
+                    value={isAnonymous}
+                    onValueChange={setIsAnonymous}
+                    trackColor={{ false: "#D8E3E0", true: "#00866B" }}
+                    thumbColor="#FFFFFF"
+                  />
                 </View>
-              </View>
 
-              <Switch
-                value={isAnonymous}
-                onValueChange={setIsAnonymous}
-                trackColor={{ false: "#D8E3E0", true: "#00866B" }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
+                {isAnonymous ? (
+                  <View style={s.formInput}>
+                    <MaterialCommunityIcons
+                      name="account-question-outline"
+                      size={24}
+                      color="#7A8A87"
+                    />
 
-            {isAnonymous ? (
-              <View style={s.formInput}>
-                <MaterialCommunityIcons
-                  name="account-question-outline"
-                  size={24}
-                  color="#7A8A87"
-                />
-
-                <TextInput
-                  style={s.formTextInput}
-                  placeholder="Tên ẩn danh: Thỏ lém lỉnh..."
-                  placeholderTextColor="#8A9996"
-                  value={anonymousName}
-                  onChangeText={setAnonymousName}
-                />
-              </View>
-            ) : null}
+                    <TextInput
+                      style={s.formTextInput}
+                      placeholder="Tên ẩn danh: Thỏ lém lỉnh..."
+                      placeholderTextColor="#8A9996"
+                      value={anonymousName}
+                      onChangeText={setAnonymousName}
+                    />
+                  </View>
+                ) : null}
+              </>
+            )}
 
             <View style={s.safeNotice}>
               <MaterialCommunityIcons

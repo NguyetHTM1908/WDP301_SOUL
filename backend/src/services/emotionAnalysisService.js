@@ -558,11 +558,94 @@ function classifyEmotionByKeyword(text) {
       toxicityLevel: "low",
       safetyTriggered: true,
       safetyType: "self_harm_risk",
-      summary: "The content shows strong negative emotional signals.",
+      summary: "Nhật ký của bạn chứa các tín hiệu cảm xúc cực kỳ tiêu cực hoặc bất an.",
       suggestion:
-        "Encourage the user to seek support from trusted people or professional support if needed.",
+        "Bạn đang phải chịu đựng áp lực rất lớn. Hãy chia sẻ với người bạn tin tưởng nhất hoặc liên hệ với các tổ chức hỗ trợ tâm lý. Soul luôn ở đây và muốn đồng hành cùng bạn.",
     };
   }
+
+  // --- HỆ THỐNG PHÂN TÍCH TỪ KHÓA CHI TIẾT DỰ PHÒNG (CUSTOM KEYWORD FALLBACK) ---
+  const lowerText = text.toLowerCase();
+  const hasLostMoney = lowerText.includes("mất tiền") || (lowerText.includes("mất") && lowerText.includes("tiền")) || lowerText.includes("rơi tiền") || lowerText.includes("mất 500k") || lowerText.includes("rơi 500k");
+  const hasGoodScore = lowerText.includes("10đ") || lowerText.includes("10 điểm") || lowerText.includes("điểm cao") || lowerText.includes("điểm toán") || lowerText.includes("điểm văn");
+  const hasStress = lowerText.includes("áp lực") || lowerText.includes("stress") || lowerText.includes("mệt mỏi") || lowerText.includes("kiệt sức");
+  const hasSad = lowerText.includes("buồn") || lowerText.includes("thất vọng") || lowerText.includes("chán");
+
+  if (hasLostMoney && hasGoodScore) {
+    return {
+      sentiment: "neutral",
+      emotion: "neutral",
+      emotionScore: 45,
+      confidenceScore: 90,
+      riskLevel: "low",
+      toxicityLevel: "low",
+      safetyTriggered: false,
+      safetyType: null,
+      summary: "Hôm nay bạn vừa có niềm vui khi đạt kết quả tốt, nhưng cũng cảm thấy thất vọng vì chuyện mất tiền.",
+      suggestion: "Việc mất tiền có thể khiến bạn khó chịu và tự trách mình, nhưng điều đó không làm mất đi thành quả tốt bạn đã đạt được hôm nay. Bạn có thể thử kiểm tra lại những nơi đã đi qua, đồng thời xem đây là kinh nghiệm để cẩn thận hơn lần sau.",
+    };
+  }
+
+  if (hasLostMoney) {
+    return {
+      sentiment: "negative",
+      emotion: "negative",
+      emotionScore: 35,
+      confidenceScore: 90,
+      riskLevel: "low",
+      toxicityLevel: "low",
+      safetyTriggered: false,
+      safetyType: null,
+      summary: "Bạn đang cảm thấy buồn hoặc thất vọng vì chuyện liên quan đến tiền bạc.",
+      suggestion: "Mất tiền là chuyện rất khó chịu, nên cảm giác tiếc và tự trách là điều dễ hiểu. Hãy thử bình tĩnh nhớ lại những nơi bạn đã đi qua, và đừng quá nặng lời với bản thân vì ai cũng có lúc sơ suất.",
+    };
+  }
+
+  if (hasStress) {
+    return {
+      sentiment: "negative",
+      emotion: "negative",
+      emotionScore: 35,
+      confidenceScore: 90,
+      riskLevel: "low",
+      toxicityLevel: "low",
+      safetyTriggered: false,
+      safetyType: null,
+      summary: "Nhật ký cho thấy bạn đang chịu áp lực hoặc cảm thấy mệt mỏi.",
+      suggestion: "Có vẻ hôm nay bạn đã phải gồng gánh khá nhiều áp lực. Hãy chia nhỏ các việc cần làm thành từng phần nhỏ hơn, cho phép mình nghỉ ngơi một chút để hồi lại năng lượng nhé.",
+    };
+  }
+
+  if (hasSad) {
+    return {
+      sentiment: "negative",
+      emotion: "negative",
+      emotionScore: 40,
+      confidenceScore: 90,
+      riskLevel: "low",
+      toxicityLevel: "low",
+      safetyTriggered: false,
+      safetyType: null,
+      summary: "Bạn đang cảm nhận sự buồn bã hoặc thất vọng trong ngày hôm nay.",
+      suggestion: "Cảm giác buồn không có nghĩa là bạn yếu đuối. Hãy cho phép bản thân chậm lại một chút, viết ra điều làm mình buồn và thử làm một việc nhỏ để thấy dễ chịu hơn nhé.",
+    };
+  }
+
+  if (hasGoodScore) {
+    return {
+      sentiment: "positive",
+      emotion: "positive",
+      emotionScore: 75,
+      confidenceScore: 90,
+      riskLevel: "low",
+      toxicityLevel: "low",
+      safetyTriggered: false,
+      safetyType: null,
+      summary: "Nhật ký ghi nhận niềm vui hoặc kết quả học tập/công việc tốt.",
+      suggestion: "Bạn đã nỗ lực rất nhiều hôm nay và xứng đáng được nhận niềm vui này. Hãy tận hưởng thành quả ngọt ngào và dùng nó làm động lực cho những ngày tiếp theo nhé.",
+    };
+  }
+  // ------------------------------------------------------------------------------
 
   const recoveryCount = countKeywordMatches(
     normalizedText,
@@ -615,9 +698,9 @@ function classifyEmotionByKeyword(text) {
       toxicityLevel: "low",
       safetyTriggered: false,
       safetyType: null,
-      summary: "The content shows negative emotional signals.",
+      summary: "Nhật ký ghi nhận cảm giác buồn bã hoặc lo lắng.",
       suggestion:
-        "Encourage the user to rest, reflect, and share feelings with someone they trust.",
+        "Cảm ơn bạn đã trút bỏ gánh nặng này vào trang nhật ký. Hãy uống một chút nước ấm, thở đều và cho phép mình được nghỉ ngơi thật thoải mái nhé.",
     };
   }
 
@@ -633,9 +716,9 @@ function classifyEmotionByKeyword(text) {
       toxicityLevel: "low",
       safetyTriggered: false,
       safetyType: null,
-      summary: "The content shows positive emotional signals.",
+      summary: "Nhật ký thể hiện nhiều năng lượng tích cực và hạnh phúc.",
       suggestion:
-        "Encourage the user to maintain healthy routines and positive habits.",
+        "Thật tuyệt khi biết hôm nay bạn có những trải nghiệm dễ chịu! Hãy lưu giữ khoảnh khắc ấm áp này và tiếp tục yêu thương chính mình nhiều hơn nữa nhé.",
     };
   }
 
@@ -648,47 +731,45 @@ function classifyEmotionByKeyword(text) {
     toxicityLevel: "low",
     safetyTriggered: false,
     safetyType: null,
-    summary: "The content shows neutral emotional signals.",
+    summary: "Nhật ký thể hiện trạng thái cảm xúc cân bằng và nhẹ nhàng.",
     suggestion:
-      "Encourage the user to continue tracking their emotions regularly.",
+      "Một ngày bình thường, êm ả trôi qua cũng là một món quà đáng quý. Tiếp tục ghi lại hành trình của bạn để hiểu bản thân hơn nhé.",
   };
 }
 
 function buildAIPrompt(text) {
   return `
-You are an emotion analysis service for a mental wellness app.
+Bạn là Soul AI - người bạn đồng hành cảm xúc trong ứng dụng chăm sóc sức khỏe tinh thần SOUL.
+Nhiệm vụ của bạn là đọc nhật ký của người dùng dưới đây và phản hồi bằng tiếng Việt dưới dạng JSON.
 
-Analyze the user's text and classify the sentiment as only one of:
-positive, neutral, negative.
-
-Return JSON only with this format:
-{
-  "sentiment": "positive | neutral | negative",
-  "emotion": "positive | neutral | negative",
-  "emotionScore": number from 0 to 100,
-  "confidenceScore": number from 0 to 100,
-  "riskLevel": "low | medium | high",
-  "toxicityLevel": "low | medium | high",
-  "safetyTriggered": boolean,
-  "safetyType": null | "self_harm_risk",
-  "summary": "short summary",
-  "suggestion": "short supportive suggestion"
-}
-
-Rules:
-- Output sentiment must be only: positive, neutral, negative.
-- Output emotion must be the same as sentiment.
-- positive means happiness, hope, relief, gratitude, confidence, motivation, or emotional improvement.
-- neutral means normal daily activities, factual description, or unclear emotion.
-- negative means sadness, stress, anxiety, loneliness, anger, hopelessness, exhaustion, or low motivation.
-- If the user expresses self-harm, suicidal thoughts, wanting to die, hating life, or not wanting to live, classify as negative.
-- If self-harm risk is detected, set riskLevel to high, safetyTriggered to true, and safetyType to self_harm_risk.
-- Do not diagnose the user.
-- Do not return markdown.
-- Return JSON only.
-
-User text:
+Nội dung nhật ký của người dùng:
 "${text}"
+
+Yêu cầu chi tiết:
+1. Xác định cảm xúc tổng thể ("sentiment"): chỉ trả về một trong ba giá trị: "Positive", "Neutral", "Negative".
+2. Tính điểm số cảm xúc ("score"): số từ 0 đến 100 (với 0-40 là Negative, 41-60 là Neutral, 61-100 là Positive).
+3. Viết nhận xét ngắn gọn ("insight"):
+   - Tóm tắt cảm xúc của người dùng hôm nay.
+   - BẮT BUỘC phải nhắc đến sự kiện, vấn đề cụ thể được viết trong nhật ký (ví dụ: việc đạt điểm 10 môn Văn, việc làm mất 500k, việc cãi nhau với người yêu, v.v.).
+   - Tuyệt đối không viết chung chung vô hồn kiểu "Nhật ký ghi nhận cảm giác buồn bã...".
+   - Độ dài: 1-2 câu.
+4. Viết lời khuyên/lời nhắn nhủ ("advice"):
+   - Bày tỏ sự thấu hiểu, đồng cảm trước tiên.
+   - Đưa ra lời khuyên thực tế, liên quan trực tiếp đến vấn đề người dùng đang đối mặt trong nhật ký.
+   - Không chỉ đưa ra những lời khuyên chung chung rập khuôn như đi nghỉ ngơi, uống nước ấm, hít thở sâu.
+   - Giọng văn nhẹ nhàng, ấm áp như một người bạn thân bên cạnh.
+   - Không tự chẩn đoán bệnh tâm lý hay kê đơn thuốc.
+   - Độ dài: 2-3 câu.
+
+Định dạng JSON phản hồi chính xác như sau (không bọc trong markdown):
+{
+  "sentiment": "Positive | Neutral | Negative",
+  "score": 0-100,
+  "insight": "nhận xét cụ thể sự kiện bằng tiếng Việt",
+  "advice": "lời khuyên/lời nhắn nhủ thực tế bằng tiếng Việt",
+  "riskLevel": "low | medium | high",
+  "safetyTriggered": false
+}
 `;
 }
 
@@ -717,14 +798,14 @@ function extractAIContent(data) {
 }
 
 function normalizeAIResult(parsed) {
-  const sentiment = ["positive", "neutral", "negative"].includes(
-    parsed.sentiment
-  )
-    ? parsed.sentiment
+  const sentimentVal = String(parsed.sentiment || "neutral").toLowerCase();
+  const sentiment = ["positive", "neutral", "negative"].includes(sentimentVal)
+    ? sentimentVal
     : "neutral";
 
-  const emotionScore = Number(parsed.emotionScore);
-  const confidenceScore = Number(parsed.confidenceScore);
+  // Áp dụng linh hoạt giữa format cũ (emotionScore) và format Soul AI (score)
+  const emotionScore = Number(parsed.emotionScore !== undefined ? parsed.emotionScore : parsed.score);
+  const confidenceScore = Number(parsed.confidenceScore !== undefined ? parsed.confidenceScore : 80);
 
   return {
     sentiment,
@@ -753,10 +834,12 @@ function normalizeAIResult(parsed) {
     safetyType: parsed.safetyTriggered
       ? parsed.safetyType || "self_harm_risk"
       : null,
-    summary: parsed.summary || "Emotion analysis completed.",
+    // Áp dụng linh hoạt giữa format cũ (summary, suggestion) và format Soul AI (insight, advice)
+    summary: parsed.insight || parsed.summary || "Đã hoàn thành phân tích cảm xúc.",
     suggestion:
+      parsed.advice ||
       parsed.suggestion ||
-      "Encourage the user to continue tracking their emotions regularly.",
+      "Cảm ơn bạn đã luôn tin tưởng và chia sẻ tâm sự cùng Soul.",
   };
 }
 
@@ -766,6 +849,18 @@ async function classifyEmotionByAI(text) {
   }
 
   const prompt = buildAIPrompt(text);
+  const isOpenAI = process.env.AI_EMOTION_API_URL.includes("api.openai.com");
+
+  const requestBody = isOpenAI
+    ? {
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2
+      }
+    : {
+        prompt,
+        temperature: 0.2
+      };
 
   const response = await fetch(process.env.AI_EMOTION_API_URL, {
     method: "POST",
@@ -773,10 +868,7 @@ async function classifyEmotionByAI(text) {
       "Content-Type": "application/json",
       Authorization: `Bearer ${process.env.AI_EMOTION_API_KEY}`,
     },
-    body: JSON.stringify({
-      prompt,
-      temperature: 0.2,
-    }),
+    body: JSON.stringify(requestBody),
   });
 
   if (!response.ok) {
@@ -869,7 +961,7 @@ async function updateUserEmotionProfile({
 
   let currentSentiment = "neutral";
 
-  if (negativeCount >= 3 || averageEmotionScore < 40) {
+  if (negativeCount >= 3 || averageEmotionScore <= 40) {
     currentSentiment = "negative";
   } else if (positiveCount >= 3 || averageEmotionScore >= 65) {
     currentSentiment = "positive";
