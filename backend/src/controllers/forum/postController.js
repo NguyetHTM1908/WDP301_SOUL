@@ -205,8 +205,8 @@ exports.createPost = async (req, res) => {
 
       visibility: visibility || "public",
 
-      status: "approved",
-      approvedAt: new Date(),
+      status: "pending",
+      approvedAt: null,
       approvedBy: null,
       rejectedReason: null,
 
@@ -222,6 +222,15 @@ exports.createPost = async (req, res) => {
     } catch (error) {
       moderationWarning = error.message;
       console.error("Forum moderation failed:", error);
+
+      post.status = "pending";
+      post.isFlagged = true;
+      post.toxicityLevel = "medium";
+      post.approvedAt = null;
+      post.rejectedReason =
+        "Không thể kiểm duyệt bằng AI tại thời điểm đăng bài. Cần admin xem xét.";
+
+      await post.save();
     }
 
     const updatedPost = await Post.findById(post._id).populate(
@@ -231,9 +240,11 @@ exports.createPost = async (req, res) => {
 
     return res.status(201).json({
       success: true,
-      message: moderation?.isViolationSuspected
-        ? "Tạo bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
-        : "Tạo bài viết thành công.",
+      message:
+        moderationWarning ||
+        moderation?.isViolationSuspected
+          ? "Tạo bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
+          : "Tạo bài viết thành công.",
       data: safeMaskPost(updatedPost || post),
       moderation,
       moderationWarning,
@@ -453,8 +464,12 @@ exports.updateMyPost = async (req, res) => {
         });
       }
 
-      post.content = content.trim();
-      contentChanged = true;
+      const newContent = content.trim();
+
+      if (newContent !== post.content) {
+        post.content = newContent;
+        contentChanged = true;
+      }
     }
 
     if (mediaUrls !== undefined) {
@@ -487,22 +502,15 @@ exports.updateMyPost = async (req, res) => {
       post.visibility = visibility || "public";
     }
 
-    if (
-      post.status === "hidden" ||
-      post.status === "rejected" ||
-      post.status === "pending"
-    ) {
-      post.status = "approved";
-      post.approvedAt = new Date();
-      post.rejectedReason = null;
-    }
-
-    post.editedAt = new Date();
-
     if (contentChanged) {
+      post.status = "pending";
+      post.approvedAt = null;
+      post.rejectedReason = null;
       post.isFlagged = false;
       post.toxicityLevel = "low";
     }
+
+    post.editedAt = new Date();
 
     await post.save();
 
@@ -515,6 +523,15 @@ exports.updateMyPost = async (req, res) => {
       } catch (error) {
         moderationWarning = error.message;
         console.error("Forum moderation failed:", error);
+
+        post.status = "pending";
+        post.isFlagged = true;
+        post.toxicityLevel = "medium";
+        post.approvedAt = null;
+        post.rejectedReason =
+          "Không thể kiểm duyệt bằng AI tại thời điểm cập nhật bài viết. Cần admin xem xét.";
+
+        await post.save();
       }
     }
 
@@ -525,9 +542,11 @@ exports.updateMyPost = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      message: moderation?.isViolationSuspected
-        ? "Cập nhật bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
-        : "Cập nhật bài viết thành công.",
+      message:
+        moderationWarning ||
+        moderation?.isViolationSuspected
+          ? "Cập nhật bài viết thành công. Bài viết đang chờ admin xem xét vì có dấu hiệu nhạy cảm."
+          : "Cập nhật bài viết thành công.",
       data: safeMaskPost(updatedPost || post),
       moderation,
       moderationWarning,

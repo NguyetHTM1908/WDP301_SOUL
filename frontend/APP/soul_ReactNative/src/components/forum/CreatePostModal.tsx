@@ -114,11 +114,11 @@ export function CreatePostModal({
             keyboardShouldPersistTaps="handled"
           >
             <Text style={s.modalTitle}>
-              {isEditing ? "Edit your story" : "Share your feeling ✨"}
+              {isEditing ? "Chỉnh sửa bài viết" : "Chia sẻ cảm xúc của bạn ✨"}
             </Text>
 
             <Text style={s.modalSub}>
-              Choose how you want to appear in the community.
+              Chọn cách bạn muốn hiển thị trong cộng đồng SOUL.
             </Text>
 
             <View style={s.identityPreview}>
@@ -129,7 +129,7 @@ export function CreatePostModal({
 
               <View style={s.identityPreviewInfo}>
                 <Text style={s.identityPreviewLabel}>
-                  {isAnonymous ? "Posting anonymously as" : "Posting as"}
+                  {isAnonymous ? "Đăng ẩn danh với tên" : "Đăng bài với tên"}
                 </Text>
 
                 <Text style={s.identityPreviewName}>
@@ -138,8 +138,8 @@ export function CreatePostModal({
 
                 <Text style={s.identityPreviewMeta}>
                   {isAnonymous
-                    ? "Your real profile will not be shown on this post."
-                    : "Your real profile name and avatar will be shown."}
+                    ? "Hồ sơ thật của bạn sẽ không hiển thị trong bài viết này."
+                    : "Tên và ảnh đại diện thật của bạn sẽ được hiển thị."}
                 </Text>
               </View>
             </View>
@@ -151,10 +151,11 @@ export function CreatePostModal({
                   size={24}
                   color="#95A19E"
                 />
+
                 <View style={{ flex: 1 }}>
-                  <Text style={s.anonText}>Post anonymously</Text>
+                  <Text style={s.anonText}>Đăng bài ẩn danh</Text>
                   <Text style={s.anonSubText}>
-                    Use anonymous name and anonymous avatar for this post.
+                    Sử dụng tên và ảnh đại diện ẩn danh cho bài viết này.
                   </Text>
                 </View>
               </View>
@@ -177,7 +178,7 @@ export function CreatePostModal({
 
                 <TextInput
                   style={s.formTextInput}
-                  placeholder="Anonymous name: Thỏ lém lỉnh..."
+                  placeholder="Tên ẩn danh: Thỏ lém lỉnh..."
                   placeholderTextColor="#8A9996"
                   value={anonymousName}
                   onChangeText={setAnonymousName}
@@ -191,8 +192,9 @@ export function CreatePostModal({
                 size={20}
                 color="#00866B"
               />
+
               <Text style={s.safeNoticeText}>
-                SOUL AI may review posts to keep this space safe and supportive.
+                SOUL AI có thể kiểm duyệt bài viết để giữ cộng đồng an toàn và tích cực.
               </Text>
             </View>
 
@@ -200,12 +202,13 @@ export function CreatePostModal({
               <TextInput
                 style={s.bigInput}
                 multiline
-                placeholder="What is on your mind today?"
+                placeholder="Hôm nay bạn đang nghĩ gì?"
                 placeholderTextColor="#8A9996"
                 value={content}
                 onChangeText={setContent}
                 maxLength={1000}
               />
+
               <Text style={s.counter}>{content.length}/1000</Text>
             </View>
 
@@ -215,9 +218,10 @@ export function CreatePostModal({
                 size={25}
                 color="#7A8A87"
               />
+
               <TextInput
                 style={s.formTextInput}
-                placeholder="Image / Video URL optional"
+                placeholder="Link hình ảnh / video nếu có"
                 placeholderTextColor="#8A9996"
                 value={mediaUrl}
                 onChangeText={setMediaUrl}
@@ -227,9 +231,10 @@ export function CreatePostModal({
 
             <View style={s.formInput}>
               <Text style={s.hashIcon}>#</Text>
+
               <TextInput
                 style={s.formTextInput}
-                placeholder="Hashtags: stress, self-care"
+                placeholder="Hashtag: stress, chăm-sóc-bản-thân"
                 placeholderTextColor="#8A9996"
                 value={hashtags}
                 onChangeText={setHashtags}
@@ -237,7 +242,7 @@ export function CreatePostModal({
               />
             </View>
 
-            <Text style={s.feelingLabel}>How are you feeling?</Text>
+            <Text style={s.feelingLabel}>Bạn đang cảm thấy thế nào?</Text>
 
             <View style={s.emotionGrid}>
               {emotions.map((e) => {
@@ -262,13 +267,14 @@ export function CreatePostModal({
                 size={24}
                 color="#FFFFFF"
               />
+
               <Text style={s.submitText}>
-                {isEditing ? "Update Post" : "Publish Now"}
+                {isEditing ? "Cập nhật bài viết" : "Đăng bài"}
               </Text>
             </Pressable>
 
             <Pressable onPress={onClose}>
-              <Text style={s.cancelText}>Cancel</Text>
+              <Text style={s.cancelText}>Hủy</Text>
             </Pressable>
           </ScrollView>
         </View>

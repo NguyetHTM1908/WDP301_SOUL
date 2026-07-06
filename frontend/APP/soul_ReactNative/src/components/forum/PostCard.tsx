@@ -74,7 +74,7 @@ function isRemoteUrl(url: string) {
 function getStatusInfo(item: any) {
   if (item?.isFlagged && item?.toxicityLevel === "high") {
     return {
-      label: "Crisis Review",
+      label: "Cần xem xét khẩn cấp",
       tone: "danger",
       icon: "alert-circle-outline",
     };
@@ -82,7 +82,7 @@ function getStatusInfo(item: any) {
 
   if (item?.isFlagged) {
     return {
-      label: "AI Review",
+      label: "AI đang xem xét",
       tone: "warning",
       icon: "shield-alert-outline",
     };
@@ -90,7 +90,7 @@ function getStatusInfo(item: any) {
 
   if (item?.status === "hidden") {
     return {
-      label: "Hidden",
+      label: "Đã ẩn",
       tone: "danger",
       icon: "eye-off-outline",
     };
@@ -98,7 +98,7 @@ function getStatusInfo(item: any) {
 
   if (item?.status === "deleted") {
     return {
-      label: "Deleted",
+      label: "Đã xóa",
       tone: "danger",
       icon: "trash-can-outline",
     };
@@ -106,7 +106,7 @@ function getStatusInfo(item: any) {
 
   if (item?.status === "rejected") {
     return {
-      label: "Rejected",
+      label: "Bị từ chối",
       tone: "danger",
       icon: "close-circle-outline",
     };
@@ -114,14 +114,14 @@ function getStatusInfo(item: any) {
 
   if (item?.status === "approved") {
     return {
-      label: "Published",
+      label: "Đã đăng",
       tone: "success",
       icon: "check-circle-outline",
     };
   }
 
   return {
-    label: item?.status || "Pending",
+    label: "Đang chờ duyệt",
     tone: "warning",
     icon: "clock-outline",
   };
@@ -195,7 +195,7 @@ export function PostCard({
                     size={13}
                     color="#00866B"
                   />
-                  <Text style={s.anonymousBadgeText}>Anonymous</Text>
+                  <Text style={s.anonymousBadgeText}>Ẩn danh</Text>
                 </View>
               ) : (
                 <MaterialCommunityIcons
@@ -208,7 +208,7 @@ export function PostCard({
 
             <Text style={s.postMeta}>
               {author.isAnonymous
-                ? "Anonymous identity"
+                ? "Danh tính ẩn danh"
                 : moodLabel(item?.emotionStatus)}
             </Text>
           </View>
@@ -302,8 +302,8 @@ export function PostCard({
             ]}
           >
             {item?.toxicityLevel === "high"
-              ? "SOUL AI detected possible self-harm risk. This post is only visible to you while admin reviews it."
-              : "SOUL AI sent this post for admin review. This post is only visible to you until admin makes a decision."}
+              ? "SOUL AI phát hiện bài viết có thể liên quan đến nguy cơ tự hại hoặc gây hại. Bài viết chỉ hiển thị với bạn trong khi chờ quản trị viên xem xét."
+              : "SOUL AI đã chuyển bài viết này đến quản trị viên để xem xét. Bài viết chỉ hiển thị với bạn cho đến khi có quyết định."}
           </Text>
         </View>
       ) : null}

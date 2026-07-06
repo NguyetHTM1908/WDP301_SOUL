@@ -37,9 +37,9 @@ export function ForumHeader({
 
       <View style={s.headerTop}>
         <View style={s.headerTitleWrap}>
-          <Text style={s.title}>Healing Forum</Text>
+          <Text style={s.title}>SOUL Diễn đàn</Text>
           <Text style={s.subtitle}>
-            A safe space to share, support and grow together 🌿
+            Không gian an toàn để chia sẻ, lắng nghe và cùng nhau tốt hơn 🌿
           </Text>
         </View>
 
@@ -62,7 +62,7 @@ export function ForumHeader({
         <MaterialCommunityIcons name="magnify" size={22} color="#7E8F8B" />
         <TextInput
           style={s.searchInput}
-          placeholder="Search stories, feelings, hashtags..."
+          placeholder="Tìm kiếm câu chuyện, cảm xúc, hashtag..."
           placeholderTextColor="#7E8F8B"
           value={search}
           onChangeText={setSearch}
@@ -84,7 +84,7 @@ export function ForumHeader({
               onPress={() => setFilter(item)}
             >
               <Text style={[s.filterText, active && s.filterTextActive]}>
-                {item === "all" ? "All" : `#${item}`}
+                {item === "all" ? "Tất cả" : `#${item}`}
               </Text>
             </Pressable>
           );

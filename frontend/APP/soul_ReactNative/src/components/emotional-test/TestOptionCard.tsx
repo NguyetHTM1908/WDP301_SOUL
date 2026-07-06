@@ -59,7 +59,7 @@ const styles = StyleSheet.create({
     padding: 12,
     flexDirection: "row",
     alignItems: "center",
-    shadowColor: "#9B8AFB",
+    shadowColor: "#2FBF71",
     shadowOpacity: 0.15,
     shadowRadius: 12,
     elevation: 2,
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 18,
-    backgroundColor: "#EAF3FF",
+    backgroundColor: "#EFFFF5",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
@@ -90,7 +90,7 @@ const styles = StyleSheet.create({
   },
   description: {
     fontSize: 11,
-    color: "#7D7A9E",
+    color: "#4E6B5A",
     lineHeight: 15,
   },
   right: {
@@ -100,16 +100,16 @@ const styles = StyleSheet.create({
   },
   duration: {
     fontSize: 11,
-    color: "#7D7A9E",
+    color: "#4E8C63",
   },
   startButton: {
-    backgroundColor: "#B891F6",
+    backgroundColor: "#2FBF71",
     paddingHorizontal: 16,
     paddingVertical: 7,
     borderRadius: 18,
   },
   disabledButton: {
-    backgroundColor: "#CFC7E8",
+    backgroundColor: "#B6DCC4",
   },
   startText: {
     color: "#FFFFFF",

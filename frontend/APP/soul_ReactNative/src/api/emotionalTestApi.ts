@@ -1,79 +1,95 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_BASE_URL } from "../api/config";
 
-export type TestType = "WHO5" | "PSS10";
+export type ResultLevel =
+  | "rat_thap"
+  | "duoi_trung_binh"
+  | "trung_binh"
+  | "tot"
+  | "xuat_sac";
 
 export type EmotionalTestInfo = {
-  testType: TestType;
+  _id: string;
+  testId: string;
   title: string;
-  shortTitle: string;
-  duration: string;
-  totalQuestions: number;
-  source: string;
   description: string;
+  totalQuestions: number;
+  maxScore: number;
+  resultRules?: ResultRule[];
+  isActive?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
-export type AnswerOption = {
-  value: number;
+export type TestOption = {
   label: string;
-};
-
-export type EmotionalQuestion = {
-  id: number;
-  text: string;
-  reverseScore?: boolean;
-};
-
-export type EmotionalTestQuestionsResponse = {
-  testType: TestType;
-  title: string;
-  shortTitle: string;
-  duration: string;
-  totalQuestions: number;
-  source: string;
-  description: string;
-  disclaimer: string;
-  questions: EmotionalQuestion[];
-  answerOptions: AnswerOption[];
-};
-
-export type EmotionalAnswer = {
-  questionId: number;
   score: number;
 };
 
-export type EmotionalTestResult = {
-  _id: string;
-  userId: string;
-  testType: TestType;
-  testTitle: string;
-  answers: Array<{
-    questionId: number;
-    score: number;
-    calculatedScore: number;
-  }>;
-  rawScore: number;
-  percentageScore: number;
-  level:
-    | "good"
-    | "moderate"
-    | "low"
-    | "low_stress"
-    | "moderate_stress"
-    | "high_stress";
-  levelLabel: string;
+export type EmotionalQuestion = {
+  questionIndex: number;
+  question: string;
+  imageUrl?: string | null;
+  answerImageUrl?: string | null;
+  correctAnswer?: string | null;
+  explanation?: string | null;
+  options: TestOption[];
+};
+
+export type ResultRule = {
+  level: ResultLevel;
+  minScore: number;
+  maxScore: number;
+  title?: string | null;
+  description?: string | null;
+  advice?: string | null;
   suggestion: string;
-  disclaimer: string;
-  createdAt: string;
+};
+
+export type EmotionalTestQuestionsResponse = {
+  _id: string;
+  testId: string;
+  title: string;
+  description: string;
+  totalQuestions: number;
+  maxScore: number;
+  resultRules: ResultRule[];
+  questions: EmotionalQuestion[];
+};
+
+export type EmotionalAnswer = {
+  questionIndex: number;
+  answer: string;
+};
+
+export type EmotionalTestResult = {
+  _id?: string;
+  testId: string;
+  testTitle?: string;
+  totalScore: number;
+  maxScore: number;
+  resultLevel: ResultLevel;
+  title?: string | null;
+  description?: string | null;
+  advice?: string | null;
+  suggestion: string;
+  nextTestDueAt?: string | null;
+  answers: Array<{
+    questionIndex: number;
+    answer: string;
+    correctAnswer?: string | null;
+    score: number;
+    isCorrect: boolean;
+  }>;
+  createdAt?: string;
 };
 
 async function getAuthToken() {
-  const token =
+  return (
     (await AsyncStorage.getItem("token")) ||
     (await AsyncStorage.getItem("accessToken")) ||
-    (await AsyncStorage.getItem("authToken"));
-
-  return token;
+    (await AsyncStorage.getItem("authToken"))
+  );
 }
 
 async function parseJsonResponse(response: Response) {
@@ -101,8 +117,9 @@ export async function getEmotionalTests() {
   return data.data as EmotionalTestInfo[];
 }
 
-export async function getEmotionalTestQuestions(testType: TestType = "WHO5") {
-  const url = `${API_BASE_URL}/emotional-tests/questions?testType=${testType}`;
+export async function getEmotionalTestQuestions(testId?: string) {
+  const query = testId ? `?testId=${testId}` : "";
+  const url = `${API_BASE_URL}/emotional-tests/questions${query}`;
 
   console.log("GET:", url);
 
@@ -117,11 +134,10 @@ export async function getEmotionalTestQuestions(testType: TestType = "WHO5") {
 }
 
 export async function submitEmotionalTest(
-  testType: TestType,
-  answers: EmotionalAnswer[]
+  answers: EmotionalAnswer[],
+  testId?: string
 ) {
   const token = await getAuthToken();
-
   const url = `${API_BASE_URL}/emotional-tests/submit`;
 
   console.log("POST:", url);
@@ -133,7 +149,7 @@ export async function submitEmotionalTest(
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: JSON.stringify({
-      testType,
+      testId,
       answers,
     }),
   });
@@ -147,10 +163,9 @@ export async function submitEmotionalTest(
   return data.data as EmotionalTestResult;
 }
 
-export async function getMyEmotionalTestResults(testType?: TestType) {
+export async function getMyEmotionalTestResults(testId?: string) {
   const token = await getAuthToken();
-
-  const query = testType ? `?testType=${testType}` : "";
+  const query = testId ? `?testId=${testId}` : "";
   const url = `${API_BASE_URL}/emotional-tests/my-results${query}`;
 
   console.log("GET:", url);
@@ -170,10 +185,9 @@ export async function getMyEmotionalTestResults(testType?: TestType) {
   return data.data as EmotionalTestResult[];
 }
 
-export async function getLatestEmotionalTestResult(testType?: TestType) {
+export async function getLatestEmotionalTestResult(testId?: string) {
   const token = await getAuthToken();
-
-  const query = testType ? `?testType=${testType}` : "";
+  const query = testId ? `?testId=${testId}` : "";
   const url = `${API_BASE_URL}/emotional-tests/latest${query}`;
 
   console.log("GET:", url);

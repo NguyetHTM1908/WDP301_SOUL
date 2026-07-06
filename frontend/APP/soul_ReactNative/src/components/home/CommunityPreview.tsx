@@ -25,20 +25,20 @@ function formatTimeAgo(value?: string) {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (minutes < 1) return "Just now";
-  if (minutes < 60) return `${minutes}m ago`;
-  if (hours < 24) return `${hours}h ago`;
-  if (days < 7) return `${days}d ago`;
+  if (minutes < 1) return "Vừa xong";
+  if (minutes < 60) return `${minutes} phút trước`;
+  if (hours < 24) return `${hours} giờ trước`;
+  if (days < 7) return `${days} ngày trước`;
 
   return date.toLocaleDateString("vi-VN");
 }
 
 function getAuthorName(post: any) {
   if (post?.isAnonymous) {
-    return post?.anonymousName || "Anonymous Soul";
+    return post?.anonymousName || "Ẩn danh SOUL";
   }
 
-  return post?.authorId?.fullName || "SOUL User";
+  return post?.authorId?.fullName || "Người dùng SOUL";
 }
 
 function getAvatar(post: any) {
@@ -68,13 +68,11 @@ export function CommunityPreview() {
       const res = await getApprovedPosts();
       const posts = normalizeList(res);
 
-      // Backend đã lọc isFlagged = false rồi.
-      // Thêm filter này để chắc chắn bài AI review không hiện trên Home.
       const safePosts = posts.filter((post: any) => post?.isFlagged !== true);
 
       setLatestPost(safePosts[0] || null);
     } catch (error) {
-      console.log("Load latest community post error:", error);
+      console.log("Lỗi tải bài viết cộng đồng mới nhất:", error);
       setLatestPost(null);
     } finally {
       setLoading(false);
@@ -92,17 +90,19 @@ export function CommunityPreview() {
   return (
     <View style={styles.panel}>
       <View style={styles.panelHeader}>
-        <Text style={styles.panelTitle}>👥 Community Highlight</Text>
+        <Text style={styles.panelTitle}>👥 Nổi bật cộng đồng</Text>
 
         <Pressable onPress={goToForum}>
-          <Text style={styles.panelLink}>See all</Text>
+          <Text style={styles.panelLink}>Xem tất cả</Text>
         </Pressable>
       </View>
 
       {loading ? (
         <View style={styles.communityWrap}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.postText}>Loading latest community post...</Text>
+            <Text style={styles.postText}>
+              Đang tải bài viết cộng đồng mới nhất...
+            </Text>
           </View>
 
           <View style={styles.illustrationBox}>
@@ -125,7 +125,7 @@ export function CommunityPreview() {
               <View>
                 <Text style={styles.userName}>
                   {getAuthorName(latestPost)}{" "}
-                  <Text style={styles.newTag}>New</Text>
+                  <Text style={styles.newTag}>Mới</Text>
                 </Text>
 
                 <Text style={styles.time}>
@@ -162,17 +162,19 @@ export function CommunityPreview() {
               <View style={styles.smallAvatar} />
 
               <View>
-                <Text style={styles.userName}>No community post yet</Text>
-                <Text style={styles.time}>Be the first to share</Text>
+                <Text style={styles.userName}>
+                  Chưa có bài viết cộng đồng nào
+                </Text>
+                <Text style={styles.time}>Hãy là người đầu tiên chia sẻ</Text>
               </View>
             </View>
 
             <Text style={styles.postText}>
-              Share your feeling with the SOUL community and support others.
+              Chia sẻ cảm xúc của bạn với cộng đồng SOUL và cùng hỗ trợ nhau.
             </Text>
 
             <View style={styles.reactRow}>
-              <Text style={styles.reactText}>🌿 Start sharing</Text>
+              <Text style={styles.reactText}>🌿 Bắt đầu chia sẻ</Text>
             </View>
           </View>
 

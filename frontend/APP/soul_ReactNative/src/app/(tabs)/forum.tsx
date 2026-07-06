@@ -50,12 +50,12 @@ const defaultFilters = [
 ];
 
 const emotions = [
-  { value: "happy", label: "😊", text: "Happy" },
-  { value: "sad", label: "😔", text: "Sad" },
-  { value: "stress", label: "😵", text: "Stress" },
-  { value: "anxious", label: "😟", text: "Anxious" },
-  { value: "angry", label: "😤", text: "Angry" },
-  { value: "neutral", label: "🌱", text: "Neutral" },
+  { value: "happy", label: "😊", text: "Vui vẻ" },
+  { value: "sad", label: "😔", text: "Buồn" },
+  { value: "stress", label: "😵", text: "Căng thẳng" },
+  { value: "anxious", label: "😟", text: "Lo lắng" },
+  { value: "angry", label: "😤", text: "Tức giận" },
+  { value: "neutral", label: "🌱", text: "Bình thường" },
 ];
 
 function normalizeList(res: any) {
@@ -76,7 +76,7 @@ function isApiSuccess(res: any) {
 
 function moodLabel(mood: string) {
   const found = emotions.find((item) => item.value === mood);
-  return found ? `${found.label} ${found.text}` : "🌱 Neutral";
+  return found ? `${found.label} ${found.text}` : "🌱 Bình thường";
 }
 
 function getUserIdFromToken(token: string | null) {
@@ -124,9 +124,9 @@ function getAnonymousAlias(user: any, fallbackName?: string) {
     user?.displayAuthor?.fullName ||
     user?.forumAnonymousName ||
     user?.anonymousProfile?.alias ||
-    "Anonymous Soul";
+    "Ẩn danh SOUL";
 
-  return String(alias).trim() || "Anonymous Soul";
+  return String(alias).trim() || "Ẩn danh SOUL";
 }
 
 export default function ForumScreen() {
@@ -196,7 +196,7 @@ export default function ForumScreen() {
     if (!token) {
       Alert.alert(
         "Bạn cần đăng nhập",
-        "Vui lòng đăng nhập để dùng chức năng này."
+        "Vui lòng đăng nhập để sử dụng chức năng này."
       );
       return false;
     }
@@ -281,7 +281,7 @@ export default function ForumScreen() {
       const res = await getApprovedPosts();
       setPosts(normalizeList(res));
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.message || "Không tải được forum.");
+      Alert.alert("Lỗi", error?.message || "Không thể tải diễn đàn.");
     }
   };
 
@@ -354,7 +354,7 @@ export default function ForumScreen() {
     if (!requireLogin()) return;
 
     if (!content.trim()) {
-      Alert.alert("Thiếu nội dung", "Nhập nội dung bài viết trước nha.");
+      Alert.alert("Thiếu nội dung", "Vui lòng nhập nội dung bài viết trước.");
       return;
     }
 
@@ -408,7 +408,7 @@ export default function ForumScreen() {
         Alert.alert(
           editingPost ? "Đã cập nhật bài viết" : "Bài viết đã được đăng 🌿",
           isFlagged
-            ? "SOUL AI phát hiện nội dung nhạy cảm và đã gửi cho admin xem xét. Bài của bạn vẫn được đăng trong khi chờ xử lý."
+            ? "SOUL AI phát hiện nội dung nhạy cảm và đã gửi cho quản trị viên xem xét. Bài viết của bạn có thể bị giới hạn hiển thị trong khi chờ xử lý."
             : "Bài viết của bạn đã xuất hiện trong cộng đồng. SOUL AI vẫn có thể kiểm tra để giữ không gian an toàn."
         );
 
@@ -457,14 +457,14 @@ export default function ForumScreen() {
     };
 
     if (Platform.OS === "web") {
-      const confirmed = window.confirm("Bạn có chắc muốn xóa bài này không?");
+      const confirmed = window.confirm("Bạn có chắc muốn xóa bài viết này không?");
       if (confirmed) {
         deleteNow();
       }
       return;
     }
 
-    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài này không?", [
+    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài viết này không?", [
       { text: "Hủy", style: "cancel" },
       {
         text: "Xóa",
@@ -481,7 +481,7 @@ export default function ForumScreen() {
       await reactToPost(postId, type);
       await loadPosts(mode, token);
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.message || "Không thể react bài viết.");
+      Alert.alert("Lỗi", error?.message || "Không thể thả cảm xúc bài viết.");
     }
   };
 
@@ -496,7 +496,7 @@ export default function ForumScreen() {
     try {
       await reloadComments(postId);
     } catch (error: any) {
-      Alert.alert("Lỗi", error?.message || "Không tải được bình luận.");
+      Alert.alert("Lỗi", error?.message || "Không thể tải bình luận.");
     }
   };
 
@@ -506,7 +506,7 @@ export default function ForumScreen() {
     const text = commentInputs[postId]?.trim();
 
     if (!text) {
-      Alert.alert("Thiếu nội dung", "Nhập bình luận trước nha.");
+      Alert.alert("Thiếu nội dung", "Vui lòng nhập bình luận trước.");
       return;
     }
 
@@ -552,7 +552,7 @@ export default function ForumScreen() {
     const text = replyInputs[inputKey]?.trim();
 
     if (!text) {
-      Alert.alert("Thiếu nội dung", "Nhập nội dung trả lời trước nha.");
+      Alert.alert("Thiếu nội dung", "Vui lòng nhập nội dung trả lời trước.");
       return;
     }
 
@@ -608,7 +608,7 @@ export default function ForumScreen() {
       await reloadComments(postId);
     } catch (error: any) {
       Alert.alert(
-        "Không thể react comment",
+        "Không thể thả cảm xúc bình luận",
         error?.message || "Đã có lỗi xảy ra."
       );
     }
@@ -682,10 +682,10 @@ export default function ForumScreen() {
         description,
       });
 
-      Alert.alert("Đã gửi report", "Admin sẽ xem xét nội dung này.");
+      Alert.alert("Đã gửi báo cáo", "Quản trị viên sẽ xem xét nội dung này.");
       setReportTarget(null);
     } catch (error: any) {
-      Alert.alert("Không thể report", error?.message || "Đã có lỗi xảy ra.");
+      Alert.alert("Không thể gửi báo cáo", error?.message || "Đã có lỗi xảy ra.");
     }
   };
 
@@ -697,7 +697,7 @@ export default function ForumScreen() {
       setShowMyReports(true);
     } catch (error: any) {
       Alert.alert(
-        "Không thể tải report",
+        "Không thể tải báo cáo",
         error?.message || "Đã có lỗi xảy ra."
       );
     }
@@ -798,10 +798,10 @@ export default function ForumScreen() {
       <Modal visible={!!deleteTarget} transparent animationType="fade">
         <View style={s.confirmBackdrop}>
           <View style={s.confirmBox}>
-            <Text style={s.confirmTitle}>Delete Comment</Text>
+            <Text style={s.confirmTitle}>Xóa bình luận</Text>
 
             <Text style={s.confirmText}>
-              Are you sure you want to delete this comment?
+              Bạn có chắc muốn xóa bình luận này không?
             </Text>
 
             <View style={s.confirmActions}>
@@ -809,11 +809,11 @@ export default function ForumScreen() {
                 style={s.cancelButton}
                 onPress={() => setDeleteTarget(null)}
               >
-                <Text style={s.cancelButtonText}>Cancel</Text>
+                <Text style={s.cancelButtonText}>Hủy</Text>
               </Pressable>
 
               <Pressable style={s.deleteButton} onPress={confirmDeleteComment}>
-                <Text style={s.deleteButtonText}>Delete</Text>
+                <Text style={s.deleteButtonText}>Xóa</Text>
               </Pressable>
             </View>
           </View>

@@ -2,326 +2,468 @@ const Report = require("../models/Report");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 
+const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
+
+const VIOLATION_TYPES = [
+  "toxic_language",
+  "hate_speech",
+  "harassment",
+  "violence",
+  "illegal_content",
+  "self_harm",
+  "sexual_content",
+  "spam",
+  "other",
+  null,
+];
+
+const SEVERITY_LEVELS = ["low", "medium", "high"];
+
 function normalizeText(text) {
   return String(text || "")
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/g, "d")
     .replace(/[.,!?;:()[\]{}"'`~@#$%^&*_+=|\\/<>-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-const selfHarmKeywords = [
-  "muốn chết",
-  "muon chet",
-  "tôi muốn chết",
-  "toi muon chet",
-  "mình muốn chết",
-  "minh muon chet",
-  "em muốn chết",
-  "em muon chet",
-  "tự tử",
-  "tu tu",
-  "muốn tự tử",
-  "muon tu tu",
-  "không muốn sống",
-  "khong muon song",
-  "không muốn tồn tại",
-  "khong muon ton tai",
-  "chết đi cho rồi",
-  "chet di cho roi",
-  "i want to die",
-  "i wanna die",
-  "kill myself",
-  "suicide",
-];
-
-const illegalKeywords = [
-  "mua ma túy",
-  "mua ma tuy",
-  "bán ma túy",
-  "ban ma tuy",
-  "hack tài khoản",
-  "hack tai khoan",
-  "lừa đảo",
-  "lua dao",
-  "cá độ",
-  "ca do",
-];
-
-const harassmentKeywords = [
-  "tao sẽ đánh",
-  "tao se danh",
-  "đe dọa",
-  "de doa",
-  "mày chết đi",
-  "may chet di",
-  "go kill yourself",
-];
-
-const toxicKeywords = [
-  "đồ ngu",
-  "do ngu",
-  "ngu",
-  "óc chó",
-  "oc cho",
-  "cút",
-  "cut",
-  "đm",
-  "dm",
-  "vcl",
-  "vl",
-  "fuck",
-  "shit",
-  "bitch",
-  "stupid",
-  "idiot",
-];
-
-function includesAny(normalizedText, keywords) {
-  return keywords.some((keyword) =>
-    normalizedText.includes(normalizeText(keyword))
-  );
-}
-
-function checkForumContentByKeyword(text) {
-  const normalizedText = normalizeText(text);
-
-  if (includesAny(normalizedText, selfHarmKeywords)) {
-    return {
-      isViolationSuspected: true,
-      violationType: "self_harm",
-      severity: "high",
-      confidenceScore: 98,
-      reason: "AI phát hiện nội dung có dấu hiệu nguy cơ tự làm hại bản thân.",
-      description:
-        "Bài viết có nội dung nhạy cảm liên quan đến mong muốn chết, tự tử hoặc không muốn tiếp tục sống. Cần admin xem xét khẩn cấp.",
-    };
-  }
-
-  if (includesAny(normalizedText, illegalKeywords)) {
-    return {
-      isViolationSuspected: true,
-      violationType: "illegal_content",
-      severity: "high",
-      confidenceScore: 90,
-      reason: "AI phát hiện nội dung có dấu hiệu vi phạm pháp luật.",
-      description:
-        "Bài viết có từ khóa liên quan đến hành vi bất hợp pháp hoặc nội dung cần admin kiểm tra.",
-    };
-  }
-
-  if (includesAny(normalizedText, harassmentKeywords)) {
-    return {
-      isViolationSuspected: true,
-      violationType: "harassment",
-      severity: "medium",
-      confidenceScore: 85,
-      reason: "AI phát hiện nội dung có dấu hiệu đe dọa hoặc quấy rối.",
-      description:
-        "Bài viết có dấu hiệu công kích, đe dọa hoặc gây tổn hại đến người khác.",
-    };
-  }
-
-  if (includesAny(normalizedText, toxicKeywords)) {
-    return {
-      isViolationSuspected: true,
-      violationType: "toxic_language",
-      severity: "medium",
-      confidenceScore: 80,
-      reason: "AI phát hiện ngôn từ chưa đúng mực.",
-      description:
-        "Bài viết có thể chứa ngôn từ toxic, xúc phạm hoặc không phù hợp với cộng đồng.",
-    };
-  }
-
+function createSafeResult() {
   return {
     isViolationSuspected: false,
     violationType: null,
     severity: "low",
-    confidenceScore: 70,
+    confidenceScore: 85,
     reason: null,
     description: null,
   };
 }
 
-function buildModerationPrompt(content) {
-  return `
-You are a forum moderation service for a mental wellness community app called SOUL.
-
-Your job is to review user-generated forum content and decide whether the content should be flagged for admin review.
-
-Return JSON only with this exact format:
-{
-  "isViolationSuspected": boolean,
-  "violationType": "toxic_language | hate_speech | harassment | violence | illegal_content | self_harm | sexual_content | spam | other | null",
-  "severity": "low | medium | high",
-  "confidenceScore": number from 0 to 100,
-  "reason": "short reason in Vietnamese",
-  "description": "short explanation in Vietnamese"
-}
-
-Rules:
-- Do not delete, block, or punish the user.
-- Only decide whether the post should be sent to admin for review.
-- If content is normal, supportive, emotional sharing, or harmless, set isViolationSuspected to false.
-- If content contains insults, toxic language, harassment, hate speech, threats, illegal activity, spam, sexual content, or self-harm risk, set isViolationSuspected to true.
-- If the user expresses self-harm, wanting to die, suicidal thoughts, or not wanting to live, set violationType to self_harm and severity to high.
-- If the content mentions drugs, scams, hacking accounts, betting, or illegal trading, set violationType to illegal_content.
-- If the content attacks, threatens, humiliates, or abuses another person, set violationType to harassment or toxic_language.
-- Be careful: users may share sadness, stress, anxiety, or personal pain. That is not a violation unless there is self-harm risk or harmful content.
-- Return JSON only.
-- Do not return markdown.
-
-Forum content:
-"${content}"
-`;
-}
-
-function extractAIContent(data) {
-  if (!data) return null;
-
-  if (typeof data === "string") return data;
-  if (data.result) return data.result;
-  if (data.text) return data.text;
-  if (data.response) return data.response;
-  if (data.message) return data.message;
-  if (data.content) return data.content;
-
-  if (data.choices && data.choices[0]?.message?.content) {
-    return data.choices[0].message.content;
-  }
-
-  if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
-    return data.candidates[0].content.parts[0].text;
-  }
-
-  return null;
-}
-
-function normalizeModerationResult(parsed) {
-  const allowedViolationTypes = [
-    "toxic_language",
-    "hate_speech",
-    "harassment",
-    "violence",
-    "illegal_content",
-    "self_harm",
-    "sexual_content",
-    "spam",
-    "other",
-    null,
-  ];
-
-  const allowedSeverity = ["low", "medium", "high"];
-
-  const isViolationSuspected = Boolean(parsed.isViolationSuspected);
-
-  const violationType = allowedViolationTypes.includes(parsed.violationType)
-    ? parsed.violationType
-    : isViolationSuspected
-    ? "other"
-    : null;
-
-  const severity = allowedSeverity.includes(parsed.severity)
-    ? parsed.severity
-    : isViolationSuspected
-    ? "medium"
-    : "low";
-
-  const confidenceScore = Number(parsed.confidenceScore);
-
+function createDangerousResult(type, reason, description, confidenceScore = 98) {
   return {
-    isViolationSuspected,
-    violationType,
-    severity,
-    confidenceScore:
-      Number.isFinite(confidenceScore) &&
-      confidenceScore >= 0 &&
-      confidenceScore <= 100
-        ? confidenceScore
-        : isViolationSuspected
-        ? 80
-        : 70,
-    reason:
-      parsed.reason ||
-      (isViolationSuspected
-        ? "AI phát hiện nội dung có dấu hiệu vi phạm."
-        : null),
-    description:
-      parsed.description ||
-      (isViolationSuspected ? "Nội dung cần admin kiểm tra lại." : null),
+    isViolationSuspected: true,
+    violationType: type,
+    severity: "high",
+    confidenceScore,
+    reason,
+    description,
   };
 }
 
-async function checkForumContentByAI(content) {
-  if (!process.env.AI_MODERATION_API_URL || !process.env.AI_MODERATION_API_KEY) {
-    throw new Error("AI moderation API is not configured");
+function clampScore(value, fallback = 80) {
+  const score = Number(value);
+
+  if (!Number.isFinite(score)) return fallback;
+  if (score < 0) return 0;
+  if (score > 100) return 100;
+
+  return score;
+}
+
+function normalizeModerationResult(parsed) {
+  if (!parsed || typeof parsed !== "object") {
+    return createSafeResult();
   }
 
-  const prompt = buildModerationPrompt(content);
+  const isViolationSuspected = Boolean(parsed.isViolationSuspected);
 
-  const response = await fetch(process.env.AI_MODERATION_API_URL, {
+  let violationType = parsed.violationType;
+  if (!VIOLATION_TYPES.includes(violationType)) {
+    violationType = isViolationSuspected ? "other" : null;
+  }
+
+  let severity = parsed.severity;
+  if (!SEVERITY_LEVELS.includes(severity)) {
+    severity = isViolationSuspected ? "medium" : "low";
+  }
+
+  return {
+    isViolationSuspected,
+    violationType: isViolationSuspected ? violationType || "other" : null,
+    severity: isViolationSuspected ? severity : "low",
+    confidenceScore: clampScore(
+      parsed.confidenceScore,
+      isViolationSuspected ? 80 : 85
+    ),
+    reason:
+      parsed.reason ||
+      (isViolationSuspected
+        ? "AI phát hiện nội dung có dấu hiệu cần admin xem xét."
+        : null),
+    description:
+      parsed.description ||
+      (isViolationSuspected
+        ? "Bài viết có dấu hiệu không phù hợp với cộng đồng SOUL."
+        : null),
+  };
+}
+
+function checkCriticalSafetyNet(content) {
+  const text = normalizeText(content);
+
+  if (!text) {
+    return createSafeResult();
+  }
+
+  /**
+   * SELF-HARM / SUICIDE RISK
+   * Bắt các câu tự hại rõ ràng để xử lý nhanh, không cần chờ AI.
+   */
+  const selfHarmIntentRegex =
+    /\b(muon|mong|uoc|chi muon|rat muon|het muon|khong muon|khong can|chan|met moi).{0,80}(chet|tu tu|bien mat|khong song|khong ton tai|roi khoi cuoc doi)\b/;
+
+  const selfHarmPhraseRegex =
+    /\b(chet di cho roi|chet di cho xong|di chet di|muon chet|muon di chet|khong muon song|khong thiet song|song lam gi nua|het muon song|muon bien mat|khong muon ton tai)\b/;
+
+  const selfHarmActionRegex =
+    /\b(cat|rach|tu cat|lam dau|tu lam dau|lam hai|tu hai).{0,50}(co tay|tay|ban than|minh|toi|tao|em)\b|\b(that co|treo co)\b|\b(self harm|kill myself|suicide|i want to die|i wanna die|cut myself)\b/;
+
+  /**
+   * VIOLENCE / HARM TO OTHERS
+   * Bắt ý định hại người khác.
+   */
+  const violenceIntentRegex =
+    /\b(muon|mong|se|sap|dinh|di|ru|keo nguoi|goi nguoi|canh).{0,80}(danh|dap|dam|chem|giet|xu|bem|tan|hanh hung|de doa|tra thu)\b/;
+
+  const violencePhraseRegex =
+    /\b(danh nhau|di danh nhau|muon danh nhau|cho no mot tran|cho no 1 tran|dap no|danh no|xu no|bem no|tan no|giet no|de doa no|tra thu no)\b/;
+
+  const violenceEnglishRegex =
+    /\b(i will beat|beat .* up|i will kill|kill him|kill her|attack him|attack her|fight him|fight her)\b/;
+
+  /**
+   * ILLEGAL / DANGEROUS CONTENT
+   */
+  const illegalRegex =
+    /\b(mua|ban|ship|giao).{0,30}(ma tuy|can sa|hang cam)\b|\bhack\s+(tai khoan|account)\b|\blua dao\b|\bca do\b|\bbetting\b|\bscam\b/;
+
+  if (
+    selfHarmIntentRegex.test(text) ||
+    selfHarmPhraseRegex.test(text) ||
+    selfHarmActionRegex.test(text)
+  ) {
+    return createDangerousResult(
+      "self_harm",
+      "Nội dung có dấu hiệu nguy cơ tự làm hại bản thân.",
+      "Bài viết thể hiện ý định hoặc dấu hiệu tự làm hại bản thân, muốn chết, tự tử hoặc không muốn tiếp tục sống. Cần admin xem xét khẩn cấp.",
+      99
+    );
+  }
+
+  if (
+    violenceIntentRegex.test(text) ||
+    violencePhraseRegex.test(text) ||
+    violenceEnglishRegex.test(text)
+  ) {
+    return createDangerousResult(
+      "violence",
+      "Nội dung có dấu hiệu bạo lực hoặc đe dọa gây hại người khác.",
+      "Bài viết thể hiện ý định đánh nhau, tấn công, trả thù, đe dọa hoặc gây tổn hại cho người khác. Cần admin xem xét.",
+      96
+    );
+  }
+
+  if (illegalRegex.test(text)) {
+    return createDangerousResult(
+      "illegal_content",
+      "Nội dung có dấu hiệu liên quan đến hành vi vi phạm pháp luật.",
+      "Bài viết có dấu hiệu liên quan đến ma túy, lừa đảo, hack tài khoản, cá độ hoặc giao dịch bất hợp pháp.",
+      92
+    );
+  }
+
+  return createSafeResult();
+}
+
+const moderationResponseSchema = {
+  type: "json_schema",
+  json_schema: {
+    name: "soul_forum_moderation_result",
+    strict: true,
+    schema: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        isViolationSuspected: {
+          type: "boolean",
+          description:
+            "True nếu bài viết cần admin review vì có dấu hiệu vi phạm hoặc rủi ro an toàn.",
+        },
+        violationType: {
+          type: ["string", "null"],
+          enum: VIOLATION_TYPES,
+          description: "Loại vi phạm. Null nếu không có dấu hiệu vi phạm.",
+        },
+        severity: {
+          type: "string",
+          enum: SEVERITY_LEVELS,
+          description: "Mức độ nghiêm trọng của nội dung.",
+        },
+        confidenceScore: {
+          type: "number",
+          minimum: 0,
+          maximum: 100,
+          description: "Độ tự tin của AI từ 0 đến 100.",
+        },
+        reason: {
+          type: ["string", "null"],
+          description: "Lý do ngắn bằng tiếng Việt.",
+        },
+        description: {
+          type: ["string", "null"],
+          description: "Giải thích ngắn bằng tiếng Việt cho admin.",
+        },
+      },
+      required: [
+        "isViolationSuspected",
+        "violationType",
+        "severity",
+        "confidenceScore",
+        "reason",
+        "description",
+      ],
+    },
+  },
+};
+
+function buildModerationMessages(content) {
+  return [
+    {
+      role: "system",
+      content: `
+You are a strict AI content moderation service for SOUL, a Vietnamese mental wellness community app.
+
+Your job:
+- Review Vietnamese/English user-generated forum posts.
+- Decide whether the post should be flagged for admin review.
+- Do not punish the user.
+- Do not give therapy advice.
+- Only classify the safety/moderation risk.
+
+Important context:
+SOUL is a mental wellness community, so users may share sadness, stress, loneliness, anxiety, academic pressure, family problems, or emotional pain.
+Those are allowed when they are only emotional sharing.
+But content must be flagged if it includes self-harm risk, violence, threats, harassment, hate speech, illegal content, sexual content, spam, or severe toxicity.
+
+Understand Vietnamese slang, teencode, abbreviations, missing accents, typos, and informal text.
+Examples:
+- "t" can mean "tôi", "tao", "mình".
+- "m" can mean "mày".
+- "đánh nhau", "danh nhau", "đập nó", "dap no", "xử nó", "xu no", "bem nó", "tẩn nó" are violence.
+- "muốn chết", "muon chet", "đi chết", "di chet", "không muốn sống", "khong muon song" are self-harm risk.
+- "cắt cổ tay", "cat co tay", "thắt cổ", "that co", "treo cổ", "treo co" are self-harm risk.
+
+Classification policy:
+1. Normal emotional sharing:
+   - If the post only says the user is sad, stressed, tired, lonely, anxious, disappointed, or wants to cry, do not flag.
+   - Example allowed: "hôm nay t stress quá muốn khóc".
+
+2. Self-harm:
+   - Flag if the post expresses suicidal thoughts, wanting to die, wanting to disappear permanently, not wanting to live, or intent to self-harm.
+   - Understand Vietnamese slang, teencode, missing accents, typos, and indirect wording.
+   - Examples of self-harm risk: "muốn chết", "mong chết đi cho rồi", "không muốn sống", "hết muốn sống", "muốn biến mất", "cắt cổ tay", "thắt cổ", "treo cổ", "tự làm đau bản thân".
+   - violationType: "self_harm".
+   - severity: "high".
+
+3. Violence:
+   - Flag if the user expresses intent, desire, plan, threat, or encouragement to fight, beat, attack, injure, retaliate against, or physically harm another person.
+   - Understand Vietnamese slang and informal wording.
+   - Examples of violence risk: "đánh nhau", "muốn đánh nó", "đập nó", "xử nó", "bem nó", "tẩn nó", "cho nó một trận", "kéo người đánh", "trả thù nó".
+   - violationType: "violence".
+   - severity: "high" if it targets a specific person or sounds actionable.
+
+4. Harassment/toxic language:
+   - If the post insults, humiliates, threatens, abuses, bullies, or attacks another person, flag.
+   - Use "harassment" when targeting a person.
+   - Use "toxic_language" for general profanity/insults.
+
+5. Hate speech:
+   - If it attacks protected groups based on race, ethnicity, nationality, religion, gender, sexual orientation, disability, etc., flag as "hate_speech".
+
+6. Illegal content:
+   - If it discusses buying/selling drugs, scams, hacking accounts, betting, illegal trading, or instructions to commit crimes, flag as "illegal_content".
+
+7. Sexual content:
+   - If it contains explicit sexual content or sexual exploitation, flag as "sexual_content".
+
+8. Spam:
+   - If it is advertising, repeated garbage text, suspicious links, or promotional spam, flag as "spam".
+
+Return only the structured JSON required by the schema.
+`,
+    },
+    {
+      role: "user",
+      content: `Forum post content:\n${String(content || "").trim()}`,
+    },
+  ];
+}
+
+async function callOpenAIForModeration(content) {
+  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_MODERATION_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is missing. Add OPENAI_API_KEY to your .env or Render environment variables."
+    );
+  }
+
+  const model =
+    process.env.OPENAI_MODERATION_MODEL ||
+    process.env.AI_MODERATION_MODEL ||
+    "gpt-4o-mini";
+
+  const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.AI_MODERATION_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
-      temperature: 0.2,
+      model,
+      messages: buildModerationMessages(content),
+      temperature: 0,
+      response_format: moderationResponseSchema,
     }),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
     throw new Error(
-      `AI moderation API failed with status ${response.status}: ${errorText}`
+      `OpenAI moderation request failed with status ${response.status}: ${errorText}`
     );
   }
 
   const data = await response.json();
+  const rawContent = data?.choices?.[0]?.message?.content;
 
-  let contentResult = extractAIContent(data);
-
-  if (!contentResult) {
-    throw new Error("AI moderation API returned empty result");
+  if (!rawContent) {
+    throw new Error("OpenAI moderation returned empty content.");
   }
 
-  contentResult = String(contentResult)
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
+  let parsed;
 
-  const parsed = JSON.parse(contentResult);
+  try {
+    parsed = JSON.parse(rawContent);
+  } catch (error) {
+    const cleaned = String(rawContent)
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim();
+
+    parsed = JSON.parse(cleaned);
+  }
 
   return normalizeModerationResult(parsed);
 }
 
-async function checkForumContentHybrid(content) {
-  const keywordResult = checkForumContentByKeyword(content);
+function getSeverityWeight(severity) {
+  if (severity === "high") return 3;
+  if (severity === "medium") return 2;
+  return 1;
+}
 
-  // Nội dung sinh mệnh / tự tử phải bắt ngay, không phụ thuộc AI API.
-  if (keywordResult.isViolationSuspected && keywordResult.severity === "high") {
-    return keywordResult;
+function isDangerousViolation(moderationResult) {
+  if (!moderationResult?.isViolationSuspected) {
+    return false;
+  }
+
+  const dangerousTypes = [
+    "self_harm",
+    "violence",
+    "illegal_content",
+    "hate_speech",
+    "sexual_content",
+  ];
+
+  return (
+    dangerousTypes.includes(moderationResult.violationType) ||
+    moderationResult.severity === "high"
+  );
+}
+
+function mergeAIWithSafetyNet(aiResult, safetyNetResult) {
+  const normalizedAI = normalizeModerationResult(aiResult);
+  const normalizedSafetyNet = normalizeModerationResult(safetyNetResult);
+
+  if (!normalizedSafetyNet.isViolationSuspected) {
+    return normalizedAI;
+  }
+
+  if (!normalizedAI.isViolationSuspected) {
+    return normalizedSafetyNet;
+  }
+
+  const aiWeight = getSeverityWeight(normalizedAI.severity);
+  const safetyWeight = getSeverityWeight(normalizedSafetyNet.severity);
+
+  if (safetyWeight > aiWeight) {
+    return normalizedSafetyNet;
+  }
+
+  return {
+    ...normalizedAI,
+    confidenceScore: Math.max(
+      normalizedAI.confidenceScore,
+      normalizedSafetyNet.confidenceScore
+    ),
+  };
+}
+
+async function checkForumContentByAI(content) {
+  return callOpenAIForModeration(content);
+}
+
+async function checkForumContentHybrid(content) {
+  const trimmedContent = String(content || "").trim();
+
+  if (!trimmedContent) {
+    return createSafeResult();
+  }
+
+  const safetyNetResult = checkCriticalSafetyNet(trimmedContent);
+
+  // Case nguy hiểm rõ ràng: chặn ngay, không cần đợi AI.
+  if (isDangerousViolation(safetyNetResult)) {
+    console.log("[Forum Moderation] Safety net caught dangerous content:", {
+      content: trimmedContent,
+      result: safetyNetResult,
+    });
+
+    return safetyNetResult;
   }
 
   try {
-    return await checkForumContentByAI(content);
-  } catch (error) {
-    console.error(
-      "AI forum moderation failed, fallback to keyword:",
-      error.message
-    );
+    const aiResult = await checkForumContentByAI(trimmedContent);
+    const finalResult = mergeAIWithSafetyNet(aiResult, safetyNetResult);
 
-    return keywordResult;
+    console.log("[Forum Moderation] AI result:", aiResult);
+    console.log("[Forum Moderation] Safety net result:", safetyNetResult);
+    console.log("[Forum Moderation] Final result:", finalResult);
+
+    return finalResult;
+  } catch (error) {
+    console.error("[Forum Moderation] AI failed:", error.message);
+
+    if (safetyNetResult.isViolationSuspected) {
+      return safetyNetResult;
+    }
+
+    if (process.env.MODERATION_FAIL_CLOSED === "true") {
+      return {
+        isViolationSuspected: true,
+        violationType: "other",
+        severity: "medium",
+        confidenceScore: 70,
+        reason: "Không thể kiểm duyệt bằng AI tại thời điểm đăng bài.",
+        description:
+          "AI moderation đang lỗi hoặc chưa cấu hình. Bài viết được chuyển sang pending để admin kiểm tra thủ công.",
+      };
+    }
+
+    return createSafeResult();
   }
 }
 
@@ -397,34 +539,77 @@ async function createSystemReportForPost(post, moderationResult) {
   return report;
 }
 
+function getToxicityLevel(severity) {
+  if (severity === "high") return "high";
+  if (severity === "medium") return "medium";
+  return "low";
+}
+
+function getPostStatusAfterModeration(moderationResult) {
+  if (!moderationResult.isViolationSuspected) {
+    return "approved";
+  }
+
+  const pendingMode = process.env.MODERATION_PENDING_ON || "dangerous_only";
+
+  if (pendingMode === "dangerous_only") {
+    return isDangerousViolation(moderationResult) ? "pending" : "approved";
+  }
+
+  if (pendingMode === "high") {
+    return moderationResult.severity === "high" ? "pending" : "approved";
+  }
+
+  if (pendingMode === "all") {
+    return "pending";
+  }
+
+  return isDangerousViolation(moderationResult) ? "pending" : "approved";
+}
+
 async function moderatePostAfterCreate(post) {
+  console.log("========== MODERATION START ==========");
+  console.log("Post ID:", post._id);
+  console.log("Post content:", post.content);
+
   const moderationResult = await checkForumContentHybrid(post.content);
+
+  console.log("Moderation result:", moderationResult);
+  console.log("========== MODERATION END ==========");
 
   if (!moderationResult.isViolationSuspected) {
     post.isFlagged = false;
     post.toxicityLevel = "low";
+    post.status = "approved";
+    post.approvedAt = new Date();
+    post.rejectedReason = null;
+
     await post.save();
 
     return moderationResult;
   }
 
-  post.isFlagged = true;
-  post.toxicityLevel =
-    moderationResult.severity === "high"
-      ? "high"
-      : moderationResult.severity === "medium"
-      ? "medium"
-      : "low";
+  const dangerous = isDangerousViolation(moderationResult);
 
-  // Không tự ẩn bài. Admin quyết định sau.
-  post.status = "approved";
+  post.toxicityLevel = getToxicityLevel(moderationResult.severity);
+  post.status = getPostStatusAfterModeration(moderationResult);
+
+  if (dangerous) {
+    post.isFlagged = true;
+    post.approvedAt = null;
+  } else {
+    post.isFlagged = false;
+    post.approvedAt = new Date();
+  }
 
   await post.save();
 
-  const report = await createSystemReportForPost(post, moderationResult);
+  if (dangerous) {
+    const report = await createSystemReportForPost(post, moderationResult);
 
-  if (report) {
-    await notifyAdmins(report);
+    if (report) {
+      await notifyAdmins(report);
+    }
   }
 
   return moderationResult;
@@ -434,5 +619,6 @@ module.exports = {
   moderatePostAfterCreate,
   checkForumContentHybrid,
   checkForumContentByAI,
-  checkForumContentByKeyword,
+  checkCriticalSafetyNet,
+  isDangerousViolation,
 };

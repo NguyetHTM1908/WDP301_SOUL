@@ -18,7 +18,12 @@ async function getAllTests(req, res) {
 
 async function getQuestions(req, res) {
   try {
-    const testType = req.query.testType || req.params.testType || "WHO5";
+    const testType =
+      req.query.testId ||
+      req.query.testType ||
+      req.params.testType ||
+      null;
+
     const data = await emotionalTestService.getQuestions(testType);
 
     return res.status(200).json({
@@ -44,10 +49,11 @@ async function submitTest(req, res) {
       });
     }
 
-    const { testType = "WHO5", answers } = req.body;
+    const { testId, testType, answers } = req.body;
 
     const result = await emotionalTestService.submitTest({
       userId,
+      testId,
       testType,
       answers,
     });
@@ -76,7 +82,7 @@ async function getMyResults(req, res) {
       });
     }
 
-    const { testType } = req.query;
+    const testType = req.query.testId || req.query.testType;
     const results = await emotionalTestService.getMyResults(userId, testType);
 
     return res.status(200).json({
@@ -102,7 +108,7 @@ async function getLatestResult(req, res) {
       });
     }
 
-    const { testType } = req.query;
+    const testType = req.query.testId || req.query.testType;
     const result = await emotionalTestService.getLatestResult(userId, testType);
 
     return res.status(200).json({

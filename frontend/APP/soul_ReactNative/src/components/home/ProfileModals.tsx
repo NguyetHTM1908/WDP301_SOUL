@@ -22,7 +22,6 @@ type ProfileModalsProps = {
   onCloseMyProfile: () => void;
   showEditProfile: boolean;
   onCloseEditProfile: () => void;
-  // Mở trực tiếp modal Edit Profile từ bên ngoài (dùng khi bấm bút chì trong My Profile)
   onOpenEditProfile: () => void;
 };
 
@@ -36,7 +35,6 @@ export function ProfileModals({
   const { user } = useAuthStore();
   const updateProfile = useAuthStore((state) => state.updateProfile);
 
-  // States phục vụ biểu mẫu Edit Profile
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("");
@@ -46,13 +44,12 @@ export function ProfileModals({
   const [saving, setSaving] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Chuyển string YYYY-MM-DD thành Date object để truyền vào DateTimePicker
   const getBirthDateObject = () => {
     if (dateOfBirth) {
       const parts = dateOfBirth.split("-");
       if (parts.length === 3) {
         const year = parseInt(parts[0], 10);
-        const month = parseInt(parts[1], 10) - 1; // 0-indexed
+        const month = parseInt(parts[1], 10) - 1; 
         const day = parseInt(parts[2], 10);
         const date = new Date(year, month, day);
         if (!isNaN(date.getTime())) {
@@ -60,7 +57,7 @@ export function ProfileModals({
         }
       }
     }
-    return new Date(2000, 0, 1); // Mặc định năm 2000 nếu chưa có ngày sinh
+    return new Date(2000, 0, 1); 
   };
 
   const handleToggleDatePicker = () => {
@@ -79,7 +76,6 @@ export function ProfileModals({
     }
   };
 
-  // Đồng bộ thông tin người dùng từ store khi mở biểu mẫu chỉnh sửa
   const syncFormFields = () => {
     if (user) {
       setFullName(user.fullName || "");
@@ -99,8 +95,6 @@ export function ProfileModals({
     }
   }, [showEditProfile, user]);
 
-  // Chuyển từ xem thông tin sang chỉnh sửa thông tin
-  // Đóng My Profile trước, sau đó mở Edit Profile sau 300ms để animation mượt mà
   const handleTransitionToEdit = () => {
     onCloseMyProfile();
     setTimeout(() => {
@@ -108,7 +102,6 @@ export function ProfileModals({
     }, 300);
   };
 
-  // Xử lý lưu thông tin chỉnh sửa
   const handleSaveProfile = async () => {
     if (!fullName.trim()) {
       Alert.alert("Thông báo", "Họ tên không được để trống.");
@@ -136,7 +129,6 @@ export function ProfileModals({
 
   return (
     <>
-      {/* ================= MODAL: CHI TIẾT TÀI KHOẢN (MY PROFILE) ================= */}
       <Modal
         visible={showMyProfile}
         animationType="slide"
@@ -149,7 +141,6 @@ export function ProfileModals({
               <MaterialCommunityIcons name="arrow-left" size={24} color="#005F56" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Hồ sơ của tôi</Text>
-            {/* Click nút bút chì chuyển tiếp sang Edit */}
             <TouchableOpacity 
               onPress={handleTransitionToEdit} 
               style={styles.headerIconBtn}
@@ -159,7 +150,6 @@ export function ProfileModals({
           </View>
 
           <ScrollView contentContainerStyle={styles.modalScroll}>
-            {/* Phần Header cá nhân (Avatar bên trái, Text bên phải) */}
             <View style={styles.profileHeaderBox}>
               <Image
                 source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
@@ -171,10 +161,8 @@ export function ProfileModals({
               </View>
             </View>
 
-            {/* Thẻ thông tin cá nhân nền trắng */}
             <View style={styles.detailsCard}>
               
-              {/* Email */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="email-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -185,7 +173,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Họ và Tên */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="account-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -196,7 +183,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Số điện thoại */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="phone-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -207,7 +193,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Giới tính */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="gender-male-female" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -226,7 +211,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Ngày sinh */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="calendar-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -244,7 +228,6 @@ export function ProfileModals({
         </SafeAreaView>
       </Modal>
 
-      {/* ================= MODAL: CHỈNH SỬA HỒ SƠ (EDIT PROFILE) ================= */}
       <Modal
         visible={showEditProfile}
         animationType="slide"
@@ -272,7 +255,6 @@ export function ProfileModals({
           >
             <View style={styles.formContainer}>
               
-              {/* Phần Avatar tròn lớn có Camera Badge */}
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarLargeWrapper}>
                   <Image
@@ -306,7 +288,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Bio */}
               <Text style={styles.inputLabel}>Bio</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons
@@ -324,7 +305,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Số điện thoại */}
               <Text style={styles.inputLabel}>Số điện thoại</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons
@@ -343,7 +323,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Giới tính */}
               <Text style={styles.inputLabel}>Giới tính</Text>
               <View style={styles.genderContainer}>
                 <TouchableOpacity
@@ -396,7 +375,6 @@ export function ProfileModals({
                 </TouchableOpacity>
               </View>
 
-              {/* Ngày sinh */}
               <Text style={styles.inputLabel}>Ngày sinh (YYYY-MM-DD)</Text>
               <TouchableOpacity
                 style={styles.inputWrapper}
@@ -439,7 +417,6 @@ export function ProfileModals({
                 </View>
               )}
 
-              {/* Link ảnh đại diện */}
               <Text style={styles.inputLabel}>Đường dẫn ảnh đại diện (URL)</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons
@@ -458,7 +435,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Nút to dưới cùng: Lưu thay đổi */}
               <TouchableOpacity
                 style={[styles.saveButtonLarge, saving && styles.saveButtonLargeDisabled]}
                 onPress={handleSaveProfile}
@@ -520,7 +496,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   
-  // Giao diện Hồ sơ của tôi (My Profile)
   profileHeaderBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -589,7 +564,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F5F9",
   },
 
-  // Giao diện Chỉnh sửa hồ sơ (Edit Profile)
   formContainer: {
     width: "100%",
   },
