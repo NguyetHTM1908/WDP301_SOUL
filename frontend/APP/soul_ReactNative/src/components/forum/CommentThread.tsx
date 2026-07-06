@@ -44,7 +44,7 @@ type Props = {
 };
 
 function getAnonymousAlias(user?: ForumUser | null) {
-  return user?.anonymousAlias || "Anonymous Soul";
+  return user?.anonymousAlias || "Ẩn danh SOUL";
 }
 
 export function CommentThread({
@@ -111,22 +111,23 @@ export function CommentThread({
   };
 
   const getCommentAuthorName = (comment: any) => {
-  if (comment?.isAnonymous === true) {
+    if (comment?.isAnonymous === true) {
+      return (
+        comment?.displayAuthor?.fullName ||
+        comment?.anonymousName ||
+        comment?.authorId?.anonymousAlias ||
+        comment?.authorId?.fullName ||
+        "Ẩn danh SOUL"
+      );
+    }
+
     return (
       comment?.displayAuthor?.fullName ||
-      comment?.anonymousName ||
-      comment?.authorId?.anonymousAlias ||
       comment?.authorId?.fullName ||
-      "Anonymous Soul"
+      "Người dùng SOUL"
     );
-  }
+  };
 
-  return (
-    comment?.displayAuthor?.fullName ||
-    comment?.authorId?.fullName ||
-    "SOUL User"
-  );
-};
   const parentComments = comments.filter((comment) => !getParentId(comment));
 
   const getRootParentId = (comment: any): string => {
@@ -280,7 +281,7 @@ export function CommentThread({
             style={s.replyInput}
             value={editingContent}
             onChangeText={setEditingContent}
-            placeholder="Edit your comment..."
+            placeholder="Chỉnh sửa bình luận..."
             placeholderTextColor="#8A9996"
           />
 
@@ -313,7 +314,7 @@ export function CommentThread({
                 size={17}
                 color="#064D3D"
               />
-              <Text style={s.commentMenuText}>Edit</Text>
+              <Text style={s.commentMenuText}>Chỉnh sửa</Text>
             </Pressable>
 
             <Pressable
@@ -326,7 +327,7 @@ export function CommentThread({
                 color="#EF4444"
               />
               <Text style={[s.commentMenuText, s.commentMenuDeleteText]}>
-                Delete
+                Xóa
               </Text>
             </Pressable>
           </>
@@ -341,7 +342,7 @@ export function CommentThread({
             size={17}
             color="#064D3D"
           />
-          <Text style={s.commentMenuText}>Report</Text>
+          <Text style={s.commentMenuText}>Báo cáo</Text>
         </Pressable>
       </View>
     );
@@ -381,7 +382,7 @@ export function CommentThread({
           </Pressable>
 
           <Pressable onPress={() => openReplyInput(comment)}>
-            <Text style={s.commentActionText}>Reply</Text>
+            <Text style={s.commentActionText}>Trả lời</Text>
           </Pressable>
         </View>
 
@@ -390,14 +391,16 @@ export function CommentThread({
             {renderIdentityToggle({
               active: replyAsAnonymous,
               onPress: () => toggleReplyIdentity(commentId),
-              anonymousText: `Reply as ${getAnonymousAlias(currentUser)}`,
-              realText: "Reply as me",
+              anonymousText: `Trả lời ẩn danh với tên ${getAnonymousAlias(
+                currentUser
+              )}`,
+              realText: "Trả lời bằng tài khoản của tôi",
             })}
 
             <View style={s.replyInputRow}>
               <TextInput
                 style={s.replyInput}
-                placeholder="Write a reply..."
+                placeholder="Viết phản hồi..."
                 placeholderTextColor="#8A9996"
                 value={replyInputs[commentId] || ""}
                 onChangeText={(text) =>
@@ -437,7 +440,7 @@ export function CommentThread({
 
             {comment?.isAnonymous ? (
               <Text style={s.inlineCommentMeta}>
-                {isReply ? "Anonymous reply" : "Anonymous comment"}
+                {isReply ? "Phản hồi ẩn danh" : "Bình luận ẩn danh"}
               </Text>
             ) : null}
           </View>
@@ -482,14 +485,16 @@ export function CommentThread({
       {renderIdentityToggle({
         active: commentAsAnonymous,
         onPress: toggleMainCommentIdentity,
-        anonymousText: `Comment as ${getAnonymousAlias(currentUser)}`,
-        realText: "Comment as me",
+        anonymousText: `Bình luận ẩn danh với tên ${getAnonymousAlias(
+          currentUser
+        )}`,
+        realText: "Bình luận bằng tài khoản của tôi",
       })}
 
       <View style={s.inlineCommentInputRow}>
         <TextInput
           style={s.inlineCommentInput}
-          placeholder="Write a supportive comment..."
+          placeholder="Viết một bình luận động viên..."
           placeholderTextColor="#8A9996"
           value={commentInput}
           onChangeText={(text) =>

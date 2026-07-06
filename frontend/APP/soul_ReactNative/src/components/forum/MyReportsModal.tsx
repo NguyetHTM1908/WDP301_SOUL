@@ -24,7 +24,20 @@ function formatDate(value?: string) {
 
   if (Number.isNaN(date.getTime())) return "";
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("vi-VN");
+}
+
+function translateTargetType(type: ReportItem["targetType"]) {
+  if (type === "post") return "BÀI VIẾT";
+  if (type === "comment") return "BÌNH LUẬN";
+  return "NỘI DUNG";
+}
+
+function translateStatus(status: ReportItem["status"]) {
+  if (status === "pending") return "Đang chờ xử lý";
+  if (status === "dismissed") return "Đã bỏ qua";
+  if (status === "action_taken") return "Đã xử lý";
+  return status;
 }
 
 export function MyReportsModal({ visible, reports, onClose }: Props) {
@@ -32,11 +45,11 @@ export function MyReportsModal({ visible, reports, onClose }: Props) {
     return (
       <View style={s.myReportCard}>
         <Text style={s.myReportReason}>
-          {item.reason?.replaceAll("_", " ") || "Report"}
+          {item.reason?.replaceAll("_", " ") || "Báo cáo"}
         </Text>
 
         <Text style={s.myReportMeta}>
-          {item.targetType?.toUpperCase()} • {item.status}
+          {translateTargetType(item.targetType)} • {translateStatus(item.status)}
         </Text>
 
         {item.description ? (
@@ -51,15 +64,20 @@ export function MyReportsModal({ visible, reports, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View style={s.reportBackdrop}>
         <View style={s.reportModal}>
-          <Text style={s.reportTitle}>My Reports</Text>
+          <Text style={s.reportTitle}>Báo cáo của tôi</Text>
 
-          <Text style={s.reportSub}>Reports you have submitted.</Text>
+          <Text style={s.reportSub}>Các báo cáo bạn đã gửi.</Text>
 
           {reports.length === 0 ? (
-            <Text style={s.emptyReportText}>No reports found.</Text>
+            <Text style={s.emptyReportText}>Chưa có báo cáo nào.</Text>
           ) : (
             <FlatList
               data={reports}
@@ -71,7 +89,7 @@ export function MyReportsModal({ visible, reports, onClose }: Props) {
           )}
 
           <Pressable onPress={onClose}>
-            <Text style={s.cancelText}>Close</Text>
+            <Text style={s.cancelText}>Đóng</Text>
           </Pressable>
         </View>
       </View>

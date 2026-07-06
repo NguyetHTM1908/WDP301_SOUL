@@ -1,233 +1,249 @@
-const EmotionalTestResult = require("../models/emotionalTestResult.model");
-const { TEST_DEFINITIONS, getTestDefinition } = require("../utils/emotionalTestQuestions");
+const mongoose = require("mongoose");
 
-function getWHO5Level(percentageScore) {
-  if (percentageScore >= 70) {
-    return {
-      level: "good",
-      levelLabel: "Well-being tốt",
-      suggestion:
-        "Gần đây bạn có trạng thái cảm xúc khá tích cực. Hãy tiếp tục duy trì những thói quen lành mạnh như ngủ đủ giấc, vận động nhẹ, học tập vừa sức và kết nối với người thân hoặc bạn bè.",
-    };
-  }
+const EmotionalTest = require("../models/EmotionalTest");
+const EmotionalTestResult = require("../models/emotionalTestResultModel");
 
-  if (percentageScore >= 50) {
-    return {
-      level: "moderate",
-      levelLabel: "Well-being trung bình",
-      suggestion:
-        "Bạn có thể đang có một vài dấu hiệu mệt mỏi hoặc căng thẳng. Hãy thử nghỉ ngắn, viết nhật ký cảm xúc, chia nhỏ việc học hoặc công việc trong ngày.",
-    };
-  }
-
-  return {
-    level: "low",
-    levelLabel: "Well-being thấp",
-    suggestion:
-      "Kết quả cho thấy bạn có thể đang cần quan tâm hơn đến cảm xúc của mình. Bạn có thể thử chia sẻ với người đáng tin cậy, viết nhật ký hoặc tìm đến chuyên gia nếu cảm giác này kéo dài hoặc trở nên nặng hơn.",
-  };
+function getNextMonthDate() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth() + 1, now.getDate());
 }
 
-function getPSS10Level(rawScore) {
-  if (rawScore <= 13) {
-    return {
-      level: "low_stress",
-      levelLabel: "Mức căng thẳng thấp",
-      suggestion:
-        "Mức căng thẳng hiện tại của bạn đang ở mức thấp. Hãy tiếp tục duy trì thói quen nghỉ ngơi, học tập hợp lý và chăm sóc bản thân đều đặn.",
-    };
-  }
-
-  if (rawScore <= 26) {
-    return {
-      level: "moderate_stress",
-      levelLabel: "Mức căng thẳng trung bình",
-      suggestion:
-        "Bạn có thể đang gặp một mức căng thẳng nhất định trong học tập hoặc cuộc sống. Hãy thử chia nhỏ công việc, nghỉ ngắn, vận động nhẹ hoặc trò chuyện với người bạn tin tưởng.",
-    };
-  }
-
-  return {
-    level: "high_stress",
-    levelLabel: "Mức căng thẳng cao",
-    suggestion:
-      "Kết quả cho thấy bạn có thể đang chịu khá nhiều áp lực. Bạn nên ưu tiên nghỉ ngơi, giảm tải nếu có thể và cân nhắc tìm sự hỗ trợ từ người thân, cố vấn học tập hoặc chuyên gia nếu tình trạng kéo dài.",
-  };
+function normalizeText(value) {
+  return String(value || "").trim();
 }
 
-function validateTestType(testType) {
-  if (!testType || !TEST_DEFINITIONS[testType]) {
-    throw new Error("Loại bài kiểm tra không hợp lệ.");
+async function getActiveTest(testId) {
+  if (testId) {
+    if (!mongoose.Types.ObjectId.isValid(testId)) {
+      throw new Error("testId không hợp lệ.");
+    }
+
+    const test = await EmotionalTest.findOne({
+      _id: testId,
+      isActive: true,
+    });
+
+    if (!test) {
+      throw new Error("Không tìm thấy bài kiểm tra.");
+    }
+
+    return test;
   }
+
+  const test = await EmotionalTest.findOne({ isActive: true }).sort({
+    createdAt: -1,
+  });
+
+  if (!test) {
+    throw new Error("Chưa có bài kiểm tra nào đang hoạt động.");
+  }
+
+  return test;
 }
 
-function validateAnswers(testDefinition, answers) {
+function findResultRule(test, totalScore) {
+  const rule = test.resultRules.find(
+    (item) => totalScore >= item.minScore && totalScore <= item.maxScore
+  );
+
+  if (!rule) {
+    throw new Error("Không tìm thấy thang điểm phù hợp với kết quả.");
+  }
+
+  return rule;
+}
+
+function validateAnswers(test, answers) {
   if (!Array.isArray(answers)) {
     throw new Error("Danh sách câu trả lời không hợp lệ.");
   }
 
-  if (answers.length !== testDefinition.questions.length) {
-    throw new Error(`Bạn cần trả lời đủ ${testDefinition.questions.length} câu hỏi.`);
+  if (answers.length !== test.questions.length) {
+    throw new Error(`Bạn cần trả lời đủ ${test.questions.length} câu hỏi.`);
   }
 
-  const validQuestionIds = testDefinition.questions.map((q) => q.id);
-  const duplicatedCheck = new Set();
+  const checkedQuestionIndexes = new Set();
 
-  for (const answer of answers) {
-    if (!validQuestionIds.includes(answer.questionId)) {
-      throw new Error(`questionId ${answer.questionId} không hợp lệ.`);
+  for (const item of answers) {
+    if (typeof item.questionIndex !== "number") {
+      throw new Error("questionIndex phải là số.");
     }
 
-    if (duplicatedCheck.has(answer.questionId)) {
-      throw new Error(`Câu hỏi ${answer.questionId} bị trả lời trùng.`);
+    if (item.questionIndex < 0 || item.questionIndex >= test.questions.length) {
+      throw new Error(`questionIndex ${item.questionIndex} không hợp lệ.`);
     }
 
-    duplicatedCheck.add(answer.questionId);
-
-    if (typeof answer.score !== "number") {
-      throw new Error("Điểm trả lời phải là số.");
+    if (checkedQuestionIndexes.has(item.questionIndex)) {
+      throw new Error(`Câu hỏi ${item.questionIndex + 1} bị trả lời trùng.`);
     }
 
-    const maxScore = testDefinition.testType === "WHO5" ? 5 : 4;
+    checkedQuestionIndexes.add(item.questionIndex);
 
-    if (answer.score < 0 || answer.score > maxScore) {
-      throw new Error(`Điểm trả lời phải nằm trong khoảng từ 0 đến ${maxScore}.`);
+    if (!item.answer || typeof item.answer !== "string") {
+      throw new Error(`Câu hỏi ${item.questionIndex + 1} chưa có câu trả lời.`);
     }
   }
 }
 
-function calculateWHO5(testDefinition, answers) {
-  const calculatedAnswers = answers.map((answer) => ({
-    questionId: answer.questionId,
-    score: answer.score,
-    calculatedScore: answer.score,
-  }));
+function calculateEmotionalIntelligenceResult(test, answers) {
+  const answerMap = new Map();
 
-  const rawScore = calculatedAnswers.reduce(
-    (sum, item) => sum + item.calculatedScore,
-    0
-  );
+  for (const item of answers) {
+    answerMap.set(item.questionIndex, item);
+  }
 
-  const percentageScore = rawScore * 4;
-  const resultInfo = getWHO5Level(percentageScore);
+  const calculatedAnswers = test.questions.map((question, index) => {
+    const userAnswer = answerMap.get(index);
+    const selectedAnswer = normalizeText(userAnswer.answer);
+    const correctAnswer = normalizeText(question.correctAnswer);
 
-  return {
-    calculatedAnswers,
-    rawScore,
-    percentageScore,
-    ...resultInfo,
-  };
-}
+    const selectedOption = question.options.find(
+      (option) => normalizeText(option.label) === selectedAnswer
+    );
 
-function calculatePSS10(testDefinition, answers) {
-  const questionMap = new Map(
-    testDefinition.questions.map((question) => [question.id, question])
-  );
+    if (!selectedOption) {
+      throw new Error(
+        `Đáp án "${selectedAnswer}" không thuộc lựa chọn của câu ${index + 1}.`
+      );
+    }
 
-  const calculatedAnswers = answers.map((answer) => {
-    const question = questionMap.get(answer.questionId);
-    const calculatedScore = question.reverseScore ? 4 - answer.score : answer.score;
+    const isCorrect = selectedAnswer === correctAnswer;
+    const score = isCorrect ? 1 : 0;
 
     return {
-      questionId: answer.questionId,
-      score: answer.score,
-      calculatedScore,
+      questionIndex: index,
+      answer: selectedAnswer,
+      correctAnswer,
+      score,
+      isCorrect,
     };
   });
 
-  const rawScore = calculatedAnswers.reduce(
-    (sum, item) => sum + item.calculatedScore,
-    0
-  );
-
-  const percentageScore = Math.round((rawScore / 40) * 100);
-  const resultInfo = getPSS10Level(rawScore);
+  const totalScore = calculatedAnswers.reduce((sum, item) => sum + item.score, 0);
+  const resultRule = findResultRule(test, totalScore);
 
   return {
     calculatedAnswers,
-    rawScore,
-    percentageScore,
-    ...resultInfo,
+    totalScore,
+    resultRule,
   };
 }
 
 async function getAllTests() {
-  return Object.values(TEST_DEFINITIONS).map((test) => ({
-    testType: test.testType,
+  const tests = await EmotionalTest.find({ isActive: true })
+    .sort({ createdAt: -1 })
+    .select("_id title description questions resultRules isActive createdAt updatedAt");
+
+  return tests.map((test) => ({
+    _id: test._id,
+    testId: test._id,
     title: test.title,
-    shortTitle: test.shortTitle,
-    duration: test.duration,
-    totalQuestions: test.totalQuestions,
-    source: test.source,
     description: test.description,
+    totalQuestions: test.questions.length,
+    maxScore: test.questions.length,
+    resultRules: test.resultRules,
+    isActive: test.isActive,
+    createdAt: test.createdAt,
+    updatedAt: test.updatedAt,
   }));
 }
 
-async function getQuestions(testType = "WHO5") {
-  validateTestType(testType);
+async function getQuestions(testTypeOrId) {
+  let testId = null;
 
-  const testDefinition = getTestDefinition(testType);
+  if (testTypeOrId && mongoose.Types.ObjectId.isValid(testTypeOrId)) {
+    testId = testTypeOrId;
+  }
+
+  const test = await getActiveTest(testId);
 
   return {
-    testType: testDefinition.testType,
-    title: testDefinition.title,
-    shortTitle: testDefinition.shortTitle,
-    duration: testDefinition.duration,
-    totalQuestions: testDefinition.totalQuestions,
-    source: testDefinition.source,
-    description: testDefinition.description,
-    disclaimer: testDefinition.disclaimer,
-    questions: testDefinition.questions,
-    answerOptions: testDefinition.answerOptions,
+    _id: test._id,
+    testId: test._id,
+    title: test.title,
+    description: test.description,
+    totalQuestions: test.questions.length,
+    maxScore: test.questions.length,
+    resultRules: test.resultRules,
+    questions: test.questions.map((question, index) => ({
+      questionIndex: index,
+      question: question.question,
+      imageUrl: question.imageUrl,
+      answerImageUrl: question.answerImageUrl,
+      correctAnswer: question.correctAnswer,
+      explanation: question.explanation,
+      options: question.options,
+    })),
   };
 }
 
-async function submitTest({ userId, testType, answers }) {
-  validateTestType(testType);
+async function submitTest({ userId, testType, testId, answers }) {
+  const finalTestId = testId || testType;
+  const test = await getActiveTest(
+    finalTestId && mongoose.Types.ObjectId.isValid(finalTestId)
+      ? finalTestId
+      : null
+  );
 
-  const testDefinition = getTestDefinition(testType);
+  validateAnswers(test, answers);
 
-  validateAnswers(testDefinition, answers);
+  const { calculatedAnswers, totalScore, resultRule } =
+    calculateEmotionalIntelligenceResult(test, answers);
 
-  const calculatedResult =
-    testType === "WHO5"
-      ? calculateWHO5(testDefinition, answers)
-      : calculatePSS10(testDefinition, answers);
+  const nextTestDueAt = getNextMonthDate();
 
   const result = await EmotionalTestResult.create({
     userId,
-    testType,
-    testTitle: testDefinition.title,
-    answers: calculatedResult.calculatedAnswers,
-    rawScore: calculatedResult.rawScore,
-    percentageScore: calculatedResult.percentageScore,
-    level: calculatedResult.level,
-    levelLabel: calculatedResult.levelLabel,
-    suggestion: calculatedResult.suggestion,
-    disclaimer: testDefinition.disclaimer,
+    testId: test._id,
+    answers: calculatedAnswers,
+    totalScore,
+    resultLevel: resultRule.level,
+    title: resultRule.title,
+    description: resultRule.description,
+    advice: resultRule.advice,
+    suggestion: resultRule.suggestion,
+    nextTestDueAt,
   });
 
-  return result;
+  return {
+    _id: result._id,
+    testId: test._id,
+    testTitle: test.title,
+    totalScore,
+    maxScore: test.questions.length,
+    resultLevel: resultRule.level,
+    title: resultRule.title,
+    description: resultRule.description,
+    advice: resultRule.advice,
+    suggestion: resultRule.suggestion,
+    nextTestDueAt,
+    answers: calculatedAnswers,
+  };
 }
 
-async function getMyResults(userId, testType) {
+async function getMyResults(userId, testTypeOrId) {
   const filter = { userId };
 
-  if (testType && TEST_DEFINITIONS[testType]) {
-    filter.testType = testType;
+  if (testTypeOrId && mongoose.Types.ObjectId.isValid(testTypeOrId)) {
+    filter.testId = testTypeOrId;
   }
 
-  return EmotionalTestResult.find(filter).sort({ createdAt: -1 }).limit(30);
+  return EmotionalTestResult.find(filter)
+    .populate("testId", "title description")
+    .sort({ createdAt: -1 })
+    .limit(30);
 }
 
-async function getLatestResult(userId, testType) {
+async function getLatestResult(userId, testTypeOrId) {
   const filter = { userId };
 
-  if (testType && TEST_DEFINITIONS[testType]) {
-    filter.testType = testType;
+  if (testTypeOrId && mongoose.Types.ObjectId.isValid(testTypeOrId)) {
+    filter.testId = testTypeOrId;
   }
 
-  return EmotionalTestResult.findOne(filter).sort({ createdAt: -1 });
+  return EmotionalTestResult.findOne(filter)
+    .populate("testId", "title description")
+    .sort({ createdAt: -1 });
 }
 
 module.exports = {

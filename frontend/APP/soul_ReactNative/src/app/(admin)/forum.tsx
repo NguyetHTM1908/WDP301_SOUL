@@ -40,12 +40,12 @@ type ForumPost = {
 };
 
 const filters: { label: string; value: ForumStatus; icon: any }[] = [
-  { label: "All", value: "all", icon: "view-grid-outline" },
-  { label: "Pending", value: "pending", icon: "clock-outline" },
-  { label: "Approved", value: "approved", icon: "check-circle-outline" },
-  { label: "Reported", value: "reported", icon: "flag-outline" },
-  { label: "Hidden", value: "hidden", icon: "eye-off-outline" },
-  { label: "Deleted", value: "deleted", icon: "trash-can-outline" },
+  { label: "Tất cả", value: "all", icon: "view-grid-outline" },
+  { label: "Chờ duyệt", value: "pending", icon: "clock-outline" },
+  { label: "Đã duyệt", value: "approved", icon: "check-circle-outline" },
+  { label: "Bị báo cáo", value: "reported", icon: "flag-outline" },
+  { label: "Đã ẩn", value: "hidden", icon: "eye-off-outline" },
+  { label: "Đã xóa", value: "deleted", icon: "trash-can-outline" },
 ];
 
 function getPostId(item: any) {
@@ -67,7 +67,7 @@ function formatDate(value?: string) {
     return value;
   }
 
-  return date.toLocaleDateString();
+  return date.toLocaleDateString("vi-VN");
 }
 
 function getAuthorName(item: any) {
@@ -76,7 +76,7 @@ function getAuthorName(item: any) {
       item?.displayAuthor?.fullName ||
       item?.anonymousName ||
       item?.authorId?.anonymousAlias ||
-      "Anonymous Soul"
+      "Ẩn danh SOUL"
     );
   }
 
@@ -84,7 +84,7 @@ function getAuthorName(item: any) {
     item?.displayAuthor?.fullName ||
     item?.authorId?.fullName ||
     item?.author?.fullName ||
-    "SOUL User"
+    "Người dùng SOUL"
   );
 }
 
@@ -115,8 +115,8 @@ function mapApiPostToForumPost(item: any): ForumPost {
       item?.hashtags?.length > 0
         ? `#${item.hashtags[0]}`
         : item?.emotionStatus
-          ? `Feeling ${item.emotionStatus}`
-          : "Forum post",
+          ? `Cảm xúc: ${item.emotionStatus}`
+          : "Bài viết diễn đàn",
     content: item?.content || "",
     status: uiStatus,
     realStatus,
@@ -132,7 +132,7 @@ function mapApiPostToForumPost(item: any): ForumPost {
 function getStatusInfo(status: ForumPost["status"]) {
   if (status === "pending") {
     return {
-      label: "Pending",
+      label: "Chờ duyệt",
       color: "#F59E0B",
       bg: "#FFF7E6",
       icon: "clock-outline",
@@ -141,7 +141,7 @@ function getStatusInfo(status: ForumPost["status"]) {
 
   if (status === "approved") {
     return {
-      label: "Approved",
+      label: "Đã duyệt",
       color: "#00866B",
       bg: "#E8F8F3",
       icon: "check-circle-outline",
@@ -150,7 +150,7 @@ function getStatusInfo(status: ForumPost["status"]) {
 
   if (status === "reported") {
     return {
-      label: "Reported",
+      label: "Bị báo cáo",
       color: "#DC2626",
       bg: "#FEECEC",
       icon: "flag-outline",
@@ -159,7 +159,7 @@ function getStatusInfo(status: ForumPost["status"]) {
 
   if (status === "deleted") {
     return {
-      label: "Deleted",
+      label: "Đã xóa",
       color: "#DC2626",
       bg: "#FEECEC",
       icon: "trash-can-outline",
@@ -167,7 +167,7 @@ function getStatusInfo(status: ForumPost["status"]) {
   }
 
   return {
-    label: "Hidden",
+    label: "Đã ẩn",
     color: "#64748B",
     bg: "#F1F5F9",
     icon: "eye-off-outline",
@@ -197,7 +197,7 @@ export default function AdminForumScreen() {
         "Lỗi",
         error?.response?.data?.message ||
           error?.message ||
-          "Không thể lấy danh sách bài viết forum."
+          "Không thể lấy danh sách bài viết diễn đàn."
       );
     } finally {
       setLoading(false);
@@ -267,7 +267,7 @@ export default function AdminForumScreen() {
 
       updatePostStatusLocal(id, "approved", "approved");
 
-      Alert.alert("Approved", "The post has been approved.");
+      Alert.alert("Đã duyệt", "Bài viết đã được duyệt.");
     } catch (error: any) {
       Alert.alert(
         "Lỗi",
@@ -290,12 +290,12 @@ export default function AdminForumScreen() {
       setActionLoadingId(id);
 
       await apiClient.patch(`/adminForum/posts/${id}/hide`, {
-        reason: "Post hidden by admin",
+        reason: "Bài viết đã bị quản trị viên ẩn.",
       });
 
       updatePostStatusLocal(id, "hidden", "hidden");
 
-      Alert.alert("Hidden", "The post has been hidden from the forum.");
+      Alert.alert("Đã ẩn", "Bài viết đã được ẩn khỏi diễn đàn.");
     } catch (error: any) {
       Alert.alert(
         "Lỗi",
@@ -313,12 +313,12 @@ export default function AdminForumScreen() {
       setActionLoadingId(id);
 
       await apiClient.patch(`/adminForum/posts/${id}/reject`, {
-        reason: "Post deleted by admin",
+        reason: "Bài viết đã bị quản trị viên xóa.",
       });
 
       setPosts((prev) => prev.filter((item) => item.id !== id));
 
-      Alert.alert("Deleted", "The post has been deleted.");
+      Alert.alert("Đã xóa", "Bài viết đã được xóa.");
     } catch (error: any) {
       Alert.alert(
         "Lỗi",
@@ -339,7 +339,7 @@ export default function AdminForumScreen() {
 
     if (Platform.OS === "web") {
       const confirmed = window.confirm(
-        "Are you sure you want to delete this post?"
+        "Bạn có chắc muốn xóa bài viết này không?"
       );
 
       if (confirmed) {
@@ -349,13 +349,13 @@ export default function AdminForumScreen() {
       return;
     }
 
-    Alert.alert("Delete post", "Are you sure you want to delete this post?", [
+    Alert.alert("Xóa bài viết", "Bạn có chắc muốn xóa bài viết này không?", [
       {
-        text: "Cancel",
+        text: "Hủy",
         style: "cancel",
       },
       {
-        text: "Delete",
+        text: "Xóa",
         style: "destructive",
         onPress: () => deletePostNow(id),
       },
@@ -410,7 +410,7 @@ export default function AdminForumScreen() {
               size={17}
               color="#64748B"
             />
-            <Text style={s.metaText}>{item.comments} comments</Text>
+            <Text style={s.metaText}>{item.comments} bình luận</Text>
           </View>
 
           <View style={s.metaItem}>
@@ -429,7 +429,7 @@ export default function AdminForumScreen() {
                 },
               ]}
             >
-              {item.reports} reports
+              {item.reports} báo cáo
             </Text>
           </View>
         </View>
@@ -437,7 +437,7 @@ export default function AdminForumScreen() {
         <View style={s.actionRow}>
           <Pressable
             style={[s.actionButton, s.viewButton]}
-            onPress={() => Alert.alert("View detail", item.content)}
+            onPress={() => Alert.alert("Chi tiết bài viết", item.content)}
             disabled={isActionLoading}
           >
             <MaterialCommunityIcons
@@ -445,7 +445,7 @@ export default function AdminForumScreen() {
               size={18}
               color="#2563EB"
             />
-            <Text style={[s.actionText, { color: "#2563EB" }]}>View</Text>
+            <Text style={[s.actionText, { color: "#2563EB" }]}>Xem</Text>
           </Pressable>
 
           <Pressable
@@ -458,7 +458,7 @@ export default function AdminForumScreen() {
               size={18}
               color="#00866B"
             />
-            <Text style={[s.actionText, { color: "#00866B" }]}>Approve</Text>
+            <Text style={[s.actionText, { color: "#00866B" }]}>Duyệt</Text>
           </Pressable>
 
           <Pressable
@@ -471,7 +471,7 @@ export default function AdminForumScreen() {
               size={18}
               color="#F59E0B"
             />
-            <Text style={[s.actionText, { color: "#F59E0B" }]}>Hide</Text>
+            <Text style={[s.actionText, { color: "#F59E0B" }]}>Ẩn</Text>
           </Pressable>
 
           <Pressable
@@ -485,7 +485,7 @@ export default function AdminForumScreen() {
               color="#DC2626"
             />
             <Text style={[s.actionText, { color: "#DC2626" }]}>
-              {isActionLoading ? "Deleting..." : "Delete"}
+              {isActionLoading ? "Đang xóa..." : "Xóa"}
             </Text>
           </Pressable>
         </View>
@@ -517,37 +517,37 @@ export default function AdminForumScreen() {
           </View>
         </View>
 
-        <Text style={s.title}>Forum Moderation</Text>
+        <Text style={s.title}>Kiểm duyệt diễn đàn</Text>
 
         <Text style={s.subtitle}>
-          Review community posts, handle reports, and keep SOUL forum safe.
+          Xem xét bài viết cộng đồng, xử lý báo cáo và giữ diễn đàn SOUL an toàn.
         </Text>
 
         <View style={s.statsRow}>
           <View style={s.statCard}>
             <Text style={s.statValue}>{posts.length}</Text>
-            <Text style={s.statLabel}>Total posts</Text>
+            <Text style={s.statLabel}>Tổng bài viết</Text>
           </View>
 
           <View style={s.statCard}>
             <Text style={[s.statValue, { color: "#F59E0B" }]}>
               {totalPending}
             </Text>
-            <Text style={s.statLabel}>Pending</Text>
+            <Text style={s.statLabel}>Chờ duyệt</Text>
           </View>
 
           <View style={s.statCard}>
             <Text style={[s.statValue, { color: "#DC2626" }]}>
               {totalReported}
             </Text>
-            <Text style={s.statLabel}>Reported</Text>
+            <Text style={s.statLabel}>Bị báo cáo</Text>
           </View>
 
           <View style={s.statCard}>
             <Text style={[s.statValue, { color: "#64748B" }]}>
               {totalHidden}
             </Text>
-            <Text style={s.statLabel}>Hidden</Text>
+            <Text style={s.statLabel}>Đã ẩn</Text>
           </View>
         </View>
 
@@ -556,7 +556,7 @@ export default function AdminForumScreen() {
 
           <TextInput
             style={s.searchInput}
-            placeholder="Search posts, author, content..."
+            placeholder="Tìm kiếm bài viết, tác giả, nội dung..."
             placeholderTextColor="#8A9996"
             value={search}
             onChangeText={setSearch}
@@ -605,7 +605,7 @@ export default function AdminForumScreen() {
       {loading ? (
         <View style={s.emptyBox}>
           <ActivityIndicator size="large" color="#00866B" />
-          <Text style={s.emptyText}>Loading forum posts...</Text>
+          <Text style={s.emptyText}>Đang tải bài viết diễn đàn...</Text>
         </View>
       ) : (
         <FlatList
@@ -620,9 +620,9 @@ export default function AdminForumScreen() {
           ListEmptyComponent={
             <View style={s.emptyBox}>
               <Text style={s.emptyIcon}>🛡️</Text>
-              <Text style={s.emptyTitle}>No posts found</Text>
+              <Text style={s.emptyTitle}>Không tìm thấy bài viết</Text>
               <Text style={s.emptyText}>
-                There are no forum posts matching your current filter.
+                Không có bài viết diễn đàn nào khớp với bộ lọc hiện tại.
               </Text>
             </View>
           }

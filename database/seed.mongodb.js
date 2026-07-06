@@ -668,68 +668,349 @@ db.safety_events.insertOne({
 // =========================================
 
 const test1Id = new ObjectId();
+const testResult1Id = new ObjectId();
+const testResult2Id = new ObjectId();
 
 db.emotional_tests.insertOne({
   _id: test1Id,
-  title: "Stress Level Test",
+  title: "Kiểm tra trí tuệ cảm xúc",
   description:
-    "Simple emotional stress assessment for self-reflection. This test is not a medical diagnosis.",
+    "Bài kiểm tra nhận diện cảm xúc qua khuôn mặt, giúp người dùng tự đánh giá khả năng đọc cảm xúc của người khác. Kết quả chỉ mang tính tham khảo và không phải chẩn đoán y khoa.",
   questions: [
     {
-      question: "This face is expressing which emotion?",
-      imageUrl: "https://example.com/images/emotion-fear.jpg",
-      correctAnswer: "Fear",
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q1_question_image.jpg", // TODO: dán link ảnh cho câu 1
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q1_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Sợ hãi",
       explanation:
-        "Fear is often shown through widened eyes, raised eyebrows, and tense facial muscles.",
+        "Sợ hãi xuất hiện khi một người cảm thấy bị đe dọa về thể chất hoặc tâm lý. Biểu cảm này dễ bị nhầm với ngạc nhiên, nhưng sợ hãi thường có mí mắt căng hơn, lông mày phẳng hơn và khóe miệng kéo ngang.",
       options: [
-        { label: "Happiness", score: 1 },
-        { label: "Fear", score: 3 },
-        { label: "Politeness", score: 1 }
+        { label: "Bối rối", score: 0 },
+        { label: "Sợ hãi", score: 1 },
+        { label: "Buồn bã", score: 0 },
+        { label: "Ngạc nhiên", score: 0 }
       ]
     },
     {
-      question: "How often do you feel overwhelmed by study or work?",
-      imageUrl: null,
-      correctAnswer: null,
-      explanation: "This question helps estimate current stress frequency.",
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q2_question_image.jpg", // TODO: dán link ảnh cho câu 2
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q2_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Hạnh phúc",
+      explanation:
+        "Đây là nụ cười Duchenne, một nụ cười chân thật thể hiện hạnh phúc. Dấu hiệu quan trọng nằm ở mắt: cơ quanh mắt co lại, tạo nếp nhăn nhẹ và làm mí dưới hơi nâng lên.",
       options: [
-        { label: "Rarely", score: 1 },
-        { label: "Sometimes", score: 2 },
-        { label: "Often", score: 3 }
+        { label: "Tán tỉnh", score: 0 },
+        { label: "Hứng thú", score: 0 },
+        { label: "Hạnh phúc", score: 1 },
+        { label: "Lịch sự", score: 0 }
       ]
     },
     {
-      question: "How difficult is it for you to relax recently?",
-      imageUrl: null,
-      correctAnswer: null,
-      explanation: "Difficulty relaxing may indicate stress or anxiety.",
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q3_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q3_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Tức giận",
+      explanation:
+        "Tức giận thường thể hiện qua môi căng, ánh mắt căng thẳng và lông mày cau lại. Biểu cảm này dễ nhầm với ghê tởm, nhưng ghê tởm thường có môi trên nhấc lên và mũi nhăn lại.",
       options: [
-        { label: "Easy", score: 1 },
-        { label: "Moderate", score: 2 },
-        { label: "Difficult", score: 3 }
+        { label: "Buồn bã", score: 0 },
+        { label: "Đau đớn", score: 0 },
+        { label: "Tức giận", score: 1 },
+        { label: "Ghê tởm", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q4_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q4_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai      correctAnswer: "Bối rối",
+      explanation:
+        "Khi bối rối, con người thường tránh ánh nhìn, cúi đầu lệch sang một bên và có thể mỉm cười gượng với môi mím lại. Biểu cảm này khác với xấu hổ vì đầu thường nghiêng sang bên thay vì cúi thẳng xuống.",
+      options: [
+        { label: "Bối rối", score: 1 },
+        { label: "Buồn bã", score: 0 },
+        { label: "Thích thú", score: 0 },
+        { label: "Xấu hổ", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q5_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q5_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Tự hào",
+      explanation:
+        "Tự hào thường đi kèm nụ cười nhẹ, đầu hơi ngả ra sau và cằm nâng lên. Những dấu hiệu này thể hiện cảm giác tự tin, mạnh mẽ và có phần chiếm ưu thế.",
+      options: [
+        { label: "Tự hào", score: 1 },
+        { label: "Khinh thường", score: 0 },
+        { label: "Phấn khích", score: 0 },
+        { label: "Tức giận", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q6_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q6_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Ngạc nhiên",
+      explanation:
+        "Ngạc nhiên được thể hiện qua mí mắt trên nâng cao, lông mày cong lên và hàm mở ra. Nó dễ nhầm với sợ hãi, nhưng khi sợ hãi miệng thường căng và kéo ngang hơn.",
+      options: [
+        { label: "Sợ hãi", score: 0 },
+        { label: "Hứng thú", score: 0 },
+        { label: "Ngạc nhiên", score: 1 },
+        { label: "Đồng cảm", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q7_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q7_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Khinh thường",
+      explanation:
+        "Khinh thường thường được nhận ra khi một bên khóe miệng siết lại hoặc nhếch lên. Đây là biểu cảm cho thấy người đó đang nhìn nhận điều gì đó với sự xem thường hoặc nghi ngờ.",
+      options: [
+        { label: "Buồn bã", score: 0 },
+        { label: "Xấu hổ", score: 0 },
+        { label: "Ghê tởm", score: 0 },
+        { label: "Khinh thường", score: 1 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q8_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q8_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Ghê tởm",
+      explanation:
+        "Ghê tởm thường có môi trên nâng lên, mũi nhăn lại, mắt hẹp hơn và đôi khi miệng mở ra. Biểu cảm này khác với tức giận vì tức giận thường làm lông mày hạ thấp và miệng siết chặt hơn.",
+      options: [
+        { label: "Tức giận", score: 0 },
+        { label: "Đau đớn", score: 0 },
+        { label: "Ghê tởm", score: 1 },
+        { label: "Buồn bã", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q9_question_image.jpg", // TODO: dán link ảnh cho câu 9
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q9_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Tán tỉnh",
+      explanation:
+        "Tán tỉnh có thể xuất hiện khi một người quay đầu tránh đi nhưng vẫn giữ giao tiếp bằng mắt. Điều này thể hiện sự vừa tiếp cận vừa né tránh, một đặc điểm thường gặp trong hành vi tán tỉnh.",
+      options: [
+        { label: "Khao khát", score: 0 },
+        { label: "Bối rối", score: 0 },
+        { label: "Tán tỉnh", score: 1 },
+        { label: "Tình yêu", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q10_question_image.jpg", // TODO: dán link ảnh cho câu 10
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q10_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Đau đớn",
+      explanation:
+        "Đau đớn khiến các cơ mặt co lại như một phản ứng tự bảo vệ. Mắt có thể nhắm chặt, lông mày hạ xuống và môi ép lên trên.",
+      options: [
+        { label: "Xấu hổ", score: 0 },
+        { label: "Tức giận", score: 0 },
+        { label: "Buồn bã", score: 0 },
+        { label: "Đau đớn", score: 1 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q11_question_image.jpg", // TODO: dán link ảnh cho câu 11
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q11_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Đồng cảm",
+      explanation:
+        "Đồng cảm thường được thể hiện qua lông mày kéo vào trong và nâng lên, môi mím lại và đầu hơi nghiêng về phía trước. Đây là dấu hiệu của sự quan tâm và kết nối xã hội.",
+      options: [
+        { label: "Đồng cảm", score: 1 },
+        { label: "Buồn bã", score: 0 },
+        { label: "Tức giận", score: 0 },
+        { label: "Hứng thú", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q12_question_image.jpg", // TODO: dán link ảnh cho câu 12
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q12_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Thích thú",
+      explanation:
+        "Thích thú thường thể hiện qua nụ cười hoặc tiếng cười với miệng mở, đầu hơi ngả về sau và cơ quanh mắt co lại. Đây là dấu hiệu của cảm xúc vui vẻ và thoải mái.",
+      options: [
+        { label: "Thích thú", score: 1 },
+        { label: "Khao khát", score: 0 },
+        { label: "Ngạc nhiên", score: 0 },
+        { label: "Phấn khích", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q13_question_image.jpg", // TODO: dán link ảnh cho câu 13
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q13_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai
+      correctAnswer: "Hứng thú",
+      explanation:
+        "Hứng thú thường có lông mày nâng lên và một nụ cười nhẹ. Biểu cảm này cho thấy sự chú ý, tò mò và cảm giác tích cực với điều đang diễn ra.",
+      options: [
+        { label: "Ngạc nhiên", score: 0 },
+        { label: "Hứng thú", score: 1 },
+        { label: "Khao khát", score: 0 },
+        { label: "Hạnh phúc", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+      imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q14_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q14_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai    
+      correctAnswer: "Buồn bã",
+      explanation:
+        "Buồn bã thường có phần trong của lông mày nâng lên, ánh mắt hướng xuống và khóe môi kéo xuống. Đây là biểu cảm dễ nhầm với xấu hổ hoặc đồng cảm.",
+      options: [
+        { label: "Buồn bã", score: 1 },
+        { label: "Xấu hổ", score: 0 },
+        { label: "Ghê tởm", score: 0 },
+        { label: "Đồng cảm", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q15_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q15_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai          correctAnswer: "Khao khát",
+      explanation:
+        "Khao khát thường được thể hiện qua vùng miệng, chẳng hạn như liếm môi, cắn môi hoặc chu môi. Biểu cảm này liên quan đến sự hấp dẫn hoặc mong muốn.",
+      options: [
+        { label: "Ghê tởm", score: 0 },
+        { label: "Tình yêu", score: 0 },
+        { label: "Khinh thường", score: 0 },
+        { label: "Khao khát", score: 1 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q16_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q16_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai          correctAnswer: "Xấu hổ",
+      explanation:
+        "Xấu hổ là biểu cảm có ánh mắt tránh đi và đầu cúi thẳng xuống, cằm thu vào gần cổ. Nó khác với tự hào, vốn thường có đầu ngẩng lên và cằm nâng cao.",
+      options: [
+        { label: "Buồn bã", score: 0 },
+        { label: "Tự hào", score: 0 },
+        { label: "Bối rối", score: 0 },
+        { label: "Xấu hổ", score: 1 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q17_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q17_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai          correctAnswer: "Lịch sự",
+      explanation:
+        "Lịch sự thường được thể hiện bằng một nụ cười xã giao, không phải nụ cười hạnh phúc thật sự. Miệng có thể cười nhưng vùng mắt không có nhiều dấu hiệu của niềm vui chân thật.",
+      options: [
+        { label: "Hạnh phúc", score: 0 },
+        { label: "Khao khát", score: 0 },
+        { label: "Lịch sự", score: 1 },
+        { label: "Đồng cảm", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q18_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q18_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai          correctAnswer: "Bối rối",
+      explanation:
+        "Bối rối có thể đi kèm hành động chạm tay lên mặt, quay đầu sang bên, tránh ánh nhìn và cười nhẹ. Đây thường là phản ứng khi một người cảm thấy lúng túng trong tình huống xã hội.",
+      options: [
+        { label: "Buồn bã", score: 0 },
+        { label: "Xấu hổ", score: 0 },
+        { label: "Bối rối", score: 1 },
+        { label: "Tình yêu", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q19_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q19_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai          correctAnswer: "Đau đớn",
+      explanation:
+        "Đau đớn làm các cơ mặt co lại. Mắt có thể nhắm chặt, lông mày hạ xuống, môi ép lên trên và cổ có thể căng lại như một phản ứng tự vệ.",
+      options: [
+        { label: "Tội lỗi", score: 0 },
+        { label: "Buồn bã", score: 0 },
+        { label: "Đau đớn", score: 1 },
+        { label: "Ghê tởm", score: 0 }
+      ]
+    },
+    {
+      question: "Khuôn mặt này đang thể hiện cảm xúc nào?",
+imageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q20_question_image.jpg", // TODO: dán link ảnh cho câu 3
+      answerImageUrl: "https://greatergood.berkeley.edu/images/EIQuiz/q20_answer_image.jpg", // ảnh sau khi trả lời, có chú thích đúng/sai          correctAnswer: "Tình yêu",
+      explanation:
+        "Tình yêu thường giống hạnh phúc nhưng mềm mại hơn, có nụ cười nhẹ và đầu nghiêng sang một bên. Dấu hiệu này thể hiện sự gần gũi, tin tưởng và kết nối.",
+      options: [
+        { label: "Hài lòng", score: 0 },
+        { label: "Tán tỉnh", score: 0 },
+        { label: "Tình yêu", score: 1 },
+        { label: "Đồng cảm", score: 0 }
       ]
     }
   ],
   resultRules: [
     {
-      level: "low",
-      minScore: 3,
-      maxScore: 4,
-      suggestion: "Your stress level seems low. Maintain healthy routines."
+      level: "rat_thap",
+      minScore: 0,
+      maxScore: 5,
+      title: "Bạn có thể đang gặp khó khăn trong việc đọc cảm xúc",
+      description:
+        "Kết quả cho thấy bạn có thể chưa quen với việc nhận diện cảm xúc qua nét mặt. Điều này không có nghĩa là bạn thiếu sự đồng cảm, mà chỉ cho thấy bạn cần luyện tập thêm cách quan sát mắt, lông mày, miệng và hướng đầu.",
+      advice:
+        "Hãy quan sát chậm hơn và chú ý các cảm xúc dễ nhầm như sợ hãi với ngạc nhiên, buồn bã với xấu hổ, tức giận với ghê tởm.",
+      suggestion:
+        "Bạn nên luyện tập thêm cách nhận diện tín hiệu cảm xúc qua nét mặt."
     },
     {
-      level: "medium",
-      minScore: 5,
-      maxScore: 7,
+      level: "duoi_trung_binh",
+      minScore: 6,
+      maxScore: 10,
+      title: "Bạn đang trong quá trình phát triển khả năng nhận diện cảm xúc",
+      description:
+        "Bạn có thể nhận ra một số cảm xúc cơ bản, nhưng vẫn dễ nhầm giữa các biểu cảm có nét tương đồng. Đây là điều khá bình thường vì nhiều cảm xúc có dấu hiệu khuôn mặt gần giống nhau.",
+      advice:
+        "Hãy tập ghi nhớ dấu hiệu đặc trưng của từng cảm xúc. Ví dụ: nụ cười thật thường thể hiện ở mắt, ngạc nhiên có lông mày nâng lên và hàm mở, còn sợ hãi có mí mắt căng và miệng kéo ngang.",
       suggestion:
-        "You may be experiencing some stress. Try resting and sharing with someone trusted."
+        "Bạn đã nhận diện được một số cảm xúc, nhưng cần luyện thêm với các biểu cảm dễ nhầm lẫn."
     },
     {
-      level: "high",
-      minScore: 8,
-      maxScore: 9,
+      level: "trung_binh",
+      minScore: 11,
+      maxScore: 14,
+      title: "Bạn có khả năng đọc cảm xúc ở mức cơ bản",
+      description:
+        "Kết quả cho thấy bạn đã có khả năng nhận diện nhiều biểu cảm, nhưng vẫn còn không gian để cải thiện. Bạn có thể nhận ra cảm xúc rõ ràng, nhưng có thể gặp khó với cảm xúc tinh tế như khinh thường, lịch sự, xấu hổ hoặc đồng cảm.",
+      advice:
+        "Hãy chú ý nhiều hơn đến các chi tiết nhỏ như ánh mắt, vị trí lông mày, hướng đầu và nụ cười có thật sự tự nhiên hay chỉ mang tính xã giao.",
       suggestion:
-        "You may be under high stress. Consider seeking support from trusted people or professionals."
+        "Bạn có nền tảng nhận diện cảm xúc cơ bản và có thể cải thiện thêm bằng luyện tập."
+    },
+    {
+      level: "tot",
+      minScore: 15,
+      maxScore: 17,
+      title: "Bạn đọc cảm xúc khá tốt",
+      description:
+        "Bạn có khả năng nhận diện cảm xúc qua nét mặt tương đối tốt. Bạn thường chú ý được những dấu hiệu quan trọng và có thể hiểu người khác đang cảm thấy thế nào trong các tình huống giao tiếp.",
+      advice:
+        "Để cải thiện hơn nữa, hãy luyện nhận diện những cảm xúc phức tạp hoặc dễ bị nhầm lẫn. Nên kết hợp nét mặt với ngữ cảnh, giọng nói và ngôn ngữ cơ thể.",
+      suggestion:
+        "Bạn đọc cảm xúc khá tốt và có thể tiếp tục phát triển với các biểu cảm phức tạp hơn."
+    },
+    {
+      level: "xuat_sac",
+      minScore: 18,
+      maxScore: 20,
+      title: "Bạn có khả năng nhận diện cảm xúc rất tốt",
+      description:
+        "Kết quả cho thấy bạn có kỹ năng rất tốt trong việc đọc cảm xúc qua biểu cảm khuôn mặt. Bạn có thể nhận ra những chi tiết tinh tế và phân biệt được các trạng thái cảm xúc gần giống nhau.",
+      advice:
+        "Hãy tiếp tục phát huy điểm mạnh này trong giao tiếp, làm việc nhóm và xây dựng mối quan hệ. Tuy nhiên, để thấu hiểu cảm xúc thật sự, bạn vẫn nên kết hợp quan sát với lắng nghe và đồng cảm.",
+      suggestion:
+        "Bạn có khả năng nhận diện cảm xúc xuất sắc và nền tảng trí tuệ cảm xúc tốt."
     }
   ],
   isActive: true,
@@ -744,31 +1025,68 @@ db.emotional_tests.insertOne({
 
 db.test_results.insertMany([
   {
+    _id: testResult1Id,
     userId: user1Id,
     testId: test1Id,
     answers: [
-      { questionIndex: 0, answer: "Fear", score: 3 },
-      { questionIndex: 1, answer: "Sometimes", score: 2 },
-      { questionIndex: 2, answer: "Moderate", score: 2 }
+      { questionIndex: 0, answer: "Sợ hãi", score: 1 },
+      { questionIndex: 1, answer: "Hạnh phúc", score: 1 },
+      { questionIndex: 2, answer: "Tức giận", score: 1 },
+      { questionIndex: 3, answer: "Bối rối", score: 1 },
+      { questionIndex: 4, answer: "Tự hào", score: 1 },
+      { questionIndex: 5, answer: "Ngạc nhiên", score: 1 },
+      { questionIndex: 6, answer: "Khinh thường", score: 1 },
+      { questionIndex: 7, answer: "Ghê tởm", score: 1 },
+      { questionIndex: 8, answer: "Tán tỉnh", score: 1 },
+      { questionIndex: 9, answer: "Đau đớn", score: 1 },
+      { questionIndex: 10, answer: "Đồng cảm", score: 1 },
+      { questionIndex: 11, answer: "Khao khát", score: 0 },
+      { questionIndex: 12, answer: "Ngạc nhiên", score: 0 },
+      { questionIndex: 13, answer: "Xấu hổ", score: 0 },
+      { questionIndex: 14, answer: "Ghê tởm", score: 0 },
+      { questionIndex: 15, answer: "Buồn bã", score: 0 },
+      { questionIndex: 16, answer: "Hạnh phúc", score: 0 },
+      { questionIndex: 17, answer: "Buồn bã", score: 0 },
+      { questionIndex: 18, answer: "Tội lỗi", score: 0 },
+      { questionIndex: 19, answer: "Hài lòng", score: 0 }
     ],
-    totalScore: 7,
-    resultLevel: "medium",
+    totalScore: 11,
+    resultLevel: "trung_binh",
     suggestion:
-      "You may be experiencing some stress. Try resting and sharing with someone trusted.",
+      "Bạn có nền tảng nhận diện cảm xúc cơ bản và có thể cải thiện thêm bằng luyện tập.",
     nextTestDueAt: nextMonth,
     createdAt: now
   },
   {
+    _id: testResult2Id,
     userId: user2Id,
     testId: test1Id,
     answers: [
-      { questionIndex: 0, answer: "Happiness", score: 1 },
-      { questionIndex: 1, answer: "Rarely", score: 1 },
-      { questionIndex: 2, answer: "Easy", score: 1 }
+      { questionIndex: 0, answer: "Sợ hãi", score: 1 },
+      { questionIndex: 1, answer: "Hạnh phúc", score: 1 },
+      { questionIndex: 2, answer: "Tức giận", score: 1 },
+      { questionIndex: 3, answer: "Bối rối", score: 1 },
+      { questionIndex: 4, answer: "Tự hào", score: 1 },
+      { questionIndex: 5, answer: "Ngạc nhiên", score: 1 },
+      { questionIndex: 6, answer: "Buồn bã", score: 0 },
+      { questionIndex: 7, answer: "Ghê tởm", score: 1 },
+      { questionIndex: 8, answer: "Tán tỉnh", score: 1 },
+      { questionIndex: 9, answer: "Đau đớn", score: 1 },
+      { questionIndex: 10, answer: "Đồng cảm", score: 1 },
+      { questionIndex: 11, answer: "Thích thú", score: 1 },
+      { questionIndex: 12, answer: "Hứng thú", score: 1 },
+      { questionIndex: 13, answer: "Buồn bã", score: 1 },
+      { questionIndex: 14, answer: "Ghê tởm", score: 0 },
+      { questionIndex: 15, answer: "Xấu hổ", score: 1 },
+      { questionIndex: 16, answer: "Lịch sự", score: 1 },
+      { questionIndex: 17, answer: "Bối rối", score: 1 },
+      { questionIndex: 18, answer: "Đau đớn", score: 1 },
+      { questionIndex: 19, answer: "Tình yêu", score: 1 }
     ],
-    totalScore: 3,
-    resultLevel: "low",
-    suggestion: "Your stress level seems low. Maintain healthy routines.",
+    totalScore: 18,
+    resultLevel: "xuat_sac",
+    suggestion:
+      "Bạn có khả năng nhận diện cảm xúc xuất sắc và nền tảng trí tuệ cảm xúc tốt.",
     nextTestDueAt: nextMonth,
     createdAt: now
   }

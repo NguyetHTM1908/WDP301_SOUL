@@ -20,12 +20,12 @@ type Props = {
 const reasons = [
   {
     value: "toxic_behavior",
-    label: "Toxic",
+    label: "Hành vi toxic",
     icon: "alert-circle-outline",
   },
   {
     value: "harassment",
-    label: "Harassment",
+    label: "Quấy rối",
     icon: "account-alert-outline",
   },
   {
@@ -35,12 +35,12 @@ const reasons = [
   },
   {
     value: "self_harm_risk",
-    label: "Self-harm risk",
+    label: "Nguy cơ tự hại",
     icon: "heart-alert-outline",
   },
   {
     value: "negative_content",
-    label: "Not suitable",
+    label: "Không phù hợp",
     icon: "flag-outline",
   },
 ];
@@ -50,7 +50,10 @@ export function ReportModal({ visible, onClose, onSubmit }: Props) {
   const [description, setDescription] = useState("");
 
   const handleSubmit = () => {
-    onSubmit(reason, description || "Nội dung có thể không phù hợp với cộng đồng.");
+    onSubmit(
+      reason,
+      description || "Nội dung có thể không phù hợp với cộng đồng."
+    );
     setReason("toxic_behavior");
     setDescription("");
   };
@@ -76,10 +79,10 @@ export function ReportModal({ visible, onClose, onSubmit }: Props) {
             />
           </View>
 
-          <Text style={s.reportTitle}>Report content</Text>
+          <Text style={s.reportTitle}>Báo cáo nội dung</Text>
 
           <Text style={s.reportSub}>
-            Help us keep SOUL safe, respectful, and supportive.
+            Giúp SOUL giữ cộng đồng an toàn, tôn trọng và luôn hỗ trợ nhau.
           </Text>
 
           <View style={s.reasonList}>
@@ -97,6 +100,7 @@ export function ReportModal({ visible, onClose, onSubmit }: Props) {
                     size={16}
                     color={active ? "#FFFFFF" : "#064D3D"}
                   />
+
                   <Text style={[s.reasonText, active && s.reasonTextActive]}>
                     {item.label}
                   </Text>
@@ -108,19 +112,24 @@ export function ReportModal({ visible, onClose, onSubmit }: Props) {
           <TextInput
             style={s.reportInput}
             multiline
-            placeholder="More details optional..."
+            placeholder="Mô tả thêm nếu cần..."
             placeholderTextColor="#8A9996"
             value={description}
             onChangeText={setDescription}
           />
 
           <Pressable style={s.submitButton} onPress={handleSubmit}>
-            <MaterialCommunityIcons name="flag-outline" size={22} color="#FFFFFF" />
-            <Text style={s.submitText}>Submit Report</Text>
+            <MaterialCommunityIcons
+              name="flag-outline"
+              size={22}
+              color="#FFFFFF"
+            />
+
+            <Text style={s.submitText}>Gửi báo cáo</Text>
           </Pressable>
 
           <Pressable onPress={handleClose}>
-            <Text style={s.cancelText}>Cancel</Text>
+            <Text style={s.cancelText}>Hủy</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

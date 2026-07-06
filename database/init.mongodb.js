@@ -737,12 +737,16 @@ db.createCollection("emotional_tests", {
               },
 
               imageUrl: {
-                bsonType: ["string", "null"]
-              },
+  bsonType: ["string", "null"]
+},
 
-              correctAnswer: {
-                bsonType: ["string", "null"]
-              },
+answerImageUrl: {
+  bsonType: ["string", "null"]
+},
+
+correctAnswer: {
+  bsonType: ["string", "null"]
+},
 
               explanation: {
                 bsonType: ["string", "null"]
@@ -769,29 +773,41 @@ db.createCollection("emotional_tests", {
         },
 
         resultRules: {
-          bsonType: "array",
-          items: {
-            bsonType: "object",
-            required: ["level", "minScore", "maxScore", "suggestion"],
-            properties: {
-              level: {
-                enum: ["low", "medium", "high"]
-              },
+  bsonType: "array",
+  items: {
+    bsonType: "object",
+    required: ["level", "minScore", "maxScore", "suggestion"],
+    properties: {
+      level: {
+        enum: ["rat_thap", "duoi_trung_binh", "trung_binh", "tot", "xuat_sac"]
+      },
 
-              minScore: {
-                bsonType: "int"
-              },
+      minScore: {
+        bsonType: "int"
+      },
 
-              maxScore: {
-                bsonType: "int"
-              },
+      maxScore: {
+        bsonType: "int"
+      },
 
-              suggestion: {
-                bsonType: "string"
-              }
-            }
-          }
-        },
+      title: {
+        bsonType: ["string", "null"]
+      },
+
+      description: {
+        bsonType: ["string", "null"]
+      },
+
+      advice: {
+        bsonType: ["string", "null"]
+      },
+
+      suggestion: {
+        bsonType: "string"
+      }
+    }
+  }
+},
 
         isActive: {
           bsonType: "bool"
@@ -867,8 +883,8 @@ db.createCollection("test_results", {
         },
 
         resultLevel: {
-          enum: ["low", "medium", "high"]
-        },
+  enum: ["rat_thap", "duoi_trung_binh", "trung_binh", "tot", "xuat_sac"]
+},
 
         suggestion: {
           bsonType: ["string", "null"]
