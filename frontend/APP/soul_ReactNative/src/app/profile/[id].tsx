@@ -31,13 +31,12 @@ import {
   updatePost,
   deletePost,
   reactToPost,
-  getComments,
+  getCommentsByPost as getComments,
   createComment,
   updateComment,
   deleteComment,
   reactToComment,
-  reportPost,
-  reportComment,
+  createReport,
 } from "@/api/forumApi";
 
 import { PostCard } from "@/components/forum/PostCard";
@@ -343,19 +342,19 @@ export default function ProfileScreen() {
     const body = {
       content: content.trim(),
       mediaUrls: mediaUrl.trim()
-        ? [{ url: mediaUrl.trim(), type: mediaUrl.trim().includes(".mp4") ? "video" : "image" }]
+        ? [{ url: mediaUrl.trim(), type: (mediaUrl.trim().includes(".mp4") ? "video" : "image") as "image" | "video" }]
         : [],
       emotionStatus,
       hashtags: hashtags.split(",").map((tag) => tag.replace("#", "").trim()).filter(Boolean),
       isAnonymous,
-      anonymousName: isAnonymous ? anonymousName.trim() || "Anonymous Soul" : null,
-      visibility: "public",
+      anonymousName: isAnonymous ? (anonymousName.trim() || "Anonymous Soul") : undefined,
+      visibility: "public" as "public" | "private",
     };
 
     try {
       const res = editingPost
-        ? await updatePost(token, editingPost._id, body)
-        : await createPost(token, body);
+        ? await updatePost(editingPost._id, body)
+        : await createPost(body);
 
       if (res) {
         Alert.alert("Thành công", editingPost ? "Đã cập nhật bài viết." : "Đã đăng trạng thái mới.");
@@ -379,7 +378,7 @@ export default function ProfileScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deletePost(token, postId);
+            await deletePost(postId);
             setUserPosts((prev) => prev.filter((p) => p._id !== postId));
             Alert.alert("Đã xóa", "Bài viết đã được xóa.");
           } catch (e: any) {
@@ -393,7 +392,7 @@ export default function ProfileScreen() {
   const handleReactPost = async (postId: string, type: any) => {
     if (!token) return;
     try {
-      await reactToPost(token, postId, type);
+      await reactToPost(postId, type);
       const postsRes = await getUserPosts(token, targetUserId as string);
       setUserPosts(postsRes?.data || []);
     } catch (e: any) {
@@ -424,7 +423,7 @@ export default function ProfileScreen() {
     if (!text) return;
 
     try {
-      await createComment(token, { postId, content: text, isAnonymous: false });
+      await createComment({ postId, content: text, isAnonymous: false });
       setCommentInputs((prev) => ({ ...prev, [postId]: "" }));
       // Reload comments
       const res = await getComments(postId);
@@ -444,7 +443,7 @@ export default function ProfileScreen() {
     if (!text) return;
 
     try {
-      await createComment(token, { postId, parentCommentId, content: text, isAnonymous: false });
+      await createComment({ postId, parentCommentId, content: text, isAnonymous: false });
       setReplyInputs((prev) => ({ ...prev, [inputKey]: "" }));
       setOpenReplyCommentId(null);
       const res = await getComments(postId);
@@ -457,7 +456,7 @@ export default function ProfileScreen() {
   const handleReactComment = async (postId: string, commentId: string, type: any) => {
     if (!token) return;
     try {
-      await reactToComment(token, commentId, type);
+      await reactToComment(commentId, type);
       const res = await getComments(postId);
       setCommentsByPost((prev) => ({ ...prev, [postId]: res?.data || res || [] }));
     } catch (e) {
@@ -468,7 +467,7 @@ export default function ProfileScreen() {
   const handleEditComment = async (postId: string, commentId: string, text: string) => {
     if (!token) return;
     try {
-      await updateComment(token, commentId, text);
+      await updateComment(commentId, { content: text });
       const res = await getComments(postId);
       setCommentsByPost((prev) => ({ ...prev, [postId]: res?.data || res || [] }));
     } catch (e) {
@@ -479,7 +478,7 @@ export default function ProfileScreen() {
   const handleDeleteComment = async (postId: string, commentId: string) => {
     if (!token) return;
     try {
-      await deleteComment(token, commentId);
+      await deleteComment(commentId);
       const res = await getComments(postId);
       setCommentsByPost((prev) => ({ ...prev, [postId]: res?.data || res || [] }));
       const postsRes = await getUserPosts(token, targetUserId as string);
@@ -492,11 +491,12 @@ export default function ProfileScreen() {
   const submitReport = async (reason: string, description: string) => {
     if (!token || !reportTarget) return;
     try {
-      if (reportTarget.type === "post") {
-        await reportPost(token, reportTarget.id, reason, description);
-      } else {
-        await reportComment(token, reportTarget.id, reason, description);
-      }
+      await createReport({
+        targetType: reportTarget.type,
+        targetId: reportTarget.id,
+        reason,
+        description,
+      });
       Alert.alert("Đã gửi báo cáo", "Cảm ơn bạn đã phản hồi để giữ môi trường an toàn.");
       setReportTarget(null);
     } catch (e: any) {
