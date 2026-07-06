@@ -43,8 +43,22 @@ export function ProfileModals({
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Danh sách chủ đề quan tâm có thể chọn
+  const INTEREST_OPTIONS = [
+    "stress", "anxiety", "mindfulness", "depression", "selfcare",
+    "healing", "study", "relationship", "loneliness", "motivation",
+    "sleep", "exercise", "gratitude", "confidence", "work",
+  ];
+
+  const toggleInterest = (tag: string) => {
+    setInterests((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
 
   // Chuyển string YYYY-MM-DD thành Date object để truyền vào DateTimePicker
   const getBirthDateObject = () => {
@@ -90,6 +104,7 @@ export function ProfileModals({
       );
       setAvatarUrl(user.avatarUrl || "");
       setBio(user.bio || "");
+      setInterests(Array.isArray(user.interests) ? user.interests : []);
     }
   };
 
@@ -123,6 +138,7 @@ export function ProfileModals({
       dateOfBirth: dateOfBirth || undefined,
       avatarUrl: avatarUrl || undefined,
       bio: bio || undefined,
+      interests,
     });
     setSaving(false);
 
@@ -456,6 +472,35 @@ export function ProfileModals({
                   placeholderTextColor="#94A3B8"
                   autoCapitalize="none"
                 />
+              </View>
+
+              {/* Chủ đề quan tâm */}
+              <Text style={styles.inputLabel}>Chủ đề quan tâm 🌱</Text>
+              <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 10 }}>
+                Chọn những chủ đề bạn quan tâm để hệ thống gợi ý bạn bè phù hợp hơn
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                {INTEREST_OPTIONS.map((tag) => {
+                  const selected = interests.includes(tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      onPress={() => toggleInterest(tag)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: 20,
+                        borderWidth: 1.5,
+                        borderColor: selected ? "#006B5C" : "#CBD5E1",
+                        backgroundColor: selected ? "#E0F7EF" : "#FFFFFF",
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: selected ? "#006B5C" : "#64748B" }}>
+                        #{tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {/* Nút to dưới cùng: Lưu thay đổi */}
