@@ -56,6 +56,7 @@ export const authService = {
     phone?: string;
     gender?: string;
     dateOfBirth?: string;
+    role?: string;
   }) => {
     try {
       const response = await apiClient.post("/auth/register", userData);
@@ -127,6 +128,7 @@ export const authService = {
     dateOfBirth?: string;
     avatarUrl?: string;
     bio?: string;
+    interests?: string[];
   }) => {
     try {
       const response = await apiClient.put("/auth/profile", profileData);
