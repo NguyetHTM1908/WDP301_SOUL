@@ -130,7 +130,7 @@ async function recalculateUserEmotionProfile(userId) {
 
   let currentSentiment = "neutral";
 
-  if (negativeCount >= 3 || averageEmotionScore < 40) {
+  if (negativeCount >= 3 || averageEmotionScore <= 40) {
     currentSentiment = "negative";
   } else if (positiveCount >= 3 || averageEmotionScore >= 65) {
     currentSentiment = "positive";
@@ -211,37 +211,88 @@ async function createDiary(req, res) {
       });
     }
 
-    const diary = await Diary.create({
+    // 1. Xác định khoảng thời gian của ngày hôm nay theo múi giờ Việt Nam (GMT+7)
+    const now = new Date();
+    const tzOffset = 7; // GMT+7
+    const startOfToday = new Date(now);
+    startOfToday.setUTCHours(0 - tzOffset, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setUTCHours(23 - tzOffset, 59, 59, 999);
+
+    // 2. Tìm kiếm nhật ký đã tạo hôm nay của user
+    let diary = await Diary.findOne({
       userId,
-      mood: mood.trim(),
-      moodScore: Number(moodScore),
-      note: note && note.trim() ? note.trim() : null,
-      isPrivate: isPrivate === undefined ? true : Boolean(isPrivate),
-      aiInsight: {
-        sentiment: null,
-        emotion: null,
-        emotionScore: null,
-        riskLevel: null,
-        summary: null,
-        suggestion: null,
-        analyzedAt: null,
-      },
+      createdAt: { $gte: startOfToday, $lte: endOfToday },
     });
 
     let analysis = null;
     let analysisWarning = null;
+    let isNewDiary = false;
 
-    try {
-      analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
-    } catch (error) {
-      analysisWarning = error.message;
+    if (diary) {
+      // Đã có nhật ký hôm nay -> Cập nhật/Append nội dung
+      const oldNote = diary.note || "";
+      const newNotePart = note && note.trim() ? note.trim() : "";
+      
+      // Append thêm dòng mới nếu nội dung trước đó đã có
+      diary.note = oldNote ? `${oldNote}\n${newNotePart}` : newNotePart;
+      diary.mood = mood.trim();
+      diary.moodScore = Number(moodScore);
+      if (isPrivate !== undefined) {
+        diary.isPrivate = Boolean(isPrivate);
+      }
+
+      await diary.save();
+
+      // Xóa các bản phân tích AI cũ của diary này để tránh trùng lặp/rác dữ liệu
+      await AiAnalysis.deleteMany({
+        userId,
+        "target.type": "diary",
+        "target.id": diary._id,
+      });
+
+      // Chạy phân tích AI cho toàn bộ nội dung mới sau khi nối
+      try {
+        analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
+      } catch (error) {
+        analysisWarning = error.message;
+      }
+    } else {
+      // Chưa có nhật ký hôm nay -> Tạo mới
+      isNewDiary = true;
+      diary = await Diary.create({
+        userId,
+        mood: mood.trim(),
+        moodScore: Number(moodScore),
+        note: note && note.trim() ? note.trim() : null,
+        isPrivate: isPrivate === undefined ? false : Boolean(isPrivate),
+        aiInsight: {
+          sentiment: null,
+          emotion: null,
+          emotionScore: null,
+          riskLevel: null,
+          summary: null,
+          suggestion: null,
+          analyzedAt: null,
+        },
+      });
+
+      // Phân tích AI
+      try {
+        analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
+      } catch (error) {
+        analysisWarning = error.message;
+      }
     }
+
+    // 3. Cập nhật lại chỉ số cảm xúc của user (UserEmotionProfile & User.moodReputation)
+    await recalculateUserEmotionProfile(userId);
 
     const updatedDiary = await Diary.findById(diary._id);
 
-    return res.status(201).json({
+    return res.status(isNewDiary ? 201 : 200).json({
       success: true,
-      message: "Diary created successfully",
+      message: isNewDiary ? "Diary created successfully" : "Diary appended and updated successfully",
       data: updatedDiary,
       analysis,
       analysisWarning,

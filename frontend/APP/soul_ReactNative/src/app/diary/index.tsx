@@ -26,6 +26,8 @@ import {
 } from "@/api/diaryApi";
 
 import { diaryStyles as s } from "@/styles/diary.styles";
+import { DiaryCard } from "@/components/diary/DiaryCard";
+import { DiaryDetailModal } from "@/components/diary/DiaryDetailModal";
 
 type MoodOption = {
   value: DiaryMood;
@@ -98,10 +100,10 @@ function getRiskLabel(risk?: string | null) {
 }
 
 function getSentimentText(sentiment?: string | null) {
-  if (sentiment === "positive") return "Positive";
-  if (sentiment === "negative") return "Negative";
-  if (sentiment === "neutral") return "Neutral";
-  return "Waiting";
+  if (sentiment === "positive") return "Tích cực";
+  if (sentiment === "negative") return "Cần chia sẻ";
+  if (sentiment === "neutral") return "Cân bằng";
+  return "Đang phân tích";
 }
 
 export default function DiaryScreen() {
@@ -114,10 +116,18 @@ export default function DiaryScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingDiary, setEditingDiary] = useState<any | null>(null);
 
+  const [detailVisible, setDetailVisible] = useState(false);
+  const [selectedDiary, setSelectedDiary] = useState<any | null>(null);
+
+  const openDetailView = (diary: any) => {
+    setSelectedDiary(diary);
+    setDetailVisible(true);
+  };
+
   const [mood, setMood] = useState<DiaryMood>("neutral");
   const [moodScore, setMoodScore] = useState(5);
   const [note, setNote] = useState("");
-  const [isPrivate, setIsPrivate] = useState(true);
+  const [isPrivate, setIsPrivate] = useState(false);
 
   const requireLogin = () => {
     if (!token) {
@@ -175,7 +185,7 @@ export default function DiaryScreen() {
     setMood("neutral");
     setMoodScore(5);
     setNote("");
-    setIsPrivate(true);
+    setIsPrivate(false);
   };
 
   const openCreateModal = () => {
@@ -289,148 +299,18 @@ export default function DiaryScreen() {
   };
 
   const renderDiary = ({ item }: { item: any }) => {
-    const moodInfo = getMoodInfo(item?.mood);
-    const insight = item?.aiInsight || {};
-    const risk = insight?.riskLevel;
-
     return (
-      <View style={s.diaryCard}>
-        <View style={s.diaryTop}>
-          <View style={s.moodCircle}>
-            <Text style={s.moodCircleText}>{moodInfo.emoji}</Text>
-          </View>
-
-          <View style={s.diaryHeaderInfo}>
-            <View style={s.diaryTitleRow}>
-              <Text style={s.diaryMood}>{moodInfo.label}</Text>
-
-              <View style={s.privateBadge}>
-                <MaterialCommunityIcons
-                  name={item?.isPrivate ? "lock-outline" : "earth"}
-                  size={13}
-                  color="#00866B"
-                />
-                <Text style={s.privateBadgeText}>
-                  {item?.isPrivate ? "Private" : "Public"}
-                </Text>
-              </View>
-            </View>
-
-            <Text style={s.diaryDate}>
-              {formatDate(item?.createdAt)} • {formatTime(item?.createdAt)}
-            </Text>
-          </View>
-
-          <View style={s.diaryActions}>
-            <Pressable style={s.smallIconButton} onPress={() => openEditModal(item)}>
-              <MaterialCommunityIcons
-                name="pencil-outline"
-                size={20}
-                color="#00866B"
-              />
-            </Pressable>
-
-            <Pressable
-              style={[s.smallIconButton, s.deleteIconButton]}
-              onPress={() => handleDeleteDiary(item?._id)}
-            >
-              <MaterialCommunityIcons
-                name="trash-can-outline"
-                size={20}
-                color="#EF4444"
-              />
-            </Pressable>
-          </View>
-        </View>
-
-        <View style={s.scoreRow}>
-          <Text style={s.scoreLabel}>Mood score</Text>
-
-          <View style={s.scoreBar}>
-            <View
-              style={[
-                s.scoreBarFill,
-                {
-                  width: `${Math.min(Math.max(item?.moodScore || 1, 1), 10) * 10}%`,
-                  backgroundColor: moodInfo.color,
-                },
-              ]}
-            />
-          </View>
-
-          <Text style={s.scoreValue}>{item?.moodScore || 0}/10</Text>
-        </View>
-
-        {item?.note ? <Text style={s.diaryNote}>{item.note}</Text> : null}
-
-        <View
-          style={[
-            s.aiInsightBox,
-            risk === "high" && s.aiInsightHigh,
-            risk === "medium" && s.aiInsightMedium,
-          ]}
-        >
-          <View style={s.aiInsightHeader}>
-            <MaterialCommunityIcons
-              name={
-                risk === "high"
-                  ? ("alert-circle-outline" as any)
-                  : ("sparkles" as any)
-              }
-              size={18}
-              color={risk === "high" ? "#DC2626" : "#00866B"}
-            />
-
-            <Text
-              style={[
-                s.aiInsightTitle,
-                risk === "high" && s.aiInsightTitleHigh,
-              ]}
-            >
-              AI Emotional Insight
-            </Text>
-
-            <View
-              style={[
-                s.riskBadge,
-                risk === "high" && s.riskBadgeHigh,
-                risk === "medium" && s.riskBadgeMedium,
-              ]}
-            >
-              <Text
-                style={[
-                  s.riskBadgeText,
-                  risk === "high" && s.riskBadgeTextHigh,
-                ]}
-              >
-                {getRiskLabel(risk)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={s.insightMetaRow}>
-            <Text style={s.insightMeta}>
-              Sentiment: {getSentimentText(insight?.sentiment)}
-            </Text>
-
-            {typeof insight?.emotionScore === "number" ? (
-              <Text style={s.insightMeta}>Score: {insight.emotionScore}/100</Text>
-            ) : null}
-          </View>
-
-          {insight?.summary ? (
-            <Text style={s.insightText}>{insight.summary}</Text>
-          ) : (
-            <Text style={s.insightText}>
-              AI insight is waiting for analysis.
-            </Text>
-          )}
-
-          {insight?.suggestion ? (
-            <Text style={s.suggestionText}>💡 {insight.suggestion}</Text>
-          ) : null}
-        </View>
-      </View>
+      <DiaryCard
+        item={item}
+        onPressDetail={openDetailView}
+        onPressEdit={openEditModal}
+        onPressDelete={handleDeleteDiary}
+        getMoodInfo={getMoodInfo}
+        getRiskLabel={getRiskLabel}
+        getSentimentText={getSentimentText}
+        formatDate={formatDate}
+        formatTime={formatTime}
+      />
     );
   };
 
@@ -595,31 +475,6 @@ export default function DiaryScreen() {
 
                 <Text style={s.counter}>{note.length}/2000</Text>
               </View>
-
-              <View style={s.privateRow}>
-                <View style={s.privateLeft}>
-                  <MaterialCommunityIcons
-                    name="lock-outline"
-                    size={22}
-                    color="#00866B"
-                  />
-
-                  <View>
-                    <Text style={s.privateTitle}>Private diary</Text>
-                    <Text style={s.privateSub}>
-                      Only you can view this diary entry.
-                    </Text>
-                  </View>
-                </View>
-
-                <Switch
-                  value={isPrivate}
-                  onValueChange={setIsPrivate}
-                  trackColor={{ false: "#D8E3E0", true: "#00866B" }}
-                  thumbColor="#FFFFFF"
-                />
-              </View>
-
               <Pressable style={s.saveButton} onPress={handleSaveDiary}>
                 <MaterialCommunityIcons
                   name={editingDiary ? "content-save-outline" : "book-plus-outline"}
@@ -639,6 +494,18 @@ export default function DiaryScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal hiển thị chi tiết nhật ký ngày */}
+      <DiaryDetailModal
+        visible={detailVisible}
+        onClose={() => setDetailVisible(false)}
+        diary={selectedDiary}
+        getMoodInfo={getMoodInfo}
+        getRiskLabel={getRiskLabel}
+        getSentimentText={getSentimentText}
+        formatDate={formatDate}
+        formatTime={formatTime}
+      />
     </View>
   );
 }
