@@ -30,7 +30,7 @@ const diarySchema = new mongoose.Schema(
 
     isPrivate: {
       type: Boolean,
-      default: true,
+      default: false,
     },
 
     aiInsight: {

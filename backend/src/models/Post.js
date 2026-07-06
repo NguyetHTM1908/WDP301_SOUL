@@ -127,6 +127,12 @@ const postSchema = new mongoose.Schema(
       default: "public",
     },
 
+    postType: {
+      type: String,
+      enum: ["forum", "profile"],
+      default: "forum",
+    },
+
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "hidden", "deleted"],

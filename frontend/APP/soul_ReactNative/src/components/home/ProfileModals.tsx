@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useAuthStore } from "@/store";
 import DateTimePicker from "@react-native-community/datetimepicker";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type ProfileModalsProps = {
   showMyProfile: boolean;
@@ -41,9 +42,24 @@ export function ProfileModals({
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Danh sách chủ đề quan tâm có thể chọn
+  const INTEREST_OPTIONS = [
+    "áp lực", "lo âu", "chánh niệm", "trầm cảm", "chăm sóc bản thân",
+    "chữa lành", "học tập", "mối quan hệ", "cô đơn", "động lực",
+    "giấc ngủ", "thể dục", "lòng biết ơn", "sự tự tin", "công việc",
+  ];
+
+  const toggleInterest = (tag: string) => {
+    setInterests((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  // Chuyển string YYYY-MM-DD thành Date object để truyền vào DateTimePicker
   const getBirthDateObject = () => {
     if (dateOfBirth) {
       const parts = dateOfBirth.split("-");
@@ -86,6 +102,7 @@ export function ProfileModals({
       );
       setAvatarUrl(user.avatarUrl || "");
       setBio(user.bio || "");
+      setInterests(Array.isArray(user.interests) ? user.interests : []);
     }
   };
 
@@ -116,6 +133,7 @@ export function ProfileModals({
       dateOfBirth: dateOfBirth || undefined,
       avatarUrl: avatarUrl || undefined,
       bio: bio || undefined,
+      interests,
     });
     setSaving(false);
 
@@ -151,8 +169,10 @@ export function ProfileModals({
 
           <ScrollView contentContainerStyle={styles.modalScroll}>
             <View style={styles.profileHeaderBox}>
-              <Image
-                source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+              <AvatarFallback
+                uri={user?.avatarUrl}
+                name={user?.fullName || "Người dùng SOUL"}
+                size={80}
                 style={styles.profileHeaderAvatar}
               />
               <View style={styles.profileHeaderText}>
@@ -257,8 +277,10 @@ export function ProfileModals({
               
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarLargeWrapper}>
-                  <Image
-                    source={{ uri: avatarUrl || user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+                  <AvatarFallback
+                    uri={avatarUrl || user?.avatarUrl}
+                    name={user?.fullName || "Người dùng SOUL"}
+                    size={110}
                     style={styles.avatarLarge}
                   />
                   <View style={styles.cameraBadge}>
@@ -435,6 +457,36 @@ export function ProfileModals({
                 />
               </View>
 
+              {/* Chủ đề quan tâm */}
+              <Text style={styles.inputLabel}>Chủ đề quan tâm 🌱</Text>
+              <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 10 }}>
+                Chọn những chủ đề bạn quan tâm để hệ thống gợi ý bạn bè phù hợp hơn
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                {INTEREST_OPTIONS.map((tag) => {
+                  const selected = interests.includes(tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      onPress={() => toggleInterest(tag)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: 20,
+                        borderWidth: 1.5,
+                        borderColor: selected ? "#006B5C" : "#CBD5E1",
+                        backgroundColor: selected ? "#E0F7EF" : "#FFFFFF",
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: selected ? "#006B5C" : "#64748B" }}>
+                        #{tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Nút to dưới cùng: Lưu thay đổi */}
               <TouchableOpacity
                 style={[styles.saveButtonLarge, saving && styles.saveButtonLargeDisabled]}
                 onPress={handleSaveProfile}

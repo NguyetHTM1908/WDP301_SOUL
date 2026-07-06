@@ -19,6 +19,7 @@ const adminForumRoutes = require("./src/routes/adminForumRoutes");
 const eventRoutes = require("./src/routes/eventRoutes");
 const tagRoutes = require("./src/routes/tagRoutes");
 const adminRoutes = require("./src/routes/adminRoutes");
+const usersRouter = require("./src/routes/users");
 const app = express();
 const emotionalTestRoutes = require("./src/routes/emotionalTestRoutes");
 
@@ -47,6 +48,7 @@ app.use("/api/tags", tagRoutes);
 app.use("/api/emotion-analysis", emotionAnalysisRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/emotional-tests", emotionalTestRoutes);
+app.use("/api/users", usersRouter);
 
 // AI routes
 app.use("/api/ai", aiRoutes);

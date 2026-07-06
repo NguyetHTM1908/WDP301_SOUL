@@ -942,7 +942,7 @@ db.createCollection("posts", {
         },
 
         emotionStatus: {
-          enum: ["positive", "neutral", "negative", null]
+          enum: ["positive", "neutral", "negative", "happy", "sad", "stress", "anxious", "angry", null]
         },
 
         hashtags: {

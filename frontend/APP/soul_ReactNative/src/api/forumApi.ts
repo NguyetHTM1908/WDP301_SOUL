@@ -15,6 +15,7 @@ export type CreatePostPayload = {
   isAnonymous?: boolean;
   anonymousName?: string;
   visibility?: "public" | "private";
+  postType?: "forum" | "profile";
 };
 
 export type UpdatePostPayload = Partial<CreatePostPayload>;

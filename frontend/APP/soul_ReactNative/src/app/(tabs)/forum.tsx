@@ -390,6 +390,7 @@ export default function ForumScreen() {
         ? anonymousName.trim() || getAnonymousAlias(user)
         : undefined,
       visibility: "public",
+      postType: "forum",
     };
 
     try {
