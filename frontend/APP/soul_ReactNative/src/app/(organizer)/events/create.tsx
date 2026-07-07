@@ -17,6 +17,9 @@ import { eventOwnerService } from "@/services/eventApi";
 import { eventStyles as s } from "@/styles/event.styles";
 
 type EventTypeValue = "workshop" | "talkshow" | "webinar" | "community_event";
+type EventModeValue = "online" | "offline";
+
+const HOME_ROUTE = "/(tabs)" as any;
 
 const EVENT_TYPES: {
   label: string;
@@ -50,6 +53,26 @@ const EVENT_TYPES: {
   },
 ];
 
+const EVENT_MODES: {
+  label: string;
+  value: EventModeValue;
+  icon: any;
+  description: string;
+}[] = [
+  {
+    label: "Offline",
+    value: "offline",
+    icon: "map-marker-outline",
+    description: "Tổ chức tại địa điểm cụ thể",
+  },
+  {
+    label: "Online",
+    value: "online",
+    icon: "video-outline",
+    description: "Tổ chức qua Zoom/Meet",
+  },
+];
+
 const initialForm = {
   title: "",
   description: "",
@@ -58,10 +81,13 @@ const initialForm = {
   contactEmail: "",
   bannerImage: "",
   eventType: "workshop" as EventTypeValue,
+  eventMode: "offline" as EventModeValue,
   location: "",
   meetingLink: "",
-  startDateTime: "",
-  endDateTime: "",
+  startDate: "",
+  startTime: "",
+  endDate: "",
+  endTime: "",
   capacity: "",
 };
 
@@ -85,9 +111,76 @@ function normalizeText(value: string) {
   return text ? text : null;
 }
 
-function isValidDate(value: string) {
-  const date = new Date(value);
-  return !Number.isNaN(date.getTime());
+function formatDateInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 8);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function formatTimeInput(value: string) {
+  const digits = value.replace(/\D/g, "").slice(0, 4);
+
+  if (digits.length <= 2) {
+    return digits;
+  }
+
+  return `${digits.slice(0, 2)}:${digits.slice(2)}`;
+}
+
+function convertVietnamDateTimeToISO(dateText: string, timeText: string) {
+  const date = dateText.trim();
+  const time = timeText.trim();
+
+  const dateRegex = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+  const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+
+  const dateMatch = date.match(dateRegex);
+  const timeMatch = time.match(timeRegex);
+
+  if (!dateMatch || !timeMatch) {
+    return null;
+  }
+
+  const [, day, month, year] = dateMatch;
+  const [, hour, minute] = timeMatch;
+
+  const dayNumber = Number(day);
+  const monthNumber = Number(month);
+  const yearNumber = Number(year);
+  const hourNumber = Number(hour);
+  const minuteNumber = Number(minute);
+
+  const localDate = new Date(
+    yearNumber,
+    monthNumber - 1,
+    dayNumber,
+    hourNumber,
+    minuteNumber,
+    0,
+    0
+  );
+
+  const isInvalidDate =
+    Number.isNaN(localDate.getTime()) ||
+    localDate.getFullYear() !== yearNumber ||
+    localDate.getMonth() !== monthNumber - 1 ||
+    localDate.getDate() !== dayNumber ||
+    localDate.getHours() !== hourNumber ||
+    localDate.getMinutes() !== minuteNumber;
+
+  if (isInvalidDate) {
+    return null;
+  }
+
+  return localDate.toISOString();
 }
 
 export default function AdminCreateEvent() {
@@ -98,6 +191,10 @@ export default function AdminCreateEvent() {
     return EVENT_TYPES.find((item) => item.value === formData.eventType);
   }, [formData.eventType]);
 
+  const selectedMode = useMemo(() => {
+    return EVENT_MODES.find((item) => item.value === formData.eventMode);
+  }, [formData.eventMode]);
+
   const updateField = (key: keyof typeof initialForm, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -105,7 +202,17 @@ export default function AdminCreateEvent() {
     }));
   };
 
+  const goHome = () => {
+    router.replace(HOME_ROUTE);
+  };
+
   const buildPayload = () => {
+    const startDateTime =
+      convertVietnamDateTimeToISO(formData.startDate, formData.startTime) || "";
+
+    const endDateTime =
+      convertVietnamDateTimeToISO(formData.endDate, formData.endTime) || "";
+
     return {
       title: formData.title.trim(),
       description: normalizeText(formData.description),
@@ -114,10 +221,17 @@ export default function AdminCreateEvent() {
       contactEmail: normalizeText(formData.contactEmail),
       bannerImage: normalizeText(formData.bannerImage),
       eventType: formData.eventType,
-      location: normalizeText(formData.location),
-      meetingLink: normalizeText(formData.meetingLink),
-      startDateTime: formData.startDateTime.trim(),
-      endDateTime: formData.endDateTime.trim(),
+      eventMode: formData.eventMode,
+      location:
+        formData.eventMode === "offline"
+          ? normalizeText(formData.location)
+          : null,
+      meetingLink:
+        formData.eventMode === "online"
+          ? normalizeText(formData.meetingLink)
+          : null,
+      startDateTime,
+      endDateTime,
       capacity: formData.capacity.trim() ? Number(formData.capacity) : null,
     };
   };
@@ -128,37 +242,45 @@ export default function AdminCreateEvent() {
       return false;
     }
 
-    if (!formData.startDateTime.trim() || !formData.endDateTime.trim()) {
-      showMessage("Thiếu thời gian", "Vui lòng nhập thời gian bắt đầu và kết thúc.");
-      return false;
-    }
+    const startDateTime = convertVietnamDateTimeToISO(
+      formData.startDate,
+      formData.startTime
+    );
 
-    if (!isValidDate(formData.startDateTime.trim())) {
+    const endDateTime = convertVietnamDateTimeToISO(
+      formData.endDate,
+      formData.endTime
+    );
+
+    if (!startDateTime || !endDateTime) {
       showMessage(
         "Thời gian không hợp lệ",
-        "Thời gian bắt đầu phải đúng định dạng ISO. Ví dụ: 2026-07-10T09:00:00.000Z"
+        "Vui lòng nhập ngày theo dạng DD/MM/YYYY và giờ theo dạng HH:mm. Ví dụ: 10/07/2026 và 09:00."
       );
       return false;
     }
 
-    if (!isValidDate(formData.endDateTime.trim())) {
-      showMessage(
-        "Thời gian không hợp lệ",
-        "Thời gian kết thúc phải đúng định dạng ISO. Ví dụ: 2026-07-10T11:00:00.000Z"
-      );
-      return false;
-    }
-
-    const start = new Date(formData.startDateTime.trim());
-    const end = new Date(formData.endDateTime.trim());
+    const start = new Date(startDateTime);
+    const end = new Date(endDateTime);
 
     if (end <= start) {
-      showMessage("Thời gian không hợp lệ", "Thời gian kết thúc phải sau thời gian bắt đầu.");
+      showMessage(
+        "Thời gian không hợp lệ",
+        "Thời gian kết thúc phải sau thời gian bắt đầu."
+      );
       return false;
     }
 
-    if (!formData.location.trim() && !formData.meetingLink.trim()) {
-      showMessage("Thiếu địa điểm", "Vui lòng nhập địa điểm offline hoặc link online.");
+    if (formData.eventMode === "offline" && !formData.location.trim()) {
+      showMessage("Thiếu địa điểm", "Vui lòng nhập địa điểm tổ chức sự kiện.");
+      return false;
+    }
+
+    if (formData.eventMode === "online" && !formData.meetingLink.trim()) {
+      showMessage(
+        "Thiếu link",
+        "Vui lòng nhập link Zoom/Meet cho sự kiện online."
+      );
       return false;
     }
 
@@ -166,7 +288,10 @@ export default function AdminCreateEvent() {
       const capacity = Number(formData.capacity);
 
       if (!Number.isInteger(capacity) || capacity < 1) {
-        showMessage("Sức chứa không hợp lệ", "Sức chứa phải là số nguyên lớn hơn 0.");
+        showMessage(
+          "Sức chứa không hợp lệ",
+          "Sức chứa phải là số nguyên lớn hơn 0."
+        );
         return false;
       }
     }
@@ -188,14 +313,17 @@ export default function AdminCreateEvent() {
         showMessage(
           "Tạo event thành công",
           "Event đã được tạo và đang chờ admin duyệt.",
-          () => router.replace("/(admin)/events")
+          goHome
         );
         return;
       }
 
       showMessage("Lỗi", response.message || "Không thể tạo event.");
     } catch (error: any) {
-      showMessage("Lỗi tạo event", error?.message || "Đã xảy ra lỗi khi tạo sự kiện.");
+      showMessage(
+        "Lỗi tạo event",
+        error?.message || "Đã xảy ra lỗi khi tạo sự kiện."
+      );
     } finally {
       setSubmitting(false);
     }
@@ -212,10 +340,14 @@ export default function AdminCreateEvent() {
             <TouchableOpacity
               style={s.iconButtonLight}
               activeOpacity={0.8}
-              onPress={() => router.replace("/(admin)/events")}
+              onPress={goHome}
               disabled={submitting}
             >
-              <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color="#064D3D"
+              />
             </TouchableOpacity>
           </View>
 
@@ -245,8 +377,10 @@ export default function AdminCreateEvent() {
                 <Text style={s.cardTitle}>
                   {formData.title.trim() || "Sự kiện SOUL mới"}
                 </Text>
+
                 <Text style={s.cardSubtitle}>
-                  {selectedType?.label} · {selectedType?.description}
+                  {selectedType?.label} · {selectedType?.description} ·{" "}
+                  {selectedMode?.label}
                 </Text>
               </View>
             </View>
@@ -287,6 +421,46 @@ export default function AdminCreateEvent() {
                       <Text style={[s.typeTitle, active && s.typeTitleActive]}>
                         {item.label}
                       </Text>
+
+                      <Text
+                        style={[
+                          s.typeDescription,
+                          active && s.typeDescriptionActive,
+                        ]}
+                      >
+                        {item.description}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <Text style={s.label}>Hình thức sự kiện</Text>
+
+            <View style={s.typeGrid}>
+              {EVENT_MODES.map((item) => {
+                const active = formData.eventMode === item.value;
+
+                return (
+                  <TouchableOpacity
+                    key={item.value}
+                    activeOpacity={0.85}
+                    style={[s.typeCard, active && s.typeCardActive]}
+                    onPress={() => updateField("eventMode", item.value)}
+                    disabled={submitting}
+                  >
+                    <MaterialCommunityIcons
+                      name={item.icon}
+                      size={22}
+                      color={active ? "#FFFFFF" : "#00866B"}
+                    />
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={[s.typeTitle, active && s.typeTitleActive]}>
+                        {item.label}
+                      </Text>
+
                       <Text
                         style={[
                           s.typeDescription,
@@ -315,51 +489,77 @@ export default function AdminCreateEvent() {
             <Text style={s.formSectionTitle}>Thời gian</Text>
 
             <Field
-              label="Thời gian bắt đầu *"
-              placeholder="2026-07-10T09:00:00.000Z"
-              value={formData.startDateTime}
-              onChangeText={(text) => updateField("startDateTime", text)}
+              label="Ngày bắt đầu *"
+              placeholder="VD: 10/07/2026"
+              value={formData.startDate}
+              onChangeText={(text) =>
+                updateField("startDate", formatDateInput(text))
+              }
               editable={!submitting}
               autoCapitalize="none"
+              keyboardType="numeric"
             />
 
             <Field
-              label="Thời gian kết thúc *"
-              placeholder="2026-07-10T11:00:00.000Z"
-              value={formData.endDateTime}
-              onChangeText={(text) => updateField("endDateTime", text)}
+              label="Giờ bắt đầu *"
+              placeholder="VD: 09:00"
+              value={formData.startTime}
+              onChangeText={(text) =>
+                updateField("startTime", formatTimeInput(text))
+              }
               editable={!submitting}
               autoCapitalize="none"
+              keyboardType="numeric"
             />
 
-            <View style={s.hintBox}>
-              <MaterialCommunityIcons name="information-outline" size={18} color="#0F766E" />
-              <Text style={s.hintText}>
-                Backend đang nhận Date dạng ISO. Khi demo dùng dạng:
-                2026-07-10T09:00:00.000Z
-              </Text>
-            </View>
+            <Field
+              label="Ngày kết thúc *"
+              placeholder="VD: 10/07/2026"
+              value={formData.endDate}
+              onChangeText={(text) =>
+                updateField("endDate", formatDateInput(text))
+              }
+              editable={!submitting}
+              autoCapitalize="none"
+              keyboardType="numeric"
+            />
+
+            <Field
+              label="Giờ kết thúc *"
+              placeholder="VD: 11:00"
+              value={formData.endTime}
+              onChangeText={(text) =>
+                updateField("endTime", formatTimeInput(text))
+              }
+              editable={!submitting}
+              autoCapitalize="none"
+              keyboardType="numeric"
+            />
+
+            
           </View>
 
           <View style={s.formSection}>
             <Text style={s.formSectionTitle}>Địa điểm & số lượng</Text>
 
-            <Field
-              label="Địa điểm offline"
-              placeholder="VD: Hội trường FPT University"
-              value={formData.location}
-              onChangeText={(text) => updateField("location", text)}
-              editable={!submitting}
-            />
-
-            <Field
-              label="Link online"
-              placeholder="VD: https://zoom.us/..."
-              value={formData.meetingLink}
-              onChangeText={(text) => updateField("meetingLink", text)}
-              editable={!submitting}
-              autoCapitalize="none"
-            />
+            {formData.eventMode === "offline" ? (
+              <Field
+                label="Địa điểm offline *"
+                placeholder="VD: Hội trường FPT University"
+                value={formData.location}
+                onChangeText={(text) => updateField("location", text)}
+                editable={!submitting}
+              />
+            ) : (
+              <Field
+                label="Link online *"
+                placeholder="VD: https://zoom.us/..."
+                value={formData.meetingLink}
+                onChangeText={(text) => updateField("meetingLink", text)}
+                editable={!submitting}
+                autoCapitalize="none"
+              />
+            )}
 
             <Field
               label="Sức chứa"
@@ -422,7 +622,11 @@ export default function AdminCreateEvent() {
               <ActivityIndicator color="#FFFFFF" />
             ) : (
               <>
-                <MaterialCommunityIcons name="calendar-plus" size={22} color="#FFFFFF" />
+                <MaterialCommunityIcons
+                  name="calendar-plus"
+                  size={22}
+                  color="#FFFFFF"
+                />
                 <Text style={s.submitButtonText}>Tạo event chờ duyệt</Text>
               </>
             )}
@@ -431,10 +635,10 @@ export default function AdminCreateEvent() {
           <TouchableOpacity
             style={s.secondaryButton}
             activeOpacity={0.85}
-            onPress={() => router.replace("/(admin)/events")}
+            onPress={goHome}
             disabled={submitting}
           >
-            <Text style={s.secondaryButtonText}>Quay lại danh sách</Text>
+            <Text style={s.secondaryButtonText}>Quay lại trang chủ</Text>
           </TouchableOpacity>
 
           <View style={{ height: 36 }} />

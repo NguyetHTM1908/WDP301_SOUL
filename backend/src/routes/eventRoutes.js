@@ -10,10 +10,9 @@ const eventOwnerController = require("../controllers/event/eventOwnerController"
 const eventAdminController = require("../controllers/event/eventAdminController");
 const eventRegistrationController = require("../controllers/event/eventRegistrationController");
 
-
 router.get("/", eventPublicController.getEvents);
-router.get("/calendar", eventPublicController.getEventCalendar);
 
+router.get("/calendar", eventPublicController.getEventCalendar);
 
 router.get(
   "/me/registered",
@@ -39,7 +38,6 @@ router.post(
   eventRegistrationController.cancelRegistration
 );
 
-
 router.post("/", auth, eventOwnerController.createEvent);
 
 router.get("/me/created", auth, eventOwnerController.getMyEvents);
@@ -49,7 +47,6 @@ router.get("/me/created/:id", auth, eventOwnerController.getMyEventById);
 router.patch("/:id", auth, eventOwnerController.updateEvent);
 
 router.delete("/:id", auth, eventOwnerController.deleteEvent);
-
 
 router.get(
   "/admin/pending",
@@ -87,9 +84,14 @@ router.patch(
 );
 
 router.get(
+  "/:id/registrations/stats",
+  eventRegistrationController.getEventRegistrationStats
+);
+
+
+router.get(
   "/:id/registrations",
   auth,
-  adminOnly,
   eventRegistrationController.getEventRegistrations
 );
 
