@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
 import type { ForumUser } from "@/utils/forumIdentity";
 
@@ -45,6 +45,36 @@ type Props = {
 
 function getAnonymousAlias(user?: ForumUser | null) {
   return user?.anonymousAlias || "Ẩn danh SOUL";
+}
+
+const DEFAULT_AVATAR_URL =
+  "https://ui-avatars.com/api/?name=SOUL&background=E8F8F3&color=00866B";
+
+const ANONYMOUS_AVATAR_URL =
+  "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg";
+
+function getCommentAvatarUrl(comment: any) {
+  if (comment?.isAnonymous === true) {
+    return (
+      comment?.displayAuthor?.avatarUrl ||
+      comment?.authorId?.anonymousAvatarUrl ||
+      comment?.authorId?.avatarUrl ||
+      ANONYMOUS_AVATAR_URL
+    );
+  }
+
+  const name =
+    comment?.displayAuthor?.fullName ||
+    comment?.authorId?.fullName ||
+    comment?.author?.fullName ||
+    "SOUL User";
+
+  return (
+    comment?.displayAuthor?.avatarUrl ||
+    comment?.authorId?.avatarUrl ||
+    comment?.author?.avatarUrl ||
+    `${DEFAULT_AVATAR_URL}&name=${encodeURIComponent(name)}`
+  );
 }
 
 export function CommentThread({
@@ -429,20 +459,40 @@ export function CommentThread({
   const renderCommentCard = (comment: any, rootParentId?: string) => {
     const commentId = getCommentId(comment);
     const isReply = !!rootParentId;
+    const avatarUrl = getCommentAvatarUrl(comment);
 
     return (
       <View key={commentId} style={isReply ? s.replyCard : s.inlineCommentCard}>
         <View style={s.commentTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.inlineCommentAuthor}>
-              {getCommentAuthorName(comment)}
-            </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              flex: 1,
+              gap: 10,
+            }}
+          >
+            <Image
+              source={{ uri: avatarUrl }}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: "#E8F8F3",
+              }}
+            />
 
-            {comment?.isAnonymous ? (
-              <Text style={s.inlineCommentMeta}>
-                {isReply ? "Phản hồi ẩn danh" : "Bình luận ẩn danh"}
+            <View style={{ flex: 1 }}>
+              <Text style={s.inlineCommentAuthor}>
+                {getCommentAuthorName(comment)}
               </Text>
-            ) : null}
+
+              {comment?.isAnonymous ? (
+                <Text style={s.inlineCommentMeta}>
+                  {isReply ? "Phản hồi ẩn danh" : "Bình luận ẩn danh"}
+                </Text>
+              ) : null}
+            </View>
           </View>
 
           <Pressable

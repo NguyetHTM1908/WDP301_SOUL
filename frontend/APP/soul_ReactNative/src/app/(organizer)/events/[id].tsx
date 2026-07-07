@@ -2,7 +2,6 @@ import React, { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Platform,
   SafeAreaView,
   ScrollView,
   StyleSheet,
@@ -12,42 +11,7 @@ import {
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
-import { eventAdminService } from "@/services/eventApi";
-
-function showMessage(title: string, message: string, onOk?: () => void) {
-  if (Platform.OS === "web") {
-    const alertFn = (globalThis as any).alert;
-
-    if (typeof alertFn === "function") {
-      alertFn(`${title}: ${message}`);
-    }
-
-    onOk?.();
-    return;
-  }
-
-  Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
-}
-
-function askConfirm(message: string) {
-  if (Platform.OS === "web") {
-    const confirmFn = (globalThis as any).confirm;
-    return typeof confirmFn === "function" ? confirmFn(message) : true;
-  }
-
-  return null;
-}
-
-function askPrompt(message: string, defaultValue: string) {
-  if (Platform.OS === "web") {
-    const promptFn = (globalThis as any).prompt;
-    return typeof promptFn === "function"
-      ? promptFn(message, defaultValue)
-      : defaultValue;
-  }
-
-  return defaultValue;
-}
+import { eventOwnerService } from "@/services/eventApi";
 
 function getSafeId(rawId: unknown) {
   if (Array.isArray(rawId)) return rawId[0] || "";
@@ -55,11 +19,7 @@ function getSafeId(rawId: unknown) {
   return "";
 }
 
-function isInvalidRouteId(id: string) {
-  return !id || id === "[id]" || id === "undefined" || id === "null";
-}
-
-function formatDateTime(value?: string) {
+function formatDateTime(value?: string | null) {
   if (!value) return "Chưa cập nhật";
 
   const date = new Date(value);
@@ -78,7 +38,7 @@ function getApprovalMeta(status?: string) {
   if (status === "approved") {
     return {
       label: "Đã duyệt",
-      icon: "check-decagram",
+      icon: "lock-check-outline",
       color: "#047857",
       bg: "#DCFCE7",
     };
@@ -86,7 +46,7 @@ function getApprovalMeta(status?: string) {
 
   if (status === "rejected") {
     return {
-      label: "Đã từ chối",
+      label: "Từ chối",
       icon: "close-circle-outline",
       color: "#DC2626",
       bg: "#FEE2E2",
@@ -96,7 +56,7 @@ function getApprovalMeta(status?: string) {
   return {
     label: "Chờ duyệt",
     icon: "clock-outline",
-    color: "#B45309",
+    color: "#D97706",
     bg: "#FEF3C7",
   };
 }
@@ -115,54 +75,37 @@ function getEventPlaceText(event: any) {
   return event?.location || "Chưa có địa điểm";
 }
 
-function getOrganizerName(event: any) {
-  return (
-    event?.createdBy?.fullName ||
-    event?.organizerName ||
-    event?.owner?.fullName ||
-    "Không rõ"
-  );
-}
-
-export default function AdminEventDetail() {
+export default function OrganizerEventDetail() {
   const params = useLocalSearchParams();
   const id = getSafeId(params.id);
 
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [approving, setApproving] = useState(false);
-  const [rejecting, setRejecting] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchEvent = useCallback(async () => {
-    if (isInvalidRouteId(id)) {
+    if (!id) {
       setLoading(false);
-      showMessage("Lỗi", "Không tìm thấy ID sự kiện.", () => {
-        router.replace("/(admin)/events" as any);
-      });
+      Alert.alert("Lỗi", "Không tìm thấy ID sự kiện.");
       return;
     }
 
     setLoading(true);
 
     try {
-      const response = await eventAdminService.getEventById(id);
+      const response = await eventOwnerService.getMyEventById(id);
       const eventData = response?.data?.event || response?.data;
 
-      if (response?.success && eventData) {
-        setEvent(eventData);
-      } else {
-        showMessage(
-          "Lỗi",
-          response?.message || "Không tìm thấy event.",
-          () => {
-            router.replace("/(admin)/events" as any);
-          }
-        );
+      if (response?.success === false || !eventData) {
+        Alert.alert("Lỗi", response?.message || "Không tìm thấy event.");
+        router.replace("/(organizer)/events" as any);
+        return;
       }
+
+      setEvent(eventData);
     } catch (error: any) {
-      showMessage("Lỗi", error?.message || "Không thể tải event.", () => {
-        router.replace("/(admin)/events" as any);
-      });
+      Alert.alert("Lỗi", error?.message || "Không thể tải event.");
+      router.replace("/(organizer)/events" as any);
     } finally {
       setLoading(false);
     }
@@ -174,114 +117,64 @@ export default function AdminEventDetail() {
     }, [fetchEvent])
   );
 
-  const handleApprove = async () => {
-    if (!event || approving) return;
+  const handleEdit = () => {
+    if (!event) return;
 
-    const approveNow = async () => {
-      setApproving(true);
-
-      try {
-        const response = await eventAdminService.approveEvent(id);
-
-        if (response?.success) {
-          showMessage(
-            "Thành công",
-            "Event đã được duyệt và hiển thị cho user đăng ký.",
-            () => fetchEvent()
-          );
-        } else {
-          showMessage("Lỗi", response?.message || "Không thể duyệt event.");
-        }
-      } catch (error: any) {
-        showMessage(
-          "Không thể duyệt event",
-          error?.message ||
-            "Event có thể đang trùng lịch tại cùng địa điểm/link meeting hoặc dữ liệu chưa hợp lệ."
-        );
-      } finally {
-        setApproving(false);
-      }
-    };
-
-    const webConfirm = askConfirm("Bạn có chắc muốn duyệt event này?");
-
-    if (webConfirm === false) return;
-
-    if (webConfirm === true) {
-      await approveNow();
+    if (event.approvalStatus === "approved") {
+      Alert.alert(
+        "Không thể chỉnh sửa",
+        "Event đã được admin duyệt nên không thể chỉnh sửa."
+      );
       return;
     }
 
-    Alert.alert("Duyệt event", "Bạn có chắc muốn duyệt event này?", [
-      { text: "Hủy", style: "cancel" },
-      { text: "Duyệt", onPress: approveNow },
-    ]);
+    router.push(`/(organizer)/events/edit/${id}` as any);
   };
 
-  const handleReject = async () => {
-    if (!event || rejecting) return;
+  const handleRegistrations = () => {
+    router.push(`/(organizer)/events/registrations/${id}` as any);
+  };
 
-    const defaultReason = "Event không phù hợp hoặc thiếu thông tin.";
-    const inputReason = askPrompt("Nhập lý do từ chối:", defaultReason);
+  const handleDelete = () => {
+    if (!event || deleting) return;
 
-    if (Platform.OS === "web" && inputReason === null) return;
-
-    const reason =
-      typeof inputReason === "string" && inputReason.trim()
-        ? inputReason.trim()
-        : defaultReason;
-
-    const rejectNow = async () => {
-      setRejecting(true);
-
-      try {
-        const response = await eventAdminService.rejectEvent(id, reason);
-
-        if (response?.success) {
-          showMessage("Thành công", "Đã từ chối event.", () => fetchEvent());
-        } else {
-          showMessage("Lỗi", response?.message || "Không thể từ chối event.");
-        }
-      } catch (error: any) {
-        showMessage("Lỗi", error?.message || "Không thể từ chối event.");
-      } finally {
-        setRejecting(false);
-      }
-    };
-
-    if (Platform.OS === "web") {
-      await rejectNow();
+    if (event.approvalStatus === "approved") {
+      Alert.alert(
+        "Không thể hủy",
+        "Event đã được admin duyệt nên không thể hủy."
+      );
       return;
     }
 
-    Alert.alert("Từ chối event", "Bạn có chắc muốn từ chối event này?", [
-      { text: "Hủy", style: "cancel" },
-      { text: "Từ chối", style: "destructive", onPress: rejectNow },
-    ]);
-  };
+    const deleteNow = async () => {
+      setDeleting(true);
 
-  const goBackToEventList = () => {
-    router.replace("/(admin)/events" as any);
+      try {
+        const response = await eventOwnerService.deleteEvent(id);
+
+        if (response?.success === false) {
+          Alert.alert("Lỗi", response?.message || "Không thể hủy event.");
+          return;
+        }
+
+        Alert.alert("Thành công", "Đã hủy event.");
+        router.replace("/(organizer)/events" as any);
+      } catch (error: any) {
+        Alert.alert("Lỗi", error?.message || "Không thể hủy event.");
+      } finally {
+        setDeleting(false);
+      }
+    };
+
+    Alert.alert("Hủy event", "Bạn có chắc muốn hủy event này?", [
+      { text: "Không", style: "cancel" },
+      { text: "Hủy", style: "destructive", onPress: deleteNow },
+    ]);
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.iconButtonLight}
-            onPress={goBackToEventList}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color="#064D3D"
-            />
-          </TouchableOpacity>
-
-          <Text style={styles.title}>Chi tiết sự kiện</Text>
-        </View>
-
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#00866B" />
           <Text style={styles.loadingText}>Đang tải event...</Text>
@@ -293,27 +186,20 @@ export default function AdminEventDetail() {
   if (!event) {
     return (
       <SafeAreaView style={styles.safeArea}>
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.iconButtonLight}
-            onPress={goBackToEventList}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color="#064D3D"
-            />
-          </TouchableOpacity>
-
-          <Text style={styles.title}>Không tìm thấy event</Text>
-          <Text style={styles.subtitle}>Event không tồn tại hoặc đã bị xóa.</Text>
+        <View style={styles.center}>
+          <Text style={styles.emptyTitle}>Không tìm thấy event</Text>
         </View>
       </SafeAreaView>
     );
   }
 
   const approval = getApprovalMeta(event.approvalStatus);
-  const isPending = event.approvalStatus === "pending";
+  const isApproved = event.approvalStatus === "approved";
+  const registeredCount = event.registeredCount ?? 0;
+  const capacityText =
+    event.capacity === null || event.capacity === undefined
+      ? "Không giới hạn"
+      : String(event.capacity);
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -321,7 +207,7 @@ export default function AdminEventDetail() {
         <View style={styles.headerTop}>
           <TouchableOpacity
             style={styles.iconButtonLight}
-            onPress={goBackToEventList}
+            onPress={() => router.replace("/(organizer)/events" as any)}
           >
             <MaterialCommunityIcons
               name="arrow-left"
@@ -335,9 +221,9 @@ export default function AdminEventDetail() {
           </TouchableOpacity>
         </View>
 
-        <Text style={styles.title}>Chi tiết sự kiện</Text>
+        <Text style={styles.title}>Chi tiết event</Text>
         <Text style={styles.subtitle}>
-          Admin kiểm tra thông tin, duyệt hoặc từ chối event.
+          Người tổ chức xem thông tin event và danh sách người tham dự.
         </Text>
       </View>
 
@@ -357,17 +243,12 @@ export default function AdminEventDetail() {
                 {event.title || "Sự kiện SOUL"}
               </Text>
               <Text style={styles.cardSubtitle}>
-                Người tạo: {getOrganizerName(event)}
+                {event.organizerName || event.createdBy?.fullName || "SOUL"}
               </Text>
             </View>
           </View>
 
           <View style={[styles.badge, { backgroundColor: approval.bg }]}>
-            <MaterialCommunityIcons
-              name={approval.icon as any}
-              size={16}
-              color={approval.color}
-            />
             <Text style={[styles.badgeText, { color: approval.color }]}>
               {approval.label}
             </Text>
@@ -417,81 +298,85 @@ export default function AdminEventDetail() {
 
             <View style={[styles.infoRow, { marginBottom: 0 }]}>
               <MaterialCommunityIcons
-                name="account-outline"
+                name="account-group-outline"
                 size={18}
                 color="#00866B"
               />
               <Text style={styles.infoText}>
-                Người tổ chức: {getOrganizerName(event)}
+                Người đăng ký: {registeredCount}/{capacityText}
               </Text>
             </View>
           </View>
 
-          {!!event.rejectedReason && (
-            <View style={styles.rejectReasonBox}>
-              <MaterialCommunityIcons
-                name="alert-circle-outline"
-                size={18}
-                color="#DC2626"
-              />
-              <Text style={styles.rejectReasonText}>
-                Lý do từ chối: {event.rejectedReason}
-              </Text>
-            </View>
-          )}
-
-          {isPending ? (
-            <View style={styles.actions}>
-              <TouchableOpacity
-                style={[styles.approveButton, approving && styles.disabled]}
-                onPress={handleApprove}
-                disabled={approving || rejecting}
-              >
-                {approving ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons
-                      name="check"
-                      size={20}
-                      color="#FFFFFF"
-                    />
-                    <Text style={styles.actionTextWhite}>Duyệt</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.rejectButton, rejecting && styles.disabled]}
-                onPress={handleReject}
-                disabled={approving || rejecting}
-              >
-                {rejecting ? (
-                  <ActivityIndicator color="#DC2626" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons
-                      name="close"
-                      size={20}
-                      color="#DC2626"
-                    />
-                    <Text style={styles.actionTextRed}>Từ chối</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-          ) : (
+          {isApproved ? (
             <View style={styles.lockBox}>
               <MaterialCommunityIcons
                 name="lock-check-outline"
                 size={20}
-                color="#00866B"
+                color="#047857"
               />
               <Text style={styles.lockText}>
-                Event đã được xử lý. Admin không cần xem danh sách người đăng ký.
+                Event đã được admin duyệt. Không thể sửa hoặc hủy.
               </Text>
             </View>
-          )}
+          ) : null}
+
+          {event.rejectedReason ? (
+            <View style={styles.rejectBox}>
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={20}
+                color="#DC2626"
+              />
+              <Text style={styles.rejectText}>
+                Lý do từ chối: {event.rejectedReason}
+              </Text>
+            </View>
+          ) : null}
+
+          <TouchableOpacity
+            style={styles.registrationButton}
+            onPress={handleRegistrations}
+          >
+            <MaterialCommunityIcons
+              name="account-search-outline"
+              size={20}
+              color="#FFFFFF"
+            />
+            <Text style={styles.whiteButtonText}>Xem người tham dự</Text>
+          </TouchableOpacity>
+
+          {!isApproved ? (
+            <View style={styles.actions}>
+              <TouchableOpacity style={styles.editButton} onPress={handleEdit}>
+                <MaterialCommunityIcons
+                  name="pencil-outline"
+                  size={20}
+                  color="#00866B"
+                />
+                <Text style={styles.editButtonText}>Sửa event</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.deleteButton}
+                onPress={handleDelete}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <ActivityIndicator color="#DC2626" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name="trash-can-outline"
+                      size={20}
+                      color="#DC2626"
+                    />
+                    <Text style={styles.deleteButtonText}>Hủy event</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -527,7 +412,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFFFFF",
     alignItems: "center",
     justifyContent: "center",
-    marginBottom: 12,
   },
 
   iconButtonGreen: {
@@ -598,9 +482,6 @@ const styles = StyleSheet.create({
   badge: {
     alignSelf: "flex-start",
     marginTop: 16,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 999,
@@ -641,34 +522,43 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  rejectReasonBox: {
+  lockBox: {
     marginTop: 16,
-    backgroundColor: "#FEF2F2",
-    borderColor: "#FCA5A5",
-    borderWidth: 1,
+    backgroundColor: "#DCFCE7",
     borderRadius: 18,
     padding: 14,
     flexDirection: "row",
     gap: 8,
   },
 
-  rejectReasonText: {
+  lockText: {
     flex: 1,
-    color: "#DC2626",
+    color: "#047857",
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: "700",
     lineHeight: 20,
   },
 
-  actions: {
+  rejectBox: {
+    marginTop: 16,
+    backgroundColor: "#FEE2E2",
+    borderRadius: 18,
+    padding: 14,
     flexDirection: "row",
-    gap: 12,
-    marginTop: 18,
+    gap: 8,
   },
 
-  approveButton: {
+  rejectText: {
     flex: 1,
-    height: 46,
+    color: "#DC2626",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  registrationButton: {
+    marginTop: 18,
+    height: 48,
     borderRadius: 16,
     backgroundColor: "#00866B",
     flexDirection: "row",
@@ -677,7 +567,36 @@ const styles = StyleSheet.create({
     gap: 7,
   },
 
-  rejectButton: {
+  whiteButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  actions: {
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 12,
+  },
+
+  editButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "#E6F7F1",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+
+  editButtonText: {
+    color: "#00866B",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
+  deleteButton: {
     flex: 1,
     height: 46,
     borderRadius: 16,
@@ -688,37 +607,10 @@ const styles = StyleSheet.create({
     gap: 7,
   },
 
-  actionTextWhite: {
-    color: "#FFFFFF",
-    fontWeight: "800",
-    fontSize: 14,
-  },
-
-  actionTextRed: {
+  deleteButtonText: {
     color: "#DC2626",
+    fontSize: 14,
     fontWeight: "800",
-    fontSize: 14,
-  },
-
-  disabled: {
-    opacity: 0.6,
-  },
-
-  lockBox: {
-    marginTop: 18,
-    backgroundColor: "#E6F7F1",
-    borderRadius: 18,
-    padding: 14,
-    flexDirection: "row",
-    gap: 8,
-  },
-
-  lockText: {
-    flex: 1,
-    color: "#006B5C",
-    fontSize: 14,
-    fontWeight: "700",
-    lineHeight: 20,
   },
 
   center: {
@@ -732,5 +624,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#64748B",
     fontWeight: "600",
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#064D3D",
   },
 });

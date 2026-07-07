@@ -282,17 +282,68 @@ async function cancelRegistration(req, res) {
   }
 }
 
-async function getEventRegistrations(req, res) {
+async function getEventRegistrationStats(req, res) {
   try {
-    if (!isAdmin(req)) {
-      return res.status(403).json({
+    const { id } = req.params;
+
+    if (!isValidObjectId(id)) {
+      return res.status(400).json({
         success: false,
-        message: "Chỉ admin mới được xem danh sách đăng ký.",
+        message: "Event ID không hợp lệ.",
       });
     }
 
+    const event = await Event.findOne({
+      _id: id,
+      approvalStatus: "approved",
+      status: { $ne: "cancelled" },
+    });
+
+    if (!event) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy event hoặc event chưa được duyệt.",
+      });
+    }
+
+    const stats = buildRegistrationStats(event);
+
+    return res.status(200).json({
+      success: true,
+      message: "Lấy số lượng đăng ký event thành công.",
+      data: {
+        eventId: event._id,
+        title: event.title,
+        registeredCount: stats.totalRegistrations,
+        totalRegistrations: stats.totalRegistrations,
+        totalCancelled: stats.totalCancelled,
+        totalAttended: stats.totalAttended,
+        capacity: stats.capacity,
+        remainingSlots: stats.remainingSlots,
+      },
+    });
+  } catch (error) {
+    console.error("getEventRegistrationStats error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Không thể lấy số lượng đăng ký event.",
+    });
+  }
+}
+
+async function getEventRegistrations(req, res) {
+  try {
+    const currentUserId = getCurrentUserId(req);
     const { id } = req.params;
     const { status = "all", page = 1, limit = 50 } = req.query;
+
+    if (!currentUserId) {
+      return res.status(401).json({
+        success: false,
+        message: "Bạn cần đăng nhập.",
+      });
+    }
 
     if (!isValidObjectId(id)) {
       return res.status(400).json({
@@ -308,9 +359,10 @@ async function getEventRegistrations(req, res) {
       });
     }
 
-    const event = await Event.findById(id)
-      .populate("createdBy", "fullName email avatarUrl role")
-      .populate("participants.userId", "fullName email phone avatarUrl role");
+    const event = await Event.findById(id).populate(
+      "createdBy",
+      "fullName email avatarUrl role"
+    );
 
     if (!event) {
       return res.status(404).json({
@@ -323,6 +375,50 @@ async function getEventRegistrations(req, res) {
     const limitNumber = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 300);
     const skip = (pageNumber - 1) * limitNumber;
 
+    const eventOwnerId =
+      event.createdBy?._id?.toString?.() || event.createdBy?.toString?.();
+
+    const isOwner = eventOwnerId === currentUserId.toString();
+    const canViewFullRegistrations = isAdmin(req) || isOwner;
+
+    const stats = buildRegistrationStats(event);
+
+    if (!canViewFullRegistrations) {
+      return res.status(200).json({
+        success: true,
+        message:
+          "Lấy số lượng đăng ký event thành công. Chỉ admin hoặc người tạo event mới xem được danh sách chi tiết.",
+        data: {
+          event: {
+            _id: event._id,
+            title: event.title,
+            eventMode: event.eventMode,
+            location: event.location,
+            meetingLink: event.meetingLink,
+            startDateTime: event.startDateTime,
+            endDateTime: event.endDateTime,
+            capacity: event.capacity,
+            registeredCount: stats.totalRegistrations,
+            approvalStatus: event.approvalStatus,
+            status: event.status,
+          },
+          stats,
+          registrations: [],
+          pagination: {
+            total: stats.totalRegistrations,
+            page: pageNumber,
+            limit: limitNumber,
+            totalPages: Math.ceil(stats.totalRegistrations / limitNumber),
+          },
+        },
+      });
+    }
+
+    await event.populate(
+      "participants.userId",
+      "fullName email phone avatarUrl role"
+    );
+
     let registrations = event.participants || [];
 
     if (status !== "all") {
@@ -331,7 +427,6 @@ async function getEventRegistrations(req, res) {
 
     const total = registrations.length;
     const paginatedRegistrations = registrations.slice(skip, skip + limitNumber);
-    const stats = buildRegistrationStats(event);
 
     return res.status(200).json({
       success: true,
@@ -346,7 +441,7 @@ async function getEventRegistrations(req, res) {
           startDateTime: event.startDateTime,
           endDateTime: event.endDateTime,
           capacity: event.capacity,
-          registeredCount: event.registeredCount,
+          registeredCount: stats.totalRegistrations,
           approvalStatus: event.approvalStatus,
           status: event.status,
           createdBy: event.createdBy,
@@ -375,5 +470,6 @@ module.exports = {
   getRegisteredEvents,
   registerEvent,
   cancelRegistration,
+  getEventRegistrationStats,
   getEventRegistrations,
 };

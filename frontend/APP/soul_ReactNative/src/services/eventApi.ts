@@ -115,7 +115,6 @@ export function normalizeListResponse(res: any) {
   return [];
 }
 
-
 export const eventService = {
   async getEvents(params?: {
     eventType?: EventTypeValue | string;
@@ -258,8 +257,34 @@ export const eventOwnerService = {
 
     return handleResponse(res);
   },
-};
 
+  async getEventRegistrations(
+    id: string,
+    status: RegistrationStatus = "all",
+    params?: {
+      page?: number;
+      limit?: number;
+    }
+  ) {
+    const query = buildQuery({
+      status,
+      page: params?.page,
+      limit: params?.limit,
+    });
+
+    const res = await fetch(
+      `${API_BASE_URL}${EVENT_PATH}/${id}/registrations${
+        query ? `?${query}` : ""
+      }`,
+      {
+        method: "GET",
+        headers: await authHeaders(),
+      }
+    );
+
+    return handleResponse(res);
+  },
+};
 
 export const eventAdminService = {
   async getAdminAllEvents(params?: {
@@ -318,33 +343,6 @@ export const eventAdminService = {
         reason: reason || "Event không phù hợp hoặc thiếu thông tin.",
       }),
     });
-
-    return handleResponse(res);
-  },
-
-  async getEventRegistrations(
-    id: string,
-    status: RegistrationStatus = "all",
-    params?: {
-      page?: number;
-      limit?: number;
-    }
-  ) {
-    const query = buildQuery({
-      status,
-      page: params?.page,
-      limit: params?.limit,
-    });
-
-    const res = await fetch(
-      `${API_BASE_URL}${EVENT_PATH}/${id}/registrations${
-        query ? `?${query}` : ""
-      }`,
-      {
-        method: "GET",
-        headers: await authHeaders(),
-      }
-    );
 
     return handleResponse(res);
   },
