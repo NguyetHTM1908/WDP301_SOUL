@@ -1,6 +1,22 @@
 const mongoose = require("mongoose");
 
-const REACTION_TYPES = ["support", "hug", "encourage", "thankyou"];
+const REACTION_TYPES = [
+  "support",
+  "hug",
+  "encourage",
+  "thankyou",
+];
+
+const EMOTION_TYPES = [
+  "happy",
+  "sad",
+  "stress",
+  "anxious",
+  "angry",
+  "neutral",
+  "positive",
+  "negative",
+];
 
 const reactionSchema = new mongoose.Schema(
   {
@@ -21,7 +37,9 @@ const reactionSchema = new mongoose.Schema(
       default: Date.now,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const mediaSchema = new mongoose.Schema(
@@ -38,7 +56,9 @@ const mediaSchema = new mongoose.Schema(
       required: true,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const displayAuthorSchema = new mongoose.Schema(
@@ -64,7 +84,9 @@ const displayAuthorSchema = new mongoose.Schema(
       default: false,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const postSchema = new mongoose.Schema(
@@ -74,7 +96,7 @@ const postSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
-    
+
     displayAuthor: {
       type: displayAuthorSchema,
       default: null,
@@ -93,18 +115,24 @@ const postSchema = new mongoose.Schema(
 
     emotionStatus: {
       type: String,
-      enum: ["happy", "sad", "stress", "anxious", "angry", "neutral"],
+      enum: EMOTION_TYPES,
       default: "neutral",
+      trim: true,
+      lowercase: true,
     },
 
     hashtags: {
       type: [String],
       default: [],
+
       set: (tags) =>
         Array.isArray(tags)
           ? tags
               .map((tag) =>
-                String(tag).replace("#", "").trim().toLowerCase()
+                String(tag)
+                  .replace("#", "")
+                  .trim()
+                  .toLowerCase()
               )
               .filter(Boolean)
           : [],
@@ -135,17 +163,52 @@ const postSchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "hidden", "deleted"],
+      enum: [
+        "pending",
+        "approved",
+        "rejected",
+        "hidden",
+        "deleted",
+      ],
       default: "approved",
     },
 
     statistics: {
-      supportCount: { type: Number, default: 0 },
-      hugCount: { type: Number, default: 0 },
-      encourageCount: { type: Number, default: 0 },
-      thankyouCount: { type: Number, default: 0 },
-      commentCount: { type: Number, default: 0 },
-      reportCount: { type: Number, default: 0 },
+      supportCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      hugCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      encourageCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      thankyouCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      commentCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      reportCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
 
     isFlagged: {
@@ -183,6 +246,7 @@ const postSchema = new mongoose.Schema(
     rejectedReason: {
       type: String,
       default: null,
+      trim: true,
     },
   },
   {
@@ -190,12 +254,42 @@ const postSchema = new mongoose.Schema(
   }
 );
 
-postSchema.index({ authorId: 1 });
-postSchema.index({ "displayAuthor.id": 1 });
-postSchema.index({ hashtags: 1 });
-postSchema.index({ status: 1 });
-postSchema.index({ createdAt: -1 });
-postSchema.index({ isFlagged: 1 });
-postSchema.index({ toxicityLevel: 1 });
+postSchema.index({
+  authorId: 1,
+});
 
-module.exports = mongoose.model("Post", postSchema);
+postSchema.index({
+  "displayAuthor.id": 1,
+});
+
+postSchema.index({
+  hashtags: 1,
+});
+
+postSchema.index({
+  status: 1,
+});
+
+postSchema.index({
+  createdAt: -1,
+});
+
+postSchema.index({
+  isFlagged: 1,
+});
+
+postSchema.index({
+  toxicityLevel: 1,
+});
+
+postSchema.index({
+  postType: 1,
+  status: 1,
+  visibility: 1,
+  createdAt: -1,
+});
+
+module.exports = mongoose.model(
+  "Post",
+  postSchema
+);

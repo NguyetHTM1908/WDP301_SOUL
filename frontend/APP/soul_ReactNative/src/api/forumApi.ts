@@ -1,6 +1,10 @@
 import apiClient from "../services/api";
 
-export type ReactionType = "support" | "hug" | "encourage" | "thankyou";
+export type ReactionType =
+  | "support"
+  | "hug"
+  | "encourage"
+  | "thankyou";
 
 export type MediaItem = {
   url: string;
@@ -28,13 +32,40 @@ export type CreateCommentPayload = {
   anonymousName?: string;
 };
 
-function getError(error: any, fallback: string) {
-  return error?.response?.data || error || new Error(fallback);
-}
+export type UpdateCommentPayload = {
+  content: string;
+  isAnonymous?: boolean;
+  anonymousName?: string;
+};
 
-/* =========================
-   POSTS
-========================= */
+export type ReportTargetType = "post" | "comment";
+
+export type ReportReason =
+  | "toxic_language"
+  | "harassment"
+  | "spam"
+  | "self_harm"
+  | "other";
+
+export type CreateReportPayload = {
+  targetType: ReportTargetType;
+  targetId: string;
+  reason: ReportReason;
+  description?: string;
+};
+
+
+function getError(error: any, fallback: string) {
+  if (error?.response?.data) {
+    return error.response.data;
+  }
+
+  if (error instanceof Error) {
+    return error;
+  }
+
+  return new Error(fallback);
+}
 
 export const getApprovedPosts = async (params?: {
   hashtag?: string;
@@ -42,10 +73,22 @@ export const getApprovedPosts = async (params?: {
   search?: string;
 }) => {
   try {
-    const response = await apiClient.get("/posts", { params });
+    const response = await apiClient.get("/posts", {
+      params,
+    });
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể lấy danh sách bài viết.");
+    console.log(
+      "[GET APPROVED POSTS ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể lấy danh sách bài viết."
+    );
   }
 };
 
@@ -53,19 +96,52 @@ export const getPosts = getApprovedPosts;
 
 export const getMyPosts = async () => {
   try {
-    const response = await apiClient.get("/posts/my-posts");
+    const response = await apiClient.get(
+      "/posts/my-posts"
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể lấy bài viết của tôi.");
+    console.log(
+      "[GET MY POSTS ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể lấy bài viết của tôi."
+    );
   }
 };
 
-export const createPost = async (payload: CreatePostPayload) => {
+export const createPost = async (
+  payload: CreatePostPayload
+) => {
   try {
-    const response = await apiClient.post("/posts", payload);
+    if (!payload.content?.trim()) {
+      throw new Error(
+        "Nội dung bài viết không được để trống."
+      );
+    }
+
+    const response = await apiClient.post("/posts", {
+      ...payload,
+      content: payload.content.trim(),
+    });
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể tạo bài viết.");
+    console.log(
+      "[CREATE POST ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể tạo bài viết."
+    );
   }
 };
 
@@ -74,187 +150,425 @@ export const updatePost = async (
   payload: UpdatePostPayload
 ) => {
   try {
-    if (!postId) {
-      throw new Error("Thiếu postId để cập nhật bài viết.");
+    if (!postId?.trim()) {
+      throw new Error(
+        "Thiếu postId để cập nhật bài viết."
+      );
     }
 
-    const response = await apiClient.put(`/posts/${postId}`, payload);
+    const response = await apiClient.put(
+      `/posts/${postId}`,
+      payload
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể cập nhật bài viết.");
+    console.log(
+      "[UPDATE POST ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể cập nhật bài viết."
+    );
   }
 };
 
-export const deletePost = async (postId: string) => {
+export const deletePost = async (
+  postId: string
+) => {
   try {
-    if (!postId) {
-      throw new Error("Thiếu postId để xóa bài viết.");
+    if (!postId?.trim()) {
+      throw new Error(
+        "Thiếu postId để xóa bài viết."
+      );
     }
 
-    console.log("[DELETE POST API]", `/posts/${postId}`);
+    console.log(
+      "[DELETE POST API]",
+      `/posts/${postId}`
+    );
 
-    const response = await apiClient.delete(`/posts/${postId}`);
+    const response = await apiClient.delete(
+      `/posts/${postId}`
+    );
+
     return response.data;
   } catch (error: any) {
-    console.log("[DELETE POST API ERROR]", error?.response?.data || error);
-    throw getError(error, "Không thể xóa bài viết.");
+    console.log(
+      "[DELETE POST ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể xóa bài viết."
+    );
   }
 };
 
-/* =========================
-   COMMENTS
-========================= */
 
-export const getCommentsByPost = async (postId: string) => {
+export const getCommentsByPost = async (
+  postId: string
+) => {
   try {
-    if (!postId) {
-      throw new Error("Thiếu postId để lấy bình luận.");
+    if (!postId?.trim()) {
+      throw new Error(
+        "Thiếu postId để lấy bình luận."
+      );
     }
 
-    const response = await apiClient.get(`/comments/post/${postId}`);
+    const response = await apiClient.get(
+      `/comments/post/${postId}`
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể lấy bình luận.");
+    console.log(
+      "[GET COMMENTS ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể lấy bình luận."
+    );
   }
 };
 
-export const createComment = async (payload: CreateCommentPayload) => {
+export const createComment = async (
+  payload: CreateCommentPayload
+) => {
   try {
-    const response = await apiClient.post("/comments", payload);
+    if (!payload.postId?.trim()) {
+      throw new Error(
+        "Thiếu postId để bình luận."
+      );
+    }
+
+    if (!payload.content?.trim()) {
+      throw new Error(
+        "Nội dung bình luận không được để trống."
+      );
+    }
+
+    const response = await apiClient.post(
+      "/comments",
+      {
+        ...payload,
+        content: payload.content.trim(),
+      }
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể bình luận.");
+    console.log(
+      "[CREATE COMMENT ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể bình luận."
+    );
   }
 };
 
 export const updateComment = async (
   commentId: string,
-  payload: {
-    content: string;
-    isAnonymous?: boolean;
-    anonymousName?: string;
-  }
+  payload: UpdateCommentPayload
 ) => {
   try {
-    if (!commentId) {
-      throw new Error("Thiếu commentId để cập nhật bình luận.");
+    if (!commentId?.trim()) {
+      throw new Error(
+        "Thiếu commentId để cập nhật bình luận."
+      );
     }
 
-    const response = await apiClient.put(`/comments/${commentId}`, payload);
+    if (!payload.content?.trim()) {
+      throw new Error(
+        "Nội dung bình luận không được để trống."
+      );
+    }
+
+    const response = await apiClient.put(
+      `/comments/${commentId}`,
+      {
+        ...payload,
+        content: payload.content.trim(),
+      }
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể cập nhật bình luận.");
+    console.log(
+      "[UPDATE COMMENT ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể cập nhật bình luận."
+    );
   }
 };
 
-export const deleteComment = async (commentId: string) => {
+export const deleteComment = async (
+  commentId: string
+) => {
   try {
-    if (!commentId) {
-      throw new Error("Thiếu commentId để xóa bình luận.");
+    if (!commentId?.trim()) {
+      throw new Error(
+        "Thiếu commentId để xóa bình luận."
+      );
     }
 
-    const response = await apiClient.delete(`/comments/${commentId}`);
+    const response = await apiClient.delete(
+      `/comments/${commentId}`
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể xóa bình luận.");
+    console.log(
+      "[DELETE COMMENT ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể xóa bình luận."
+    );
   }
 };
 
-/* =========================
-   REACTIONS
-========================= */
 
-export const reactToPost = async (postId: string, type: ReactionType) => {
+export const reactToPost = async (
+  postId: string,
+  type: ReactionType
+) => {
   try {
-    if (!postId) {
-      throw new Error("Thiếu postId để react bài viết.");
+    if (!postId?.trim()) {
+      throw new Error(
+        "Thiếu postId để react bài viết."
+      );
     }
 
-    const response = await apiClient.post(`/reactions/posts/${postId}`, {
-      type,
-    });
+    const response = await apiClient.post(
+      `/reactions/posts/${postId}`,
+      {
+        type,
+      }
+    );
 
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể react bài viết.");
+    console.log(
+      "[REACT POST ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể react bài viết."
+    );
   }
 };
 
-export const removePostReaction = async (postId: string) => {
+export const removePostReaction = async (
+  postId: string
+) => {
   try {
-    if (!postId) {
-      throw new Error("Thiếu postId để gỡ reaction bài viết.");
+    if (!postId?.trim()) {
+      throw new Error(
+        "Thiếu postId để gỡ reaction bài viết."
+      );
     }
 
-    const response = await apiClient.delete(`/reactions/posts/${postId}`);
+    const response = await apiClient.delete(
+      `/reactions/posts/${postId}`
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể gỡ reaction bài viết.");
+    console.log(
+      "[REMOVE POST REACTION ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể gỡ reaction bài viết."
+    );
   }
 };
+
 
 export const reactToComment = async (
   commentId: string,
   type: ReactionType
 ) => {
   try {
-    if (!commentId) {
-      throw new Error("Thiếu commentId để react bình luận.");
+    if (!commentId?.trim()) {
+      throw new Error(
+        "Thiếu commentId để react bình luận."
+      );
     }
 
-    const response = await apiClient.post(`/reactions/comments/${commentId}`, {
-      type,
-    });
+    const response = await apiClient.post(
+      `/reactions/comments/${commentId}`,
+      {
+        type,
+      }
+    );
 
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể react bình luận.");
+    console.log(
+      "[REACT COMMENT ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể react bình luận."
+    );
   }
 };
 
-export const removeCommentReaction = async (commentId: string) => {
+export const removeCommentReaction = async (
+  commentId: string
+) => {
   try {
-    if (!commentId) {
-      throw new Error("Thiếu commentId để gỡ reaction bình luận.");
+    if (!commentId?.trim()) {
+      throw new Error(
+        "Thiếu commentId để gỡ reaction bình luận."
+      );
     }
 
-    const response = await apiClient.delete(`/reactions/comments/${commentId}`);
+    const response = await apiClient.delete(
+      `/reactions/comments/${commentId}`
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể gỡ reaction bình luận.");
+    console.log(
+      "[REMOVE COMMENT REACTION ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể gỡ reaction bình luận."
+    );
   }
 };
 
-/* =========================
-   REPORTS
-========================= */
 
 export const getMyReports = async () => {
   try {
-    const response = await apiClient.get("/reports/my-reports");
+    const response = await apiClient.get(
+      "/reports/my-reports"
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể lấy report của tôi.");
+    console.log(
+      "[GET MY REPORTS ERROR]",
+      error?.response?.status,
+      error?.response?.data || error?.message
+    );
+
+    throw getError(
+      error,
+      "Không thể lấy report của tôi."
+    );
   }
 };
 
-export const createReport = async (payload: {
-  targetType: "post" | "comment";
-  targetId: string;
-  reason: string;
-  description?: string;
-}) => {
+export const createReport = async (
+  payload: CreateReportPayload
+) => {
   try {
-    const response = await apiClient.post("/reports", payload);
+    if (!payload.targetId?.trim()) {
+      throw new Error(
+        "Thiếu targetId để gửi báo cáo."
+      );
+    }
+
+    if (
+      payload.targetType !== "post" &&
+      payload.targetType !== "comment"
+    ) {
+      throw new Error(
+        "targetType không hợp lệ."
+      );
+    }
+
+    const validReasons: ReportReason[] = [
+      "toxic_language",
+      "harassment",
+      "spam",
+      "self_harm",
+      "other",
+    ];
+
+    if (!validReasons.includes(payload.reason)) {
+      throw new Error(
+        "Lý do báo cáo không hợp lệ."
+      );
+    }
+
+    const requestBody: CreateReportPayload = {
+      targetType: payload.targetType,
+      targetId: payload.targetId.trim(),
+      reason: payload.reason,
+      description:
+        payload.description?.trim() || undefined,
+    };
+
+    console.log(
+      "[CREATE REPORT PAYLOAD]",
+      requestBody
+    );
+
+    const response = await apiClient.post(
+      "/reports",
+      requestBody
+    );
+
+    console.log(
+      "[CREATE REPORT RESPONSE]",
+      response.data
+    );
+
     return response.data;
   } catch (error: any) {
-    throw getError(error, "Không thể gửi report.");
+    console.log(
+      "[CREATE REPORT ERROR]",
+      {
+        status: error?.response?.status,
+        data: error?.response?.data,
+        message: error?.message,
+      }
+    );
+
+    throw getError(
+      error,
+      "Không thể gửi report."
+    );
   }
 };
-
-/* =========================
-   SERVICE OBJECTS
-========================= */
 
 export const forumPostService = {
   getApprovedPosts,
@@ -284,6 +598,7 @@ export const forumReportService = {
   createReport,
 };
 
+
 export default {
   getApprovedPosts,
   getPosts,
@@ -291,16 +606,20 @@ export default {
   createPost,
   updatePost,
   deletePost,
+
   getCommentsByPost,
   createComment,
   updateComment,
   deleteComment,
+
   reactToPost,
   removePostReaction,
   reactToComment,
   removeCommentReaction,
+
   getMyReports,
   createReport,
+
   forumPostService,
   forumCommentService,
   forumReactionService,

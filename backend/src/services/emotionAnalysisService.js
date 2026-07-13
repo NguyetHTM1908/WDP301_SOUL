@@ -2,71 +2,41 @@ const AiAnalysis = require("../models/AiAnalysis");
 const UserEmotionProfile = require("../models/UserEmotionProfile");
 const User = require("../models/User");
 
-function normalizeText(text) {
-  return String(text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/['’]/g, "")
-    .replace(/[.,!?;:()[\]{}"`~@#$%^&*_+=|\\/<>-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
+const {
+  normalizeText,
+  analyzeSafetyRisk,
+  toEmotionSafetyResult,
+} = require("./contentSafetyService");
+
+const ALLOWED_TARGET_TYPES = [
+  "chat_message",
+  "diary",
+  "post",
+  "comment",
+  "test_result",
+];
+
+const ALLOWED_SENTIMENTS = ["positive", "neutral", "negative"];
+const ALLOWED_RISK_LEVELS = ["low", "medium", "high", "emergency"];
+const ALLOWED_TOXICITY_LEVELS = ["low", "medium", "high"];
 
 function escapeRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return String(text || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function containsPhrase(normalizedText, phrase) {
   const normalizedPhrase = normalizeText(phrase);
 
-  if (!normalizedPhrase) {
+  if (!normalizedText || !normalizedPhrase) {
     return false;
   }
 
-  const regex = new RegExp(`(^|\\s)${escapeRegExp(normalizedPhrase)}($|\\s)`);
+  const regex = new RegExp(
+    `(^|\\s)${escapeRegExp(normalizedPhrase)}($|\\s)`
+  );
+
   return regex.test(normalizedText);
 }
-
-const severeNegativePhrases = [
-  "khong muon song",
-  "khong thiet song",
-  "khong con muon song",
-  "toi ghet song",
-  "ghet song",
-  "chan song",
-  "muon chet",
-  "tu tu",
-  "muon tu tu",
-  "khong con ly do song",
-  "muon bien mat",
-  "bien mat khoi moi thu",
-  "ket thuc moi thu",
-  "muon ngu mai khong day",
-  "tu lam hai ban than",
-  "lam hai ban than",
-
-  "i want to die",
-  "i wanna die",
-  "i want death",
-  "i do not want to live",
-  "i dont want to live",
-  "i no longer want to live",
-  "i wish i was dead",
-  "i wish to die",
-  "i want to disappear",
-  "i want to vanish",
-  "i want to end everything",
-  "end my life",
-  "ending my life",
-  "kill myself",
-  "i want to kill myself",
-  "suicide",
-  "suicidal",
-  "self harm",
-  "hurt myself",
-  "i want to hurt myself",
-];
 
 const positiveKeywords = [
   "vui",
@@ -96,7 +66,6 @@ const positiveKeywords = [
   "hy vong",
   "lac quan",
   "tich cuc",
-  "song tich cuc",
   "muon co gang",
   "se co gang",
   "co niem tin",
@@ -143,7 +112,6 @@ const positiveKeywords = [
   "co gia dinh",
   "duoc an ui",
   "duoc ung ho",
-  "duoc support",
   "khong con co don",
 
   "happy",
@@ -155,7 +123,6 @@ const positiveKeywords = [
   "much better",
   "fine",
   "okay",
-  "ok",
   "comfortable",
   "relaxed",
   "calm",
@@ -168,13 +135,10 @@ const positiveKeywords = [
   "proud",
   "grateful",
   "thankful",
-  "blessed",
-  "lucky",
   "relieved",
   "safe",
   "supported",
   "loved",
-  "cared for",
   "encouraged",
   "i feel better",
   "i feel good",
@@ -223,8 +187,6 @@ const negativeKeywords = [
   "khong kip",
   "bi ep",
   "ngop",
-  "nghet tho",
-  "khong tho noi",
   "lo lang",
   "rat lo",
   "lo so",
@@ -239,7 +201,6 @@ const negativeKeywords = [
   "khong yen tam",
   "nghi nhieu",
   "suy nghi nhieu",
-  "overthinking",
   "khong ngu duoc",
   "mat ngu",
   "kho ngu",
@@ -286,8 +247,6 @@ const negativeKeywords = [
   "tu trach",
   "ghet ban than",
   "khong thich ban than",
-  "ghet song",
-  "toi ghet song",
   "tuc gian",
   "gian",
   "buc minh",
@@ -337,8 +296,6 @@ const negativeKeywords = [
   "i am worthless",
   "i hate myself",
   "i hate my life",
-  "i hate living",
-  "i hate being alive",
   "i give up",
   "i want to give up",
   "i cannot continue",
@@ -523,10 +480,6 @@ function countWeightedMatches(normalizedText, keywords, weight = 1) {
   return score;
 }
 
-function hasAnyKeyword(normalizedText, keywords) {
-  return keywords.some((keyword) => containsPhrase(normalizedText, keyword));
-}
-
 function calculateConfidence(positiveScore, negativeScore, neutralScore) {
   const total = positiveScore + negativeScore + neutralScore;
 
@@ -534,127 +487,166 @@ function calculateConfidence(positiveScore, negativeScore, neutralScore) {
     return 60;
   }
 
-  const highest = Math.max(positiveScore, negativeScore, neutralScore);
+  const highest = Math.max(
+    positiveScore,
+    negativeScore,
+    neutralScore
+  );
+
   const confidence = Math.round((highest / total) * 100);
 
   return Math.min(95, Math.max(65, confidence));
 }
 
-function classifyEmotionByKeyword(text) {
+function createKeywordResult({
+  sentiment,
+  emotionScore,
+  confidenceScore = 90,
+  riskLevel = "low",
+  summary,
+  suggestion,
+}) {
+  return {
+    sentiment,
+    emotion: sentiment,
+    emotionScore,
+    confidenceScore,
+    riskLevel,
+    toxicityLevel: "low",
+    safetyTriggered: false,
+    safetyType: null,
+    summary,
+    suggestion,
+  };
+}
+
+function classifySpecialCases(text) {
   const normalizedText = normalizeText(text);
 
-  const hasSevereNegative = hasAnyKeyword(
-    normalizedText,
-    severeNegativePhrases
-  );
+  const hasLostMoney =
+    normalizedText.includes("mat tien") ||
+    normalizedText.includes("roi tien") ||
+    normalizedText.includes("mat 500k") ||
+    normalizedText.includes("roi 500k");
 
-  if (hasSevereNegative) {
-    return {
-      sentiment: "negative",
-      emotion: "negative",
-      emotionScore: 10,
-      confidenceScore: 95,
-      riskLevel: "high",
-      toxicityLevel: "low",
-      safetyTriggered: true,
-      safetyType: "self_harm_risk",
-      summary: "Nhật ký của bạn chứa các tín hiệu cảm xúc cực kỳ tiêu cực hoặc bất an.",
-      suggestion:
-        "Bạn đang phải chịu đựng áp lực rất lớn. Hãy chia sẻ với người bạn tin tưởng nhất hoặc liên hệ với các tổ chức hỗ trợ tâm lý. Soul luôn ở đây và muốn đồng hành cùng bạn.",
-    };
-  }
+  const hasGoodScore =
+    normalizedText.includes("10d") ||
+    normalizedText.includes("10 diem") ||
+    normalizedText.includes("diem cao") ||
+    normalizedText.includes("diem toan") ||
+    normalizedText.includes("diem van");
 
-  // --- HỆ THỐNG PHÂN TÍCH TỪ KHÓA CHI TIẾT DỰ PHÒNG (CUSTOM KEYWORD FALLBACK) ---
-  const lowerText = text.toLowerCase();
-  const hasLostMoney = lowerText.includes("mất tiền") || (lowerText.includes("mất") && lowerText.includes("tiền")) || lowerText.includes("rơi tiền") || lowerText.includes("mất 500k") || lowerText.includes("rơi 500k");
-  const hasGoodScore = lowerText.includes("10đ") || lowerText.includes("10 điểm") || lowerText.includes("điểm cao") || lowerText.includes("điểm toán") || lowerText.includes("điểm văn");
-  const hasStress = lowerText.includes("áp lực") || lowerText.includes("stress") || lowerText.includes("mệt mỏi") || lowerText.includes("kiệt sức");
-  const hasSad = lowerText.includes("buồn") || lowerText.includes("thất vọng") || lowerText.includes("chán");
+  const hasStress =
+    normalizedText.includes("ap luc") ||
+    normalizedText.includes("stress") ||
+    normalizedText.includes("met moi") ||
+    normalizedText.includes("kiet suc");
+
+  const hasSad =
+    normalizedText.includes("buon") ||
+    normalizedText.includes("that vong") ||
+    normalizedText.includes("chan");
 
   if (hasLostMoney && hasGoodScore) {
-    return {
+    return createKeywordResult({
       sentiment: "neutral",
-      emotion: "neutral",
-      emotionScore: 45,
+      emotionScore: 50,
       confidenceScore: 90,
-      riskLevel: "low",
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Hôm nay bạn vừa có niềm vui khi đạt kết quả tốt, nhưng cũng cảm thấy thất vọng vì chuyện mất tiền.",
-      suggestion: "Việc mất tiền có thể khiến bạn khó chịu và tự trách mình, nhưng điều đó không làm mất đi thành quả tốt bạn đã đạt được hôm nay. Bạn có thể thử kiểm tra lại những nơi đã đi qua, đồng thời xem đây là kinh nghiệm để cẩn thận hơn lần sau.",
-    };
+      summary:
+        "Hôm nay bạn vừa có niềm vui khi đạt kết quả tốt, nhưng cũng cảm thấy tiếc và thất vọng vì chuyện mất tiền.",
+      suggestion:
+        "Việc mất tiền có thể khiến bạn khó chịu và tự trách mình, nhưng điều đó không làm mất đi thành quả bạn đã đạt được. Bạn có thể kiểm tra lại những nơi đã đi qua và ghi nhớ một cách cất giữ tiền an toàn hơn cho lần sau.",
+    });
   }
 
   if (hasLostMoney) {
-    return {
+    return createKeywordResult({
       sentiment: "negative",
-      emotion: "negative",
       emotionScore: 35,
       confidenceScore: 90,
-      riskLevel: "low",
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Bạn đang cảm thấy buồn hoặc thất vọng vì chuyện liên quan đến tiền bạc.",
-      suggestion: "Mất tiền là chuyện rất khó chịu, nên cảm giác tiếc và tự trách là điều dễ hiểu. Hãy thử bình tĩnh nhớ lại những nơi bạn đã đi qua, và đừng quá nặng lời với bản thân vì ai cũng có lúc sơ suất.",
-    };
-  }
-
-  if (hasStress) {
-    return {
-      sentiment: "negative",
-      emotion: "negative",
-      emotionScore: 35,
-      confidenceScore: 90,
-      riskLevel: "low",
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Nhật ký cho thấy bạn đang chịu áp lực hoặc cảm thấy mệt mỏi.",
-      suggestion: "Có vẻ hôm nay bạn đã phải gồng gánh khá nhiều áp lực. Hãy chia nhỏ các việc cần làm thành từng phần nhỏ hơn, cho phép mình nghỉ ngơi một chút để hồi lại năng lượng nhé.",
-    };
-  }
-
-  if (hasSad) {
-    return {
-      sentiment: "negative",
-      emotion: "negative",
-      emotionScore: 40,
-      confidenceScore: 90,
-      riskLevel: "low",
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Bạn đang cảm nhận sự buồn bã hoặc thất vọng trong ngày hôm nay.",
-      suggestion: "Cảm giác buồn không có nghĩa là bạn yếu đuối. Hãy cho phép bản thân chậm lại một chút, viết ra điều làm mình buồn và thử làm một việc nhỏ để thấy dễ chịu hơn nhé.",
-    };
+      summary:
+        "Bạn đang cảm thấy tiếc, buồn hoặc thất vọng vì chuyện mất tiền.",
+      suggestion:
+        "Mất tiền là chuyện rất khó chịu nên cảm giác tự trách là điều dễ xuất hiện. Bạn có thể bình tĩnh nhớ lại lộ trình đã đi, hỏi những nơi vừa ghé qua và tránh nặng lời với bản thân vì một lần sơ suất.",
+    });
   }
 
   if (hasGoodScore) {
-    return {
+    return createKeywordResult({
       sentiment: "positive",
-      emotion: "positive",
-      emotionScore: 75,
+      emotionScore: 80,
       confidenceScore: 90,
-      riskLevel: "low",
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Nhật ký ghi nhận niềm vui hoặc kết quả học tập/công việc tốt.",
-      suggestion: "Bạn đã nỗ lực rất nhiều hôm nay và xứng đáng được nhận niềm vui này. Hãy tận hưởng thành quả ngọt ngào và dùng nó làm động lực cho những ngày tiếp theo nhé.",
-    };
+      summary:
+        "Nhật ký ghi nhận niềm vui và sự tự hào từ kết quả học tập hoặc công việc tốt.",
+      suggestion:
+        "Kết quả này phản ánh những nỗ lực bạn đã bỏ ra. Hãy ghi lại điều đã giúp bạn làm tốt để có thể tiếp tục áp dụng cho những mục tiêu tiếp theo.",
+    });
   }
-  // ------------------------------------------------------------------------------
+
+  if (hasStress) {
+    return createKeywordResult({
+      sentiment: "negative",
+      emotionScore: 35,
+      confidenceScore: 88,
+      summary:
+        "Nhật ký cho thấy bạn đang chịu nhiều áp lực và có dấu hiệu mệt mỏi.",
+      suggestion:
+        "Khối lượng công việc hiện tại có thể đang vượt quá sức bạn trong một lúc. Bạn nên chọn một việc quan trọng nhất để xử lý trước, đồng thời trao đổi sớm với người liên quan nếu thời hạn hoặc yêu cầu đang không thực tế.",
+    });
+  }
+
+  if (hasSad) {
+    return createKeywordResult({
+      sentiment: "negative",
+      emotionScore: 40,
+      confidenceScore: 85,
+      summary:
+        "Bạn đang trải qua cảm giác buồn bã, chán nản hoặc thất vọng.",
+      suggestion:
+        "Bạn có thể ghi rõ sự việc nào đã khiến cảm xúc này xuất hiện và điều gì trong sự việc đó làm bạn tổn thương nhất. Việc gọi đúng tên nguyên nhân thường giúp cảm xúc bớt mơ hồ và dễ xử lý hơn.",
+    });
+  }
+
+  return null;
+}
+
+function classifyEmotionByKeyword(text) {
+  const normalizedText = normalizeText(text);
+
+  const safetyEmotionResult = toEmotionSafetyResult(text);
+
+  if (safetyEmotionResult) {
+    return safetyEmotionResult;
+  }
+
+  const specialResult = classifySpecialCases(text);
+
+  if (specialResult) {
+    return specialResult;
+  }
 
   const recoveryCount = countKeywordMatches(
     normalizedText,
     positiveRecoveryPhrases
   );
 
-  let positiveScore = countWeightedMatches(normalizedText, positiveKeywords, 2);
-  let negativeScore = countWeightedMatches(normalizedText, negativeKeywords, 2);
-  let neutralScore = countWeightedMatches(normalizedText, neutralKeywords, 1);
+  let positiveScore = countWeightedMatches(
+    normalizedText,
+    positiveKeywords,
+    2
+  );
+
+  let negativeScore = countWeightedMatches(
+    normalizedText,
+    negativeKeywords,
+    2
+  );
+
+  let neutralScore = countWeightedMatches(
+    normalizedText,
+    neutralKeywords,
+    1
+  );
 
   const positiveIntensity = countKeywordMatches(
     normalizedText,
@@ -676,7 +668,10 @@ function classifyEmotionByKeyword(text) {
 
   if (recoveryCount > 0) {
     positiveScore += recoveryCount * 3;
-    negativeScore = Math.max(0, negativeScore - recoveryCount * 2);
+    negativeScore = Math.max(
+      0,
+      negativeScore - recoveryCount * 2
+    );
   }
 
   const confidenceScore = calculateConfidence(
@@ -686,234 +681,354 @@ function classifyEmotionByKeyword(text) {
   );
 
   if (negativeScore > positiveScore && negativeScore >= 2) {
-    const emotionScore = negativeScore >= 8 ? 20 : negativeScore >= 5 ? 30 : 40;
-    const riskLevel = negativeScore >= 8 ? "medium" : "low";
+    const emotionScore =
+      negativeScore >= 8
+        ? 20
+        : negativeScore >= 5
+        ? 30
+        : 40;
 
-    return {
+    return createKeywordResult({
       sentiment: "negative",
-      emotion: "negative",
       emotionScore,
       confidenceScore,
-      riskLevel,
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Nhật ký ghi nhận cảm giác buồn bã hoặc lo lắng.",
+      riskLevel: negativeScore >= 8 ? "medium" : "low",
+      summary:
+        "Nội dung nhật ký cho thấy bạn đang trải qua cảm xúc buồn, lo lắng hoặc áp lực.",
       suggestion:
-        "Cảm ơn bạn đã trút bỏ gánh nặng này vào trang nhật ký. Hãy uống một chút nước ấm, thở đều và cho phép mình được nghỉ ngơi thật thoải mái nhé.",
-    };
+        "Bạn có thể chọn một sự việc cụ thể đang làm mình nặng lòng nhất và viết rõ điều bạn mong muốn thay đổi ở sự việc đó. Khi vấn đề được thu nhỏ thành một phần cụ thể, bạn sẽ dễ nhìn ra bước tiếp theo hơn.",
+    });
   }
 
   if (positiveScore > negativeScore && positiveScore >= 2) {
-    const emotionScore = positiveScore >= 8 ? 90 : positiveScore >= 5 ? 80 : 70;
+    const emotionScore =
+      positiveScore >= 8
+        ? 90
+        : positiveScore >= 5
+        ? 80
+        : 70;
 
-    return {
+    return createKeywordResult({
       sentiment: "positive",
-      emotion: "positive",
       emotionScore,
       confidenceScore,
-      riskLevel: "low",
-      toxicityLevel: "low",
-      safetyTriggered: false,
-      safetyType: null,
-      summary: "Nhật ký thể hiện nhiều năng lượng tích cực và hạnh phúc.",
+      summary:
+        "Nội dung nhật ký thể hiện sự vui vẻ, nhẹ nhõm hoặc có thêm động lực.",
       suggestion:
-        "Thật tuyệt khi biết hôm nay bạn có những trải nghiệm dễ chịu! Hãy lưu giữ khoảnh khắc ấm áp này và tiếp tục yêu thương chính mình nhiều hơn nữa nhé.",
-    };
+        "Bạn có thể ghi lại điều cụ thể đã tạo nên cảm xúc tích cực hôm nay. Đây sẽ là một gợi ý hữu ích để bạn chủ động tạo thêm những khoảnh khắc tương tự trong những ngày sau.",
+    });
   }
 
-  return {
+  return createKeywordResult({
     sentiment: "neutral",
-    emotion: "neutral",
     emotionScore: 50,
     confidenceScore,
-    riskLevel: "low",
-    toxicityLevel: "low",
-    safetyTriggered: false,
-    safetyType: null,
-    summary: "Nhật ký thể hiện trạng thái cảm xúc cân bằng và nhẹ nhàng.",
+    summary:
+      "Nội dung nhật ký hiện thể hiện trạng thái cảm xúc tương đối cân bằng hoặc chưa có cảm xúc nào chiếm ưu thế.",
     suggestion:
-      "Một ngày bình thường, êm ả trôi qua cũng là một món quà đáng quý. Tiếp tục ghi lại hành trình của bạn để hiểu bản thân hơn nhé.",
-  };
+      "Bạn có thể ghi thêm sự việc nổi bật nhất trong ngày và cảm giác xuất hiện ngay sau sự việc đó. Chi tiết này sẽ giúp việc nhận diện cảm xúc chính xác hơn.",
+  });
 }
 
 function buildAIPrompt(text) {
   return `
-Bạn là Soul AI - người bạn đồng hành cảm xúc trong ứng dụng chăm sóc sức khỏe tinh thần SOUL.
-Nhiệm vụ của bạn là đọc nhật ký của người dùng dưới đây và phản hồi bằng tiếng Việt dưới dạng JSON.
+Bạn là Soul AI, hệ thống phân tích cảm xúc cho ứng dụng SOUL.
 
-Nội dung nhật ký của người dùng:
-"${text}"
+Hãy phân tích nội dung nhật ký sau:
+"${String(text || "").replace(/"/g, '\\"')}"
 
-Yêu cầu chi tiết:
-1. Xác định cảm xúc tổng thể ("sentiment"): chỉ trả về một trong ba giá trị: "Positive", "Neutral", "Negative".
-2. Tính điểm số cảm xúc ("score"): số từ 0 đến 100 (với 0-40 là Negative, 41-60 là Neutral, 61-100 là Positive).
-3. Viết nhận xét ngắn gọn ("insight"):
-   - Tóm tắt cảm xúc của người dùng hôm nay.
-   - BẮT BUỘC phải nhắc đến sự kiện, vấn đề cụ thể được viết trong nhật ký (ví dụ: việc đạt điểm 10 môn Văn, việc làm mất 500k, việc cãi nhau với người yêu, v.v.).
-   - Tuyệt đối không viết chung chung vô hồn kiểu "Nhật ký ghi nhận cảm giác buồn bã...".
-   - Độ dài: 1-2 câu.
-4. Viết lời khuyên/lời nhắn nhủ ("advice"):
-   - Bày tỏ sự thấu hiểu, đồng cảm trước tiên.
-   - Đưa ra lời khuyên thực tế, liên quan trực tiếp đến vấn đề người dùng đang đối mặt trong nhật ký.
-   - Không chỉ đưa ra những lời khuyên chung chung rập khuôn như đi nghỉ ngơi, uống nước ấm, hít thở sâu.
-   - Giọng văn nhẹ nhàng, ấm áp như một người bạn thân bên cạnh.
-   - Không tự chẩn đoán bệnh tâm lý hay kê đơn thuốc.
-   - Độ dài: 2-3 câu.
+Yêu cầu:
+- Phản hồi hoàn toàn bằng tiếng Việt.
+- Không chẩn đoán bệnh.
+- Không kê thuốc.
+- Không kết luận y khoa.
+- Phải nhắc đến sự kiện hoặc vấn đề cụ thể trong nhật ký.
+- Không dùng nhận xét chung chung nếu có thể trích xuất được sự kiện cụ thể.
+- Lời nhắn phải liên quan trực tiếp đến vấn đề người dùng đang gặp.
+- Không tự ý đưa ra cảnh báo tự làm hại nếu nội dung không thể hiện dấu hiệu đó.
 
-Định dạng JSON phản hồi chính xác như sau (không bọc trong markdown):
+Trả về JSON chính xác theo cấu trúc:
 {
-  "sentiment": "Positive | Neutral | Negative",
-  "score": 0-100,
-  "insight": "nhận xét cụ thể sự kiện bằng tiếng Việt",
-  "advice": "lời khuyên/lời nhắn nhủ thực tế bằng tiếng Việt",
+  "sentiment": "positive | neutral | negative",
+  "emotion": "positive | neutral | negative",
+  "emotionScore": 0,
+  "confidenceScore": 0,
   "riskLevel": "low | medium | high",
-  "safetyTriggered": false
+  "toxicityLevel": "low | medium | high",
+  "safetyTriggered": false,
+  "safetyType": null,
+  "summary": "Nhận xét 1-2 câu có nhắc đến sự kiện cụ thể.",
+  "suggestion": "Lời nhắn 2-3 câu liên quan trực tiếp đến vấn đề."
 }
+
+Quy tắc emotionScore:
+- 0 đến 40: negative.
+- 41 đến 60: neutral.
+- 61 đến 100: positive.
+
+Chỉ trả về JSON, không bọc trong markdown.
 `;
 }
 
 function extractAIContent(data) {
-  if (!data) return null;
+  if (!data) {
+    return null;
+  }
 
   if (typeof data === "string") {
     return data;
   }
 
-  if (data.result) return data.result;
-  if (data.text) return data.text;
-  if (data.response) return data.response;
-  if (data.message) return data.message;
-  if (data.content) return data.content;
+  if (typeof data.result === "string") {
+    return data.result;
+  }
 
-  if (data.choices && data.choices[0]?.message?.content) {
+  if (typeof data.text === "string") {
+    return data.text;
+  }
+
+  if (typeof data.response === "string") {
+    return data.response;
+  }
+
+  if (typeof data.message === "string") {
+    return data.message;
+  }
+
+  if (typeof data.content === "string") {
+    return data.content;
+  }
+
+  if (data.choices?.[0]?.message?.content) {
     return data.choices[0].message.content;
   }
 
-  if (data.candidates && data.candidates[0]?.content?.parts?.[0]?.text) {
+  if (data.candidates?.[0]?.content?.parts?.[0]?.text) {
     return data.candidates[0].content.parts[0].text;
   }
 
   return null;
 }
 
+function clampScore(value, fallback = 50) {
+  const numericValue = Number(value);
+
+  if (!Number.isFinite(numericValue)) {
+    return fallback;
+  }
+
+  return Math.min(100, Math.max(0, numericValue));
+}
+
 function normalizeAIResult(parsed) {
-  const sentimentVal = String(parsed.sentiment || "neutral").toLowerCase();
-  const sentiment = ["positive", "neutral", "negative"].includes(sentimentVal)
-    ? sentimentVal
+  if (!parsed || typeof parsed !== "object") {
+    throw new Error("Invalid AI emotion result");
+  }
+
+  const sentimentValue = String(
+    parsed.sentiment || parsed.emotion || "neutral"
+  ).toLowerCase();
+
+  const sentiment = ALLOWED_SENTIMENTS.includes(sentimentValue)
+    ? sentimentValue
     : "neutral";
 
-  // Áp dụng linh hoạt giữa format cũ (emotionScore) và format Soul AI (score)
-  const emotionScore = Number(parsed.emotionScore !== undefined ? parsed.emotionScore : parsed.score);
-  const confidenceScore = Number(parsed.confidenceScore !== undefined ? parsed.confidenceScore : 80);
+  const fallbackEmotionScore =
+    sentiment === "positive"
+      ? 75
+      : sentiment === "negative"
+      ? 35
+      : 50;
+
+  const emotionScore = clampScore(
+    parsed.emotionScore !== undefined
+      ? parsed.emotionScore
+      : parsed.score,
+    fallbackEmotionScore
+  );
+
+  const confidenceScore = clampScore(
+    parsed.confidenceScore,
+    80
+  );
+
+  const riskLevelValue = String(
+    parsed.riskLevel || "low"
+  ).toLowerCase();
+
+  const riskLevel = ALLOWED_RISK_LEVELS.includes(riskLevelValue)
+    ? riskLevelValue
+    : "low";
+
+  const toxicityValue = String(
+    parsed.toxicityLevel || "low"
+  ).toLowerCase();
+
+  const toxicityLevel = ALLOWED_TOXICITY_LEVELS.includes(
+    toxicityValue
+  )
+    ? toxicityValue
+    : "low";
+
+  const safetyTriggered = Boolean(parsed.safetyTriggered);
 
   return {
     sentiment,
     emotion: sentiment,
-    emotionScore:
-      Number.isFinite(emotionScore) && emotionScore >= 0 && emotionScore <= 100
-        ? emotionScore
-        : sentiment === "positive"
-        ? 75
-        : sentiment === "negative"
-        ? 35
-        : 50,
-    confidenceScore:
-      Number.isFinite(confidenceScore) &&
-      confidenceScore >= 0 &&
-      confidenceScore <= 100
-        ? confidenceScore
-        : 80,
-    riskLevel: ["low", "medium", "high"].includes(parsed.riskLevel)
-      ? parsed.riskLevel
-      : "low",
-    toxicityLevel: ["low", "medium", "high"].includes(parsed.toxicityLevel)
-      ? parsed.toxicityLevel
-      : "low",
-    safetyTriggered: Boolean(parsed.safetyTriggered),
-    safetyType: parsed.safetyTriggered
+    emotionScore,
+    confidenceScore,
+    riskLevel,
+    toxicityLevel,
+    safetyTriggered,
+    safetyType: safetyTriggered
       ? parsed.safetyType || "self_harm_risk"
       : null,
-    // Áp dụng linh hoạt giữa format cũ (summary, suggestion) và format Soul AI (insight, advice)
-    summary: parsed.insight || parsed.summary || "Đã hoàn thành phân tích cảm xúc.",
+    summary:
+      parsed.summary ||
+      parsed.insight ||
+      "Đã hoàn thành phân tích cảm xúc.",
     suggestion:
-      parsed.advice ||
       parsed.suggestion ||
-      "Cảm ơn bạn đã luôn tin tưởng và chia sẻ tâm sự cùng Soul.",
+      parsed.advice ||
+      "Cảm ơn bạn đã chia sẻ những điều đã xảy ra trong ngày.",
   };
 }
 
 async function classifyEmotionByAI(text) {
-  if (!process.env.AI_EMOTION_API_URL || !process.env.AI_EMOTION_API_KEY) {
-    throw new Error("AI emotion API is not configured");
+  if (!process.env.AI_EMOTION_API_URL) {
+    throw new Error("AI_EMOTION_API_URL is not configured");
   }
 
+  const apiUrl = process.env.AI_EMOTION_API_URL;
+  const apiKey =
+    process.env.AI_EMOTION_API_KEY ||
+    process.env.OPENAI_API_KEY ||
+    "";
+
   const prompt = buildAIPrompt(text);
-  const isOpenAI = process.env.AI_EMOTION_API_URL.includes("api.openai.com");
+  const isOpenAI = apiUrl.includes("api.openai.com");
 
   const requestBody = isOpenAI
     ? {
-        model: "gpt-4o-mini",
-        messages: [{ role: "user", content: prompt }],
-        temperature: 0.2
+        model:
+          process.env.AI_EMOTION_MODEL ||
+          process.env.OPENAI_EMOTION_MODEL ||
+          "gpt-4o-mini",
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: 0.2,
+        response_format: {
+          type: "json_object",
+        },
       }
     : {
         prompt,
-        temperature: 0.2
+        temperature: 0.2,
       };
 
-  const response = await fetch(process.env.AI_EMOTION_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${process.env.AI_EMOTION_API_KEY}`,
-    },
-    body: JSON.stringify(requestBody),
-  });
+  const headers = {
+    "Content-Type": "application/json",
+  };
 
-  if (!response.ok) {
-    throw new Error(`AI emotion API failed with status ${response.status}`);
+  if (apiKey) {
+    headers.Authorization = `Bearer ${apiKey}`;
   }
 
-  const data = await response.json();
+  const controller = new AbortController();
 
-  let content = extractAIContent(data);
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, Number(process.env.AI_EMOTION_TIMEOUT_MS || 60000));
 
-  if (!content) {
-    throw new Error("AI emotion API returned empty result");
+  try {
+    const response = await fetch(apiUrl, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(requestBody),
+      signal: controller.signal,
+    });
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `AI emotion API failed with status ${response.status}: ${responseText}`
+      );
+    }
+
+    let data;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      data = responseText;
+    }
+
+    let content = extractAIContent(data);
+
+    if (!content) {
+      throw new Error("AI emotion API returned empty result");
+    }
+
+    content = String(content)
+      .replace(/```json/gi, "")
+      .replace(/```/g, "")
+      .trim();
+
+    const parsed = JSON.parse(content);
+
+    return normalizeAIResult(parsed);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("AI emotion analysis timeout");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
   }
-
-  content = String(content)
-    .replace(/```json/g, "")
-    .replace(/```/g, "")
-    .trim();
-
-  const parsed = JSON.parse(content);
-
-  return normalizeAIResult(parsed);
 }
 
 async function classifyEmotionHybrid(text) {
-  const normalizedText = normalizeText(text);
+  /**
+   * contentSafetyService luôn chạy trước AI.
+   * AI không được phép ghi đè kết quả an toàn nghiêm trọng.
+   */
+  const safetyResult = analyzeSafetyRisk(text);
 
-  if (hasAnyKeyword(normalizedText, severeNegativePhrases)) {
-    return {
-      sentiment: "negative",
-      emotion: "negative",
-      emotionScore: 10,
-      confidenceScore: 95,
-      riskLevel: "high",
-      toxicityLevel: "low",
-      safetyTriggered: true,
-      safetyType: "self_harm_risk",
-      summary: "The content shows strong negative emotional signals.",
-      suggestion:
-        "Encourage the user to seek support from trusted people or professional support if needed.",
-    };
+  if (safetyResult.safetyTriggered) {
+    const safetyEmotionResult = toEmotionSafetyResult(text);
+
+    if (safetyEmotionResult) {
+      return safetyEmotionResult;
+    }
   }
 
   try {
-    return await classifyEmotionByAI(text);
+    const aiResult = await classifyEmotionByAI(text);
+
+    /**
+     * Chạy lại safety sau AI để bảo đảm AI không bỏ sót
+     * hoặc tự trả safetyTriggered sai.
+     */
+    const verifiedSafetyResult = analyzeSafetyRisk(text);
+
+    if (verifiedSafetyResult.safetyTriggered) {
+      return (
+        toEmotionSafetyResult(text) ||
+        classifyEmotionByKeyword(text)
+      );
+    }
+
+    return {
+      ...aiResult,
+      safetyTriggered: false,
+      safetyType: null,
+    };
   } catch (error) {
     console.error(
       "AI emotion analysis failed, fallback to keyword:",
@@ -952,18 +1067,23 @@ async function updateUserEmotionProfile({
   ).length;
 
   const totalScore = recentAnalyses.reduce(
-    (sum, item) => sum + item.emotionScore,
+    (sum, item) => sum + Number(item.emotionScore || 0),
     0
   );
 
   const averageEmotionScore =
-    analysisCount > 0 ? Math.round(totalScore / analysisCount) : 50;
+    analysisCount > 0
+      ? Math.round(totalScore / analysisCount)
+      : 50;
 
   let currentSentiment = "neutral";
 
   if (negativeCount >= 3 || averageEmotionScore <= 40) {
     currentSentiment = "negative";
-  } else if (positiveCount >= 3 || averageEmotionScore >= 65) {
+  } else if (
+    positiveCount >= 3 ||
+    averageEmotionScore >= 65
+  ) {
     currentSentiment = "positive";
   }
 
@@ -995,13 +1115,17 @@ async function updateUserEmotionProfile({
     {
       new: true,
       upsert: true,
+      runValidators: true,
+      setDefaultsOnInsert: true,
     }
   );
 
   await User.findByIdAndUpdate(userId, {
-    moodReputation: profile.currentSentiment,
-    moodReputationScore: profile.averageEmotionScore,
-    moodReputationUpdatedAt: new Date(),
+    $set: {
+      moodReputation: profile.currentSentiment,
+      moodReputationScore: profile.averageEmotionScore,
+      moodReputationUpdatedAt: new Date(),
+    },
   });
 
   return profile;
@@ -1012,7 +1136,7 @@ async function analyze({
   targetType,
   targetId,
   text,
-  modelName = "hybrid-emotion-v1",
+  modelName = "hybrid-emotion-v2",
 }) {
   if (!userId) {
     throw new Error("userId is required");
@@ -1022,11 +1146,7 @@ async function analyze({
     throw new Error("targetType is required");
   }
 
-  if (
-    !["chat_message", "diary", "post", "comment", "test_result"].includes(
-      targetType
-    )
-  ) {
+  if (!ALLOWED_TARGET_TYPES.includes(targetType)) {
     throw new Error("Invalid targetType");
   }
 
@@ -1034,11 +1154,13 @@ async function analyze({
     throw new Error("targetId is required");
   }
 
-  if (!text || !text.trim()) {
+  const cleanText = String(text || "").trim();
+
+  if (!cleanText) {
     throw new Error("text is required");
   }
 
-  const result = await classifyEmotionHybrid(text);
+  const result = await classifyEmotionHybrid(cleanText);
 
   const analysis = await AiAnalysis.create({
     userId,
@@ -1055,7 +1177,7 @@ async function analyze({
     toxicityLevel: result.toxicityLevel,
     safetyTriggered: result.safetyTriggered,
     safetyType: result.safetyType,
-    sourceTextSnapshot: text,
+    sourceTextSnapshot: cleanText,
     summary: result.summary,
     suggestion: result.suggestion,
     modelName,
@@ -1091,7 +1213,11 @@ async function analyze({
   };
 }
 
-async function analyzeFromChat(userId, chatMessageId, messageContent) {
+async function analyzeFromChat(
+  userId,
+  chatMessageId,
+  messageContent
+) {
   return analyze({
     userId,
     targetType: "chat_message",
@@ -1100,12 +1226,42 @@ async function analyzeFromChat(userId, chatMessageId, messageContent) {
   });
 }
 
-async function analyzeFromDiary(userId, diaryId, diaryContent) {
+async function analyzeFromDiary(
+  userId,
+  diaryId,
+  diaryContent
+) {
   return analyze({
     userId,
     targetType: "diary",
     targetId: diaryId,
     text: diaryContent,
+  });
+}
+
+async function analyzeFromPost(
+  userId,
+  postId,
+  postContent
+) {
+  return analyze({
+    userId,
+    targetType: "post",
+    targetId: postId,
+    text: postContent,
+  });
+}
+
+async function analyzeFromComment(
+  userId,
+  commentId,
+  commentContent
+) {
+  return analyze({
+    userId,
+    targetType: "comment",
+    targetId: commentId,
+    text: commentContent,
   });
 }
 
@@ -1122,18 +1278,31 @@ async function getUserEmotionHistory(userId, limit = 30) {
     throw new Error("userId is required");
   }
 
+  const safeLimit = Math.min(
+    100,
+    Math.max(1, Number(limit) || 30)
+  );
+
   return AiAnalysis.find({
     userId,
     analysisType: "emotion_analysis",
   })
     .sort({ analyzedAt: -1 })
-    .limit(Number(limit));
+    .limit(safeLimit);
 }
 
 module.exports = {
   analyze,
+
   analyzeFromChat,
   analyzeFromDiary,
+  analyzeFromPost,
+  analyzeFromComment,
+
+  classifyEmotionHybrid,
+  classifyEmotionByAI,
+  classifyEmotionByKeyword,
+
   getUserEmotionProfile,
   getUserEmotionHistory,
 };
