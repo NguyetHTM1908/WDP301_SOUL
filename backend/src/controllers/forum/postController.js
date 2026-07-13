@@ -269,21 +269,32 @@ exports.getApprovedPosts = async (req, res) => {
     const { hashtag, emotionStatus, search } = req.query;
 
     const filter = {
+      postType: "forum",
       status: "approved",
       visibility: "public",
       isFlagged: { $ne: true },
-      postType: { $ne: "profile" },
     };
 
     if (hashtag && String(hashtag).trim()) {
-      filter.hashtags = String(hashtag).replace("#", "").trim().toLowerCase();
+      filter.hashtags = String(hashtag)
+        .replace("#", "")
+        .trim()
+        .toLowerCase();
     }
 
-    if (emotionStatus && String(emotionStatus).trim()) {
-      filter.emotionStatus = String(emotionStatus).trim();
+    if (
+      emotionStatus &&
+      String(emotionStatus).trim()
+    ) {
+      filter.emotionStatus =
+        String(emotionStatus)
+          .trim()
+          .toLowerCase();
     }
 
-    const keyword = String(search || "").trim();
+    const keyword = String(
+      search || ""
+    ).trim();
 
     if (keyword) {
       filter.$or = [
@@ -309,22 +320,33 @@ exports.getApprovedPosts = async (req, res) => {
     }
 
     const posts = await Post.find(filter)
-      .populate("authorId", AUTHOR_POPULATE_FIELDS)
-      .sort({ createdAt: -1 });
+      .populate(
+        "authorId",
+        AUTHOR_POPULATE_FIELDS
+      )
+      .sort({
+        createdAt: -1,
+      });
 
     const data = posts.map(safeMaskPost);
 
     return res.status(200).json({
       success: true,
-      message: "Lấy danh sách bài viết thành công.",
+      message:
+        "Lấy danh sách bài viết thành công.",
       data,
     });
   } catch (error) {
-    console.error("GET APPROVED POSTS ERROR FULL:", error);
+    console.error(
+      "GET APPROVED POSTS ERROR FULL:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: error.message || "Không thể lấy danh sách bài viết.",
+      message:
+        error.message ||
+        "Không thể lấy danh sách bài viết.",
       errorName: error.name,
       errorCode: error.code,
       errorErrors: error.errors,

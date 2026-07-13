@@ -2,7 +2,12 @@ const Report = require("../models/Report");
 const User = require("../models/User");
 const Notification = require("../models/Notification");
 
-const OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions";
+const {
+  analyzeSafetyRisk,
+} = require("./contentSafetyService");
+
+const OPENAI_CHAT_COMPLETIONS_URL =
+  "https://api.openai.com/v1/chat/completions";
 
 const VIOLATION_TYPES = [
   "toxic_language",
@@ -19,17 +24,6 @@ const VIOLATION_TYPES = [
 
 const SEVERITY_LEVELS = ["low", "medium", "high"];
 
-function normalizeText(text) {
-  return String(text || "")
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/đ/g, "d")
-    .replace(/[.,!?;:()[\]{}"'`~@#$%^&*_+=|\\/<>-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
 function createSafeResult() {
   return {
     isViolationSuspected: false,
@@ -38,28 +32,22 @@ function createSafeResult() {
     confidenceScore: 85,
     reason: null,
     description: null,
-  };
-}
 
-function createDangerousResult(type, reason, description, confidenceScore = 98) {
-  return {
-    isViolationSuspected: true,
-    violationType: type,
-    severity: "high",
-    confidenceScore,
-    reason,
-    description,
+    riskLevel: "low",
+    safetyWarning: false,
+    safetyTriggered: false,
+    safetyType: null,
   };
 }
 
 function clampScore(value, fallback = 80) {
   const score = Number(value);
 
-  if (!Number.isFinite(score)) return fallback;
-  if (score < 0) return 0;
-  if (score > 100) return 100;
+  if (!Number.isFinite(score)) {
+    return fallback;
+  }
 
-  return score;
+  return Math.min(100, Math.max(0, score));
 }
 
 function normalizeModerationResult(parsed) {
@@ -67,22 +55,36 @@ function normalizeModerationResult(parsed) {
     return createSafeResult();
   }
 
-  const isViolationSuspected = Boolean(parsed.isViolationSuspected);
+  const isViolationSuspected = Boolean(
+    parsed.isViolationSuspected
+  );
 
   let violationType = parsed.violationType;
+
   if (!VIOLATION_TYPES.includes(violationType)) {
-    violationType = isViolationSuspected ? "other" : null;
+    violationType = isViolationSuspected
+      ? "other"
+      : null;
   }
 
-  let severity = parsed.severity;
+  let severity = String(
+    parsed.severity || ""
+  ).toLowerCase();
+
   if (!SEVERITY_LEVELS.includes(severity)) {
-    severity = isViolationSuspected ? "medium" : "low";
+    severity = isViolationSuspected
+      ? "medium"
+      : "low";
   }
 
   return {
     isViolationSuspected,
-    violationType: isViolationSuspected ? violationType || "other" : null,
-    severity: isViolationSuspected ? severity : "low",
+    violationType: isViolationSuspected
+      ? violationType || "other"
+      : null,
+    severity: isViolationSuspected
+      ? severity
+      : "low",
     confidenceScore: clampScore(
       parsed.confidenceScore,
       isViolationSuspected ? 80 : 85
@@ -95,86 +97,70 @@ function normalizeModerationResult(parsed) {
     description:
       parsed.description ||
       (isViolationSuspected
-        ? "Bài viết có dấu hiệu không phù hợp với cộng đồng SOUL."
+        ? "Nội dung có dấu hiệu không phù hợp với cộng đồng SOUL."
         : null),
+
+    riskLevel:
+      parsed.riskLevel ||
+      (severity === "high"
+        ? "high"
+        : severity === "medium"
+        ? "medium"
+        : "low"),
+
+    safetyWarning: Boolean(
+      parsed.safetyWarning ||
+        parsed.safetyTriggered ||
+        isViolationSuspected
+    ),
+
+    safetyTriggered: Boolean(
+      parsed.safetyTriggered ||
+        isViolationSuspected
+    ),
+
+    safetyType:
+      parsed.safetyType || null,
   };
 }
 
+/**
+ * Lớp bảo vệ quan trọng dùng chung.
+ *
+ * Không còn chứa regex riêng trong forumModerationService.
+ * Mọi regex tự sát, bạo lực, cấp cứu và bất hợp pháp
+ * đều nằm trong contentSafetyService.
+ */
 function checkCriticalSafetyNet(content) {
-  const text = normalizeText(content);
+  const safetyResult = analyzeSafetyRisk(content);
 
-  if (!text) {
+  if (!safetyResult.isViolationSuspected) {
     return createSafeResult();
   }
 
-  /**
-   * SELF-HARM / SUICIDE RISK
-   * Bắt các câu tự hại rõ ràng để xử lý nhanh, không cần chờ AI.
-   */
-  const selfHarmIntentRegex =
-    /\b(muon|mong|uoc|chi muon|rat muon|het muon|khong muon|khong can|chan|met moi).{0,80}(chet|tu tu|bien mat|khong song|khong ton tai|roi khoi cuoc doi)\b/;
+  return normalizeModerationResult({
+    isViolationSuspected:
+      safetyResult.isViolationSuspected,
+    violationType:
+      safetyResult.violationType,
+    severity:
+      safetyResult.severity,
+    confidenceScore:
+      safetyResult.confidenceScore,
+    reason:
+      safetyResult.reason,
+    description:
+      safetyResult.description,
 
-  const selfHarmPhraseRegex =
-    /\b(chet di cho roi|chet di cho xong|di chet di|muon chet|muon di chet|khong muon song|khong thiet song|song lam gi nua|het muon song|muon bien mat|khong muon ton tai)\b/;
-
-  const selfHarmActionRegex =
-    /\b(cat|rach|tu cat|lam dau|tu lam dau|lam hai|tu hai).{0,50}(co tay|tay|ban than|minh|toi|tao|em)\b|\b(that co|treo co)\b|\b(self harm|kill myself|suicide|i want to die|i wanna die|cut myself)\b/;
-
-  /**
-   * VIOLENCE / HARM TO OTHERS
-   * Bắt ý định hại người khác.
-   */
-  const violenceIntentRegex =
-    /\b(muon|mong|se|sap|dinh|di|ru|keo nguoi|goi nguoi|canh).{0,80}(danh|dap|dam|chem|giet|xu|bem|tan|hanh hung|de doa|tra thu)\b/;
-
-  const violencePhraseRegex =
-    /\b(danh nhau|di danh nhau|muon danh nhau|cho no mot tran|cho no 1 tran|dap no|danh no|xu no|bem no|tan no|giet no|de doa no|tra thu no)\b/;
-
-  const violenceEnglishRegex =
-    /\b(i will beat|beat .* up|i will kill|kill him|kill her|attack him|attack her|fight him|fight her)\b/;
-
-  /**
-   * ILLEGAL / DANGEROUS CONTENT
-   */
-  const illegalRegex =
-    /\b(mua|ban|ship|giao).{0,30}(ma tuy|can sa|hang cam)\b|\bhack\s+(tai khoan|account)\b|\blua dao\b|\bca do\b|\bbetting\b|\bscam\b/;
-
-  if (
-    selfHarmIntentRegex.test(text) ||
-    selfHarmPhraseRegex.test(text) ||
-    selfHarmActionRegex.test(text)
-  ) {
-    return createDangerousResult(
-      "self_harm",
-      "Nội dung có dấu hiệu nguy cơ tự làm hại bản thân.",
-      "Bài viết thể hiện ý định hoặc dấu hiệu tự làm hại bản thân, muốn chết, tự tử hoặc không muốn tiếp tục sống. Cần admin xem xét khẩn cấp.",
-      99
-    );
-  }
-
-  if (
-    violenceIntentRegex.test(text) ||
-    violencePhraseRegex.test(text) ||
-    violenceEnglishRegex.test(text)
-  ) {
-    return createDangerousResult(
-      "violence",
-      "Nội dung có dấu hiệu bạo lực hoặc đe dọa gây hại người khác.",
-      "Bài viết thể hiện ý định đánh nhau, tấn công, trả thù, đe dọa hoặc gây tổn hại cho người khác. Cần admin xem xét.",
-      96
-    );
-  }
-
-  if (illegalRegex.test(text)) {
-    return createDangerousResult(
-      "illegal_content",
-      "Nội dung có dấu hiệu liên quan đến hành vi vi phạm pháp luật.",
-      "Bài viết có dấu hiệu liên quan đến ma túy, lừa đảo, hack tài khoản, cá độ hoặc giao dịch bất hợp pháp.",
-      92
-    );
-  }
-
-  return createSafeResult();
+    riskLevel:
+      safetyResult.riskLevel,
+    safetyWarning:
+      safetyResult.safetyWarning,
+    safetyTriggered:
+      safetyResult.safetyTriggered,
+    safetyType:
+      safetyResult.safetyType,
+  });
 }
 
 const moderationResponseSchema = {
@@ -189,31 +175,36 @@ const moderationResponseSchema = {
         isViolationSuspected: {
           type: "boolean",
           description:
-            "True nếu bài viết cần admin review vì có dấu hiệu vi phạm hoặc rủi ro an toàn.",
+            "True nếu nội dung cần admin xem xét vì có dấu hiệu vi phạm hoặc rủi ro an toàn.",
         },
         violationType: {
           type: ["string", "null"],
           enum: VIOLATION_TYPES,
-          description: "Loại vi phạm. Null nếu không có dấu hiệu vi phạm.",
+          description:
+            "Loại vi phạm. Null nếu không có dấu hiệu vi phạm.",
         },
         severity: {
           type: "string",
           enum: SEVERITY_LEVELS,
-          description: "Mức độ nghiêm trọng của nội dung.",
+          description:
+            "Mức độ nghiêm trọng của nội dung.",
         },
         confidenceScore: {
           type: "number",
           minimum: 0,
           maximum: 100,
-          description: "Độ tự tin của AI từ 0 đến 100.",
+          description:
+            "Độ tự tin của AI từ 0 đến 100.",
         },
         reason: {
           type: ["string", "null"],
-          description: "Lý do ngắn bằng tiếng Việt.",
+          description:
+            "Lý do ngắn bằng tiếng Việt.",
         },
         description: {
           type: ["string", "null"],
-          description: "Giải thích ngắn bằng tiếng Việt cho admin.",
+          description:
+            "Giải thích ngắn bằng tiếng Việt cho admin.",
         },
       },
       required: [
@@ -233,80 +224,109 @@ function buildModerationMessages(content) {
     {
       role: "system",
       content: `
-You are a strict AI content moderation service for SOUL, a Vietnamese mental wellness community app.
+Bạn là hệ thống kiểm duyệt nội dung cho SOUL, một cộng đồng chia sẻ cảm xúc và sức khỏe tinh thần.
 
-Your job:
-- Review Vietnamese/English user-generated forum posts.
-- Decide whether the post should be flagged for admin review.
-- Do not punish the user.
-- Do not give therapy advice.
-- Only classify the safety/moderation risk.
+Nhiệm vụ:
+- Phân tích nội dung do người dùng đăng.
+- Xác định nội dung có cần admin xem xét hay không.
+- Không tư vấn tâm lý.
+- Không trả lời trực tiếp cho người dùng.
+- Chỉ phân loại rủi ro kiểm duyệt.
 
-Important context:
-SOUL is a mental wellness community, so users may share sadness, stress, loneliness, anxiety, academic pressure, family problems, or emotional pain.
-Those are allowed when they are only emotional sharing.
-But content must be flagged if it includes self-harm risk, violence, threats, harassment, hate speech, illegal content, sexual content, spam, or severe toxicity.
+Bối cảnh:
+Người dùng SOUL được phép chia sẻ cảm giác buồn, căng thẳng, cô đơn, áp lực, lo lắng, thất vọng, mệt mỏi hoặc muốn khóc.
 
-Understand Vietnamese slang, teencode, abbreviations, missing accents, typos, and informal text.
-Examples:
-- "t" can mean "tôi", "tao", "mình".
-- "m" can mean "mày".
-- "đánh nhau", "danh nhau", "đập nó", "dap no", "xử nó", "xu no", "bem nó", "tẩn nó" are violence.
-- "muốn chết", "muon chet", "đi chết", "di chet", "không muốn sống", "khong muon song" are self-harm risk.
-- "cắt cổ tay", "cat co tay", "thắt cổ", "that co", "treo cổ", "treo co" are self-harm risk.
+Không đánh dấu vi phạm chỉ vì nội dung mang cảm xúc tiêu cực.
 
-Classification policy:
-1. Normal emotional sharing:
-   - If the post only says the user is sad, stressed, tired, lonely, anxious, disappointed, or wants to cry, do not flag.
-   - Example allowed: "hôm nay t stress quá muốn khóc".
+Phải đánh dấu khi nội dung có:
+- Nguy cơ tự làm hại bản thân hoặc tự tử.
+- Đe dọa hoặc ý định gây bạo lực.
+- Quấy rối, bắt nạt hoặc xúc phạm trực tiếp một người.
+- Ngôn từ thù ghét nhắm vào nhóm được bảo vệ.
+- Hành vi bất hợp pháp.
+- Nội dung tình dục rõ ràng.
+- Nội dung rác hoặc quảng cáo đáng ngờ.
+- Ngôn từ độc hại nghiêm trọng.
 
-2. Self-harm:
-   - Flag if the post expresses suicidal thoughts, wanting to die, wanting to disappear permanently, not wanting to live, or intent to self-harm.
-   - Understand Vietnamese slang, teencode, missing accents, typos, and indirect wording.
-   - Examples of self-harm risk: "muốn chết", "mong chết đi cho rồi", "không muốn sống", "hết muốn sống", "muốn biến mất", "cắt cổ tay", "thắt cổ", "treo cổ", "tự làm đau bản thân".
-   - violationType: "self_harm".
-   - severity: "high".
+Hiểu:
+- Tiếng Việt có dấu và không dấu.
+- Teencode.
+- Viết tắt.
+- Lỗi chính tả.
+- Cách nói đời thường.
+- Tiếng Anh xen kẽ.
 
-3. Violence:
-   - Flag if the user expresses intent, desire, plan, threat, or encouragement to fight, beat, attack, injure, retaliate against, or physically harm another person.
-   - Understand Vietnamese slang and informal wording.
-   - Examples of violence risk: "đánh nhau", "muốn đánh nó", "đập nó", "xử nó", "bem nó", "tẩn nó", "cho nó một trận", "kéo người đánh", "trả thù nó".
-   - violationType: "violence".
-   - severity: "high" if it targets a specific person or sounds actionable.
+Quy tắc:
 
-4. Harassment/toxic language:
-   - If the post insults, humiliates, threatens, abuses, bullies, or attacks another person, flag.
-   - Use "harassment" when targeting a person.
-   - Use "toxic_language" for general profanity/insults.
+1. Chia sẻ cảm xúc bình thường:
+Ví dụ:
+- "Hôm nay mình stress quá."
+- "Mình buồn và muốn khóc."
+- "Dạo này mình rất cô đơn."
 
-5. Hate speech:
-   - If it attacks protected groups based on race, ethnicity, nationality, religion, gender, sexual orientation, disability, etc., flag as "hate_speech".
+Các nội dung trên được phép nếu không có ý định gây hại.
 
-6. Illegal content:
-   - If it discusses buying/selling drugs, scams, hacking accounts, betting, illegal trading, or instructions to commit crimes, flag as "illegal_content".
+2. Tự làm hại:
+Đánh dấu khi có ý định chết, tự tử, không muốn sống, muốn biến mất vĩnh viễn hoặc muốn tự làm đau.
 
-7. Sexual content:
-   - If it contains explicit sexual content or sexual exploitation, flag as "sexual_content".
+violationType = "self_harm"
+severity = "high"
 
-8. Spam:
-   - If it is advertising, repeated garbage text, suspicious links, or promotional spam, flag as "spam".
+3. Bạo lực:
+Đánh dấu khi có ý định, kế hoạch hoặc lời đe dọa đánh, đập, đâm, chém, giết, trả thù hoặc gây thương tích.
 
-Return only the structured JSON required by the schema.
+violationType = "violence"
+
+4. Quấy rối:
+Nếu nội dung xúc phạm, làm nhục, bắt nạt hoặc tấn công một người cụ thể:
+
+violationType = "harassment"
+
+5. Ngôn từ độc hại:
+Nếu nội dung chửi bới hoặc xúc phạm chung nhưng không nhắm vào nhóm được bảo vệ:
+
+violationType = "toxic_language"
+
+6. Ngôn từ thù ghét:
+Nếu nội dung tấn công một nhóm dựa trên chủng tộc, dân tộc, quốc tịch, tôn giáo, giới tính, xu hướng tính dục hoặc tình trạng khuyết tật:
+
+violationType = "hate_speech"
+
+7. Nội dung bất hợp pháp:
+Bao gồm mua bán ma túy, lừa đảo, hack tài khoản, cá độ, giao dịch trái phép hoặc hướng dẫn phạm tội:
+
+violationType = "illegal_content"
+
+8. Nội dung tình dục:
+Nội dung tình dục rõ ràng hoặc bóc lột tình dục:
+
+violationType = "sexual_content"
+
+9. Nội dung rác:
+Quảng cáo lặp lại, đường dẫn đáng ngờ, nội dung vô nghĩa lặp lại hoặc quảng bá không phù hợp:
+
+violationType = "spam"
+
+Chỉ trả về JSON đúng theo schema được cung cấp.
 `,
     },
     {
       role: "user",
-      content: `Forum post content:\n${String(content || "").trim()}`,
+      content: `Nội dung cần kiểm duyệt:\n${String(
+        content || ""
+      ).trim()}`,
     },
   ];
 }
 
 async function callOpenAIForModeration(content) {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.AI_MODERATION_API_KEY;
+  const apiKey =
+    process.env.OPENAI_API_KEY ||
+    process.env.AI_MODERATION_API_KEY;
 
   if (!apiKey) {
     throw new Error(
-      "OPENAI_API_KEY is missing. Add OPENAI_API_KEY to your .env or Render environment variables."
+      "OPENAI_API_KEY is missing. Add OPENAI_API_KEY to the environment variables."
     );
   }
 
@@ -315,54 +335,88 @@ async function callOpenAIForModeration(content) {
     process.env.AI_MODERATION_MODEL ||
     "gpt-4o-mini";
 
-  const response = await fetch(OPENAI_CHAT_COMPLETIONS_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages: buildModerationMessages(content),
-      temperature: 0,
-      response_format: moderationResponseSchema,
-    }),
-  });
+  const controller = new AbortController();
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(
-      `OpenAI moderation request failed with status ${response.status}: ${errorText}`
-    );
-  }
-
-  const data = await response.json();
-  const rawContent = data?.choices?.[0]?.message?.content;
-
-  if (!rawContent) {
-    throw new Error("OpenAI moderation returned empty content.");
-  }
-
-  let parsed;
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, Number(process.env.MODERATION_TIMEOUT_MS || 60000));
 
   try {
-    parsed = JSON.parse(rawContent);
-  } catch (error) {
-    const cleaned = String(rawContent)
-      .replace(/```json/g, "")
+    const response = await fetch(
+      OPENAI_CHAT_COMPLETIONS_URL,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify({
+          model,
+          messages: buildModerationMessages(content),
+          temperature: 0,
+          response_format: moderationResponseSchema,
+        }),
+        signal: controller.signal,
+      }
+    );
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `OpenAI moderation failed with status ${response.status}: ${responseText}`
+      );
+    }
+
+    let data;
+
+    try {
+      data = JSON.parse(responseText);
+    } catch (error) {
+      throw new Error(
+        "OpenAI moderation returned invalid JSON response."
+      );
+    }
+
+    const rawContent =
+      data?.choices?.[0]?.message?.content;
+
+    if (!rawContent) {
+      throw new Error(
+        "OpenAI moderation returned empty content."
+      );
+    }
+
+    const cleanedContent = String(rawContent)
+      .replace(/```json/gi, "")
       .replace(/```/g, "")
       .trim();
 
-    parsed = JSON.parse(cleaned);
-  }
+    const parsed = JSON.parse(cleanedContent);
 
-  return normalizeModerationResult(parsed);
+    return normalizeModerationResult(parsed);
+  } catch (error) {
+    if (error?.name === "AbortError") {
+      throw new Error("OpenAI moderation request timeout");
+    }
+
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 function getSeverityWeight(severity) {
-  if (severity === "high") return 3;
-  if (severity === "medium") return 2;
-  return 1;
+  switch (severity) {
+    case "high":
+      return 3;
+
+    case "medium":
+      return 2;
+
+    default:
+      return 1;
+  }
 }
 
 function isDangerousViolation(moderationResult) {
@@ -379,14 +433,22 @@ function isDangerousViolation(moderationResult) {
   ];
 
   return (
-    dangerousTypes.includes(moderationResult.violationType) ||
+    dangerousTypes.includes(
+      moderationResult.violationType
+    ) ||
     moderationResult.severity === "high"
   );
 }
 
-function mergeAIWithSafetyNet(aiResult, safetyNetResult) {
-  const normalizedAI = normalizeModerationResult(aiResult);
-  const normalizedSafetyNet = normalizeModerationResult(safetyNetResult);
+function mergeAIWithSafetyNet(
+  aiResult,
+  safetyNetResult
+) {
+  const normalizedAI =
+    normalizeModerationResult(aiResult);
+
+  const normalizedSafetyNet =
+    normalizeModerationResult(safetyNetResult);
 
   if (!normalizedSafetyNet.isViolationSuspected) {
     return normalizedAI;
@@ -396,71 +458,147 @@ function mergeAIWithSafetyNet(aiResult, safetyNetResult) {
     return normalizedSafetyNet;
   }
 
-  const aiWeight = getSeverityWeight(normalizedAI.severity);
-  const safetyWeight = getSeverityWeight(normalizedSafetyNet.severity);
+  const aiWeight = getSeverityWeight(
+    normalizedAI.severity
+  );
+
+  const safetyWeight = getSeverityWeight(
+    normalizedSafetyNet.severity
+  );
 
   if (safetyWeight > aiWeight) {
     return normalizedSafetyNet;
   }
 
+  if (safetyWeight === aiWeight) {
+    /**
+     * Ưu tiên contentSafetyService nếu đó là loại nguy hiểm,
+     * vì đây là lớp bảo vệ cố định của hệ thống.
+     */
+    if (
+      isDangerousViolation(normalizedSafetyNet) &&
+      !isDangerousViolation(normalizedAI)
+    ) {
+      return normalizedSafetyNet;
+    }
+  }
+
   return {
     ...normalizedAI,
+
     confidenceScore: Math.max(
       normalizedAI.confidenceScore,
       normalizedSafetyNet.confidenceScore
     ),
+
+    riskLevel:
+      normalizedSafetyNet.riskLevel ||
+      normalizedAI.riskLevel,
+
+    safetyWarning:
+      normalizedAI.safetyWarning ||
+      normalizedSafetyNet.safetyWarning,
+
+    safetyTriggered:
+      normalizedAI.safetyTriggered ||
+      normalizedSafetyNet.safetyTriggered,
+
+    safetyType:
+      normalizedSafetyNet.safetyType ||
+      normalizedAI.safetyType,
   };
 }
 
 async function checkForumContentByAI(content) {
-  return callOpenAIForModeration(content);
-}
+  const cleanContent = String(content || "").trim();
 
-async function checkForumContentHybrid(content) {
-  const trimmedContent = String(content || "").trim();
-
-  if (!trimmedContent) {
+  if (!cleanContent) {
     return createSafeResult();
   }
 
-  const safetyNetResult = checkCriticalSafetyNet(trimmedContent);
+  return callOpenAIForModeration(cleanContent);
+}
 
-  // Case nguy hiểm rõ ràng: chặn ngay, không cần đợi AI.
+async function checkForumContentHybrid(content) {
+  const cleanContent = String(content || "").trim();
+
+  if (!cleanContent) {
+    return createSafeResult();
+  }
+
+  /**
+   * Chạy contentSafetyService trước.
+   */
+  const safetyNetResult =
+    checkCriticalSafetyNet(cleanContent);
+
+  /**
+   * Các nội dung nguy hiểm rõ ràng được chặn ngay,
+   * không cần chờ AI moderation.
+   */
   if (isDangerousViolation(safetyNetResult)) {
-    console.log("[Forum Moderation] Safety net caught dangerous content:", {
-      content: trimmedContent,
-      result: safetyNetResult,
-    });
+    console.log(
+      "[Forum Moderation] Shared safety service caught dangerous content:",
+      {
+        result: safetyNetResult,
+      }
+    );
 
     return safetyNetResult;
   }
 
   try {
-    const aiResult = await checkForumContentByAI(trimmedContent);
-    const finalResult = mergeAIWithSafetyNet(aiResult, safetyNetResult);
+    const aiResult =
+      await checkForumContentByAI(cleanContent);
 
-    console.log("[Forum Moderation] AI result:", aiResult);
-    console.log("[Forum Moderation] Safety net result:", safetyNetResult);
-    console.log("[Forum Moderation] Final result:", finalResult);
+    const finalResult = mergeAIWithSafetyNet(
+      aiResult,
+      safetyNetResult
+    );
+
+    console.log(
+      "[Forum Moderation] AI result:",
+      aiResult
+    );
+
+    console.log(
+      "[Forum Moderation] Shared safety result:",
+      safetyNetResult
+    );
+
+    console.log(
+      "[Forum Moderation] Final result:",
+      finalResult
+    );
 
     return finalResult;
   } catch (error) {
-    console.error("[Forum Moderation] AI failed:", error.message);
+    console.error(
+      "[Forum Moderation] AI failed:",
+      error.message
+    );
 
     if (safetyNetResult.isViolationSuspected) {
       return safetyNetResult;
     }
 
-    if (process.env.MODERATION_FAIL_CLOSED === "true") {
-      return {
+    if (
+      process.env.MODERATION_FAIL_CLOSED === "true"
+    ) {
+      return normalizeModerationResult({
         isViolationSuspected: true,
         violationType: "other",
         severity: "medium",
         confidenceScore: 70,
-        reason: "Không thể kiểm duyệt bằng AI tại thời điểm đăng bài.",
+        reason:
+          "Không thể kiểm duyệt bằng AI tại thời điểm đăng nội dung.",
         description:
-          "AI moderation đang lỗi hoặc chưa cấu hình. Bài viết được chuyển sang pending để admin kiểm tra thủ công.",
-      };
+          "AI moderation đang lỗi hoặc chưa được cấu hình. Nội dung được chuyển sang trạng thái chờ để admin kiểm tra thủ công.",
+        riskLevel: "medium",
+        safetyWarning: true,
+        safetyTriggered: false,
+        safetyType: null,
+      });
     }
 
     return createSafeResult();
@@ -474,6 +612,10 @@ async function notifyAdmins(report) {
   }).select("_id");
 
   if (!admins.length) {
+    console.warn(
+      "[Forum Moderation] No active admin found."
+    );
+
     return;
   }
 
@@ -482,7 +624,7 @@ async function notifyAdmins(report) {
     type: "moderation_review",
     title: "Có bài viết cần admin xem xét",
     content:
-      "Hệ thống AI phát hiện một bài viết có dấu hiệu nhạy cảm hoặc vi phạm. Vui lòng kiểm tra report trong trang quản trị.",
+      "Hệ thống phát hiện một bài viết có dấu hiệu nhạy cảm hoặc vi phạm. Vui lòng mở trang quản trị để xem đầy đủ nội dung bài viết.",
     related: {
       type: "report",
       id: report._id,
@@ -494,8 +636,11 @@ async function notifyAdmins(report) {
   await Notification.insertMany(notifications);
 }
 
-async function createSystemReportForPost(post, moderationResult) {
-  if (!moderationResult.isViolationSuspected) {
+async function createSystemReportForPost(
+  post,
+  moderationResult
+) {
+  if (!moderationResult?.isViolationSuspected) {
     return null;
   }
 
@@ -512,20 +657,35 @@ async function createSystemReportForPost(post, moderationResult) {
         reporterId: null,
         reportSource: "system_ai",
         reportedUserId: post.authorId,
+
         reason:
           moderationResult.reason ||
-          "AI phát hiện bài viết có dấu hiệu vi phạm.",
+          "Hệ thống phát hiện bài viết có dấu hiệu vi phạm.",
+
         description:
           moderationResult.description ||
           "Bài viết cần admin kiểm tra lại trước khi đưa ra quyết định xử lý.",
+
         status: "pending",
+
         aiReview: {
-          isViolationSuspected: moderationResult.isViolationSuspected,
-          violationType: moderationResult.violationType,
-          severity: moderationResult.severity,
-          confidenceScore: moderationResult.confidenceScore,
+          isViolationSuspected:
+            moderationResult.isViolationSuspected,
+
+          violationType:
+            moderationResult.violationType,
+
+          severity:
+            moderationResult.severity,
+
+          confidenceScore:
+            moderationResult.confidenceScore,
+
           checkedAt: new Date(),
         },
+      },
+      $setOnInsert: {
+        createdAt: new Date(),
       },
     },
     {
@@ -540,48 +700,84 @@ async function createSystemReportForPost(post, moderationResult) {
 }
 
 function getToxicityLevel(severity) {
-  if (severity === "high") return "high";
-  if (severity === "medium") return "medium";
+  if (severity === "high") {
+    return "high";
+  }
+
+  if (severity === "medium") {
+    return "medium";
+  }
+
   return "low";
 }
 
-function getPostStatusAfterModeration(moderationResult) {
+function getPostStatusAfterModeration(
+  moderationResult
+) {
   if (!moderationResult.isViolationSuspected) {
     return "approved";
   }
 
-  const pendingMode = process.env.MODERATION_PENDING_ON || "dangerous_only";
+  const pendingMode =
+    process.env.MODERATION_PENDING_ON ||
+    "dangerous_only";
 
   if (pendingMode === "dangerous_only") {
-    return isDangerousViolation(moderationResult) ? "pending" : "approved";
+    return isDangerousViolation(moderationResult)
+      ? "pending"
+      : "approved";
   }
 
   if (pendingMode === "high") {
-    return moderationResult.severity === "high" ? "pending" : "approved";
+    return moderationResult.severity === "high"
+      ? "pending"
+      : "approved";
   }
 
   if (pendingMode === "all") {
     return "pending";
   }
 
-  return isDangerousViolation(moderationResult) ? "pending" : "approved";
+  return isDangerousViolation(moderationResult)
+    ? "pending"
+    : "approved";
 }
 
 async function moderatePostAfterCreate(post) {
-  console.log("========== MODERATION START ==========");
+  if (!post?._id) {
+    throw new Error(
+      "A saved post document is required"
+    );
+  }
+
+  const postContent = String(
+    post.content || ""
+  ).trim();
+
+  console.log(
+    "========== MODERATION START =========="
+  );
+
   console.log("Post ID:", post._id);
-  console.log("Post content:", post.content);
 
-  const moderationResult = await checkForumContentHybrid(post.content);
+  const moderationResult =
+    await checkForumContentHybrid(postContent);
 
-  console.log("Moderation result:", moderationResult);
-  console.log("========== MODERATION END ==========");
+  console.log(
+    "Moderation result:",
+    moderationResult
+  );
+
+  console.log(
+    "========== MODERATION END =========="
+  );
 
   if (!moderationResult.isViolationSuspected) {
     post.isFlagged = false;
     post.toxicityLevel = "low";
     post.status = "approved";
     post.approvedAt = new Date();
+    post.approvedBy = null;
     post.rejectedReason = null;
 
     await post.save();
@@ -589,26 +785,62 @@ async function moderatePostAfterCreate(post) {
     return moderationResult;
   }
 
-  const dangerous = isDangerousViolation(moderationResult);
+  const dangerous =
+    isDangerousViolation(moderationResult);
 
-  post.toxicityLevel = getToxicityLevel(moderationResult.severity);
-  post.status = getPostStatusAfterModeration(moderationResult);
+  const postStatus =
+    getPostStatusAfterModeration(
+      moderationResult
+    );
 
-  if (dangerous) {
-    post.isFlagged = true;
-    post.approvedAt = null;
-  } else {
-    post.isFlagged = false;
+  post.toxicityLevel = getToxicityLevel(
+    moderationResult.severity
+  );
+
+  post.status = postStatus;
+
+  /**
+   * isFlagged phải phản ánh việc admin cần chú ý,
+   * không chỉ riêng dangerous.
+   */
+  post.isFlagged =
+    postStatus === "pending" ||
+    dangerous;
+
+  if (postStatus === "approved") {
     post.approvedAt = new Date();
+  } else {
+    post.approvedAt = null;
   }
+
+  post.approvedBy = null;
+  post.rejectedReason = null;
 
   await post.save();
 
-  if (dangerous) {
-    const report = await createSystemReportForPost(post, moderationResult);
+  /**
+   * Tạo report khi bài bị chuyển sang pending.
+   * Nhờ vậy admin có thể mở report và xem đầy đủ bài viết.
+   */
+  if (postStatus === "pending") {
+    const report =
+      await createSystemReportForPost(
+        post,
+        moderationResult
+      );
 
     if (report) {
-      await notifyAdmins(report);
+      try {
+        await notifyAdmins(report);
+      } catch (notificationError) {
+        /**
+         * Lỗi notification không được làm hỏng quá trình đăng bài.
+         */
+        console.error(
+          "[Forum Moderation] Failed to notify admins:",
+          notificationError.message
+        );
+      }
     }
   }
 
@@ -617,8 +849,14 @@ async function moderatePostAfterCreate(post) {
 
 module.exports = {
   moderatePostAfterCreate,
+
   checkForumContentHybrid,
   checkForumContentByAI,
   checkCriticalSafetyNet,
+
+  createSystemReportForPost,
+  notifyAdmins,
+
   isDangerousViolation,
+  getPostStatusAfterModeration,
 };

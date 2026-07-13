@@ -1,4 +1,5 @@
 const express = require("express");
+
 const router = express.Router();
 
 const {
@@ -12,23 +13,69 @@ const {
   hideComment,
   deleteCommentByAdmin,
   resolveAppeal,
-} = require("../controllers/forum/adminForumController");
+} = require(
+  "../controllers/forum/adminForumController"
+);
 
-const auth = require("../middleware/auth");
-const adminOnly = require("../middleware/adminOnly");
+const auth = require(
+  "../middleware/auth"
+);
 
-router.get("/posts", auth, adminOnly, getAllPostsForAdmin);
+const adminOnly = require(
+  "../middleware/adminOnly"
+);
 
-router.patch("/posts/:id/approve", auth, adminOnly, approvePost);
-router.patch("/posts/:id/reject", auth, adminOnly, rejectPost);
-router.patch("/posts/:id/hide", auth, adminOnly, hidePost);
+router.use(auth);
+router.use(adminOnly);
 
-router.patch("/comments/:id/hide", auth, adminOnly, hideComment);
-router.delete("/comments/:id", auth, adminOnly, deleteCommentByAdmin);
+router.get(
+  "/posts",
+  getAllPostsForAdmin
+);
 
-router.get("/reports", auth, adminOnly, getReports);
-router.patch("/reports/:id/dismiss", auth, adminOnly, dismissReport);
-router.patch("/reports/:id/action", auth, adminOnly, takeActionReport);
-router.patch("/reports/:id/appeal", auth, adminOnly, resolveAppeal);
+router.patch(
+  "/posts/:id/approve",
+  approvePost
+);
+
+router.patch(
+  "/posts/:id/reject",
+  rejectPost
+);
+
+router.patch(
+  "/posts/:id/hide",
+  hidePost
+);
+
+router.patch(
+  "/comments/:id/hide",
+  hideComment
+);
+
+router.delete(
+  "/comments/:id",
+  deleteCommentByAdmin
+);
+
+router.get(
+  "/reports",
+  getReports
+);
+
+router.patch(
+  "/reports/:id/dismiss",
+  dismissReport
+);
+
+router.patch(
+  "/reports/:id/action",
+  takeActionReport
+);
+
+router.patch(
+  "/reports/:id/appeal",
+  resolveAppeal
+);
 
 module.exports = router;
