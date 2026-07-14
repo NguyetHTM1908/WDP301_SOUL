@@ -4,77 +4,55 @@ const express = require("express");
 const cors = require("cors");
 const path = require("path");
 const morgan = require("morgan");
-const cookieParser = require(
-  "cookie-parser"
-);
+const cookieParser = require("cookie-parser");
 
-const connectDB = require(
-  "./src/config/db"
-);
+const connectDB = require("./src/config/db");
 
-const authRouter = require(
-  "./src/routes/auth"
-);
-
-const diaryRoutes = require(
-  "./src/routes/diaryRoutes"
-);
-
-const postRoutes = require(
-  "./src/routes/postRoutes"
-);
-
-const commentRoutes = require(
-  "./src/routes/commentRoutes"
-);
-
-const reactionRoutes = require(
-  "./src/routes/reactionRoutes"
-);
-
-const reportRoutes = require(
-  "./src/routes/reportRoutes"
-);
-
-const adminForumRoutes = require(
-  "./src/routes/adminForumRoutes"
-);
-
-const eventRoutes = require(
-  "./src/routes/eventRoutes"
-);
-
-const tagRoutes = require(
-  "./src/routes/tagRoutes"
-);
-
-const adminRoutes = require(
-  "./src/routes/adminRoutes"
-);
-
-const usersRouter = require(
-  "./src/routes/users"
-);
-
+const authRouter = require("./src/routes/auth");
+const diaryRoutes = require("./src/routes/diaryRoutes");
+const postRoutes = require("./src/routes/postRoutes");
+const commentRoutes = require("./src/routes/commentRoutes");
+const reactionRoutes = require("./src/routes/reactionRoutes");
+const reportRoutes = require("./src/routes/reportRoutes");
+const adminForumRoutes = require("./src/routes/adminForumRoutes");
+const eventRoutes = require("./src/routes/eventRoutes");
+const tagRoutes = require("./src/routes/tagRoutes");
+const adminRoutes = require("./src/routes/adminRoutes");
+const usersRouter = require("./src/routes/users");
 const emotionalTestRoutes = require(
   "./src/routes/emotionalTestRoutes"
 );
-
 const emotionAnalysisRoutes = require(
   "./src/routes/emotionAnalysisRoutes"
 );
-
-const aiRoutes = require(
-  "./src/routes/aiRoutes"
-);
+const aiRoutes = require("./src/routes/aiRoutes");
 
 const app = express();
 
 connectDB();
 
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+  "http://localhost:8081",
+  "http://127.0.0.1:8081",
+];
+
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(
+        new Error(`CORS không cho phép origin: ${origin}`)
+      );
+    },
     credentials: true,
     methods: [
       "GET",
@@ -105,7 +83,6 @@ app.use(
 );
 
 app.use(cookieParser());
-
 app.use(morgan("dev"));
 
 app.use(
@@ -121,75 +98,26 @@ app.get("/", (req, res) => {
   });
 });
 
-app.use(
-  "/api/auth",
-  authRouter
-);
-
-app.use(
-  "/api/posts",
-  postRoutes
-);
-
-app.use(
-  "/api/comments",
-  commentRoutes
-);
-
-app.use(
-  "/api/reactions",
-  reactionRoutes
-);
-
-app.use(
-  "/api/reports",
-  reportRoutes
-);
-
-app.use(
-  "/api/admin/forum",
-  adminForumRoutes
-);
-
-app.use(
-  "/api/diaries",
-  diaryRoutes
-);
-
-app.use(
-  "/api/events",
-  eventRoutes
-);
-
-app.use(
-  "/api/tags",
-  tagRoutes
-);
-
+app.use("/api/auth", authRouter);
+app.use("/api/posts", postRoutes);
+app.use("/api/comments", commentRoutes);
+app.use("/api/reactions", reactionRoutes);
+app.use("/api/reports", reportRoutes);
+app.use("/api/admin/forum", adminForumRoutes);
+app.use("/api/diaries", diaryRoutes);
+app.use("/api/events", eventRoutes);
+app.use("/api/tags", tagRoutes);
 app.use(
   "/api/emotion-analysis",
   emotionAnalysisRoutes
 );
-
-app.use(
-  "/api/admin",
-  adminRoutes
-);
-
+app.use("/api/admin", adminRoutes);
 app.use(
   "/api/emotional-tests",
   emotionalTestRoutes
 );
-
-app.use(
-  "/api/users",
-  usersRouter
-);
-
-app.use(
-  "/api/ai",
-  aiRoutes
-);
+app.use("/api/users", usersRouter);
+app.use("/api/ai", aiRoutes);
 
 app.use((req, res) => {
   return res.status(404).json({
@@ -200,22 +128,20 @@ app.use((req, res) => {
   });
 });
 
-app.use(
-  (error, req, res, next) => {
-    console.error(
-      "[GLOBAL SERVER ERROR]",
-      error
-    );
+app.use((error, req, res, next) => {
+  console.error(
+    "[GLOBAL SERVER ERROR]",
+    error
+  );
 
-    return res
-      .status(error.status || 500)
-      .json({
-        success: false,
-        message:
-          error.message ||
-          "Đã xảy ra lỗi máy chủ.",
-      });
-  }
-);
+  return res
+    .status(error.status || 500)
+    .json({
+      success: false,
+      message:
+        error.message ||
+        "Đã xảy ra lỗi máy chủ.",
+    });
+});
 
 module.exports = app;
