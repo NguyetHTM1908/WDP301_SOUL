@@ -1,5 +1,23 @@
 const mongoose = require("mongoose");
 
+const REACTION_TYPES = [
+  "support",
+  "hug",
+  "encourage",
+  "thankyou",
+];
+
+const EMOTION_TYPES = [
+  "happy",
+  "sad",
+  "stress",
+  "anxious",
+  "angry",
+  "neutral",
+  "positive",
+  "negative",
+];
+
 const reactionSchema = new mongoose.Schema(
   {
     userId: {
@@ -7,17 +25,21 @@ const reactionSchema = new mongoose.Schema(
       ref: "User",
       required: true,
     },
+
     type: {
       type: String,
-      enum: ["like", "support", "hug"],
+      enum: REACTION_TYPES,
       required: true,
     },
+
     createdAt: {
       type: Date,
       default: Date.now,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
 );
 
 const mediaSchema = new mongoose.Schema(
@@ -25,14 +47,46 @@ const mediaSchema = new mongoose.Schema(
     url: {
       type: String,
       required: true,
+      trim: true,
     },
+
     type: {
       type: String,
       enum: ["image", "video"],
       required: true,
     },
   },
-  { _id: false }
+  {
+    _id: false,
+  }
+);
+
+const displayAuthorSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      default: null,
+    },
+
+    fullName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
+
+    isAnonymous: {
+      type: Boolean,
+      default: false,
+    },
+  },
+  {
+    _id: false,
+  }
 );
 
 const postSchema = new mongoose.Schema(
@@ -43,31 +97,56 @@ const postSchema = new mongoose.Schema(
       required: true,
     },
 
+    displayAuthor: {
+      type: displayAuthorSchema,
+      default: null,
+    },
+
     content: {
       type: String,
       required: true,
       trim: true,
     },
 
-    mediaUrls: [mediaSchema],
+    mediaUrls: {
+      type: [mediaSchema],
+      default: [],
+    },
 
     emotionStatus: {
       type: String,
-      enum: ["happy", "sad", "stress", "anxious", "angry", "neutral"],
+      enum: EMOTION_TYPES,
       default: "neutral",
+      trim: true,
+      lowercase: true,
     },
 
-    hashtags: [
-      {
-        type: String,
-        trim: true,
-        lowercase: true,
-      },
-    ],
+    hashtags: {
+      type: [String],
+      default: [],
+
+      set: (tags) =>
+        Array.isArray(tags)
+          ? tags
+              .map((tag) =>
+                String(tag)
+                  .replace("#", "")
+                  .trim()
+                  .toLowerCase()
+              )
+              .filter(Boolean)
+          : [],
+    },
 
     isAnonymous: {
       type: Boolean,
       default: false,
+    },
+
+    anonymousName: {
+      type: String,
+      trim: true,
+      default: null,
     },
 
     visibility: {
@@ -76,18 +155,60 @@ const postSchema = new mongoose.Schema(
       default: "public",
     },
 
+    postType: {
+      type: String,
+      enum: ["forum", "profile"],
+      default: "forum",
+    },
+
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected", "hidden", "deleted"],
-      default: "pending",
+      enum: [
+        "pending",
+        "approved",
+        "rejected",
+        "hidden",
+        "deleted",
+      ],
+      default: "approved",
     },
 
     statistics: {
-      likeCount: { type: Number, default: 0 },
-      supportCount: { type: Number, default: 0 },
-      hugCount: { type: Number, default: 0 },
-      commentCount: { type: Number, default: 0 },
-      reportCount: { type: Number, default: 0 },
+      supportCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      hugCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      encourageCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      thankyouCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      commentCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
+
+      reportCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+      },
     },
 
     isFlagged: {
@@ -101,7 +222,10 @@ const postSchema = new mongoose.Schema(
       default: null,
     },
 
-    reactions: [reactionSchema],
+    reactions: {
+      type: [reactionSchema],
+      default: [],
+    },
 
     editedAt: {
       type: Date,
@@ -122,15 +246,50 @@ const postSchema = new mongoose.Schema(
     rejectedReason: {
       type: String,
       default: null,
+      trim: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+  }
 );
 
-postSchema.index({ authorId: 1 });
-postSchema.index({ hashtags: 1 });
-postSchema.index({ status: 1 });
-postSchema.index({ createdAt: -1 });
-postSchema.index({ isFlagged: 1 });
+postSchema.index({
+  authorId: 1,
+});
 
-module.exports = mongoose.model("Post", postSchema);
+postSchema.index({
+  "displayAuthor.id": 1,
+});
+
+postSchema.index({
+  hashtags: 1,
+});
+
+postSchema.index({
+  status: 1,
+});
+
+postSchema.index({
+  createdAt: -1,
+});
+
+postSchema.index({
+  isFlagged: 1,
+});
+
+postSchema.index({
+  toxicityLevel: 1,
+});
+
+postSchema.index({
+  postType: 1,
+  status: 1,
+  visibility: 1,
+  createdAt: -1,
+});
+
+module.exports = mongoose.model(
+  "Post",
+  postSchema
+);

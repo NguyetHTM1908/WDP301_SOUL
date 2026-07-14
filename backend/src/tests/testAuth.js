@@ -43,7 +43,7 @@ const runAuthTest = async () => {
 
     // 1. Kiểm tra Đăng ký
     console.log("\n--- Kiểm tra Đăng ký (Register) ---");
-    const regReq = { body: { fullName: "Test User Auth", email: testEmail, password: testPassword, phone: "0999888777" } };
+    const regReq = { body: { fullName: "Test User Auth", email: testEmail, password: testPassword, phone: "0999888777", gender: "female" } };
     const regRes = mockResponse();
     await authController.register(regReq, regRes);
 

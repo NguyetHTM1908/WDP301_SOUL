@@ -1,5 +1,6 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import {
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -11,6 +12,11 @@ import {
   View,
 } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
+import {
+  ANONYMOUS_AVATAR_URL,
+  ForumUser,
+  getCurrentForumIdentity,
+} from "@/utils/forumIdentity";
 
 type Emotion = {
   value: string;
@@ -21,40 +27,79 @@ type Emotion = {
 type Props = {
   visible: boolean;
   isEditing?: boolean;
+  currentUser?: ForumUser | null;
+
   content: string;
   mediaUrl: string;
   hashtags: string;
   emotionStatus: string;
+
   isAnonymous: boolean;
+  anonymousName: string;
+
   emotions: Emotion[];
+
   setContent: (value: string) => void;
   setMediaUrl: (value: string) => void;
   setHashtags: (value: string) => void;
   setEmotionStatus: (value: string) => void;
+
   setIsAnonymous: (value: boolean) => void;
+  setAnonymousName: (value: string) => void;
+
   onClose: () => void;
   onSubmit: () => void;
+  hideAnonymous?: boolean;
 };
 
 export function CreatePostModal({
   visible,
   isEditing = false,
+  currentUser,
+
   content,
   mediaUrl,
   hashtags,
   emotionStatus,
+
   isAnonymous,
+  anonymousName,
+
   emotions,
+
   setContent,
   setMediaUrl,
   setHashtags,
   setEmotionStatus,
+
   setIsAnonymous,
+  setAnonymousName,
+
   onClose,
   onSubmit,
+  hideAnonymous = false,
 }: Props) {
+  const realIdentity = getCurrentForumIdentity({
+    ...currentUser,
+    anonymousModeEnabled: false,
+  });
+
+  const displayIdentity = (!hideAnonymous && isAnonymous)
+    ? {
+        id: currentUser?.anonymousIdentityId || null,
+        fullName: anonymousName || currentUser?.anonymousAlias || "Anonymous Soul",
+        avatarUrl: ANONYMOUS_AVATAR_URL,
+        isAnonymous: true,
+      }
+    : realIdentity;
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
       <KeyboardAvoidingView
         style={s.modalBackdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -71,25 +116,113 @@ export function CreatePostModal({
             keyboardShouldPersistTaps="handled"
           >
             <Text style={s.modalTitle}>
-              {isEditing ? "Edit your story" : "Share your feeling ✨"}
+              {isEditing ? "Chỉnh sửa bài viết" : "Chia sẻ cảm xúc của bạn ✨"}
             </Text>
 
             <Text style={s.modalSub}>
-              {isEditing
-                ? "Your edited post will be reviewed again."
-                : "Your story might be the light for someone."}
+              {hideAnonymous
+                ? "Chia sẻ suy nghĩ và câu chuyện của bạn lên trang cá nhân."
+                : "Chọn cách bạn muốn hiển thị trong cộng đồng SOUL."}
             </Text>
+
+            <View style={s.identityPreview}>
+              <Image
+                source={{ uri: displayIdentity.avatarUrl || "" }}
+                style={s.identityPreviewAvatar}
+              />
+
+              <View style={s.identityPreviewInfo}>
+                <Text style={s.identityPreviewLabel}>
+                  {hideAnonymous
+                    ? "Đăng lên trang cá nhân"
+                    : isAnonymous
+                    ? "Đăng ẩn danh với tên"
+                    : "Đăng bài với tên"}
+                </Text>
+
+                <Text style={s.identityPreviewName}>
+                  {displayIdentity.fullName}
+                </Text>
+
+                <Text style={s.identityPreviewMeta}>
+                  {hideAnonymous
+                    ? "Bài viết sẽ hiển thị công khai trên dòng thời gian của bạn."
+                    : isAnonymous
+                    ? "Hồ sơ thật của bạn sẽ không hiển thị trong bài viết này."
+                    : "Tên và ảnh đại diện thật của bạn sẽ được hiển thị."}
+                </Text>
+              </View>
+            </View>
+
+            {!hideAnonymous && (
+              <>
+                <View style={s.anonymousRow}>
+                  <View style={s.anonLeft}>
+                    <MaterialCommunityIcons
+                      name="incognito"
+                      size={24}
+                      color="#95A19E"
+                    />
+
+                    <View style={{ flex: 1 }}>
+                      <Text style={s.anonText}>Đăng bài ẩn danh</Text>
+                      <Text style={s.anonSubText}>
+                        Sử dụng tên và ảnh đại diện ẩn danh cho bài viết này.
+                      </Text>
+                    </View>
+                  </View>
+
+                  <Switch
+                    value={isAnonymous}
+                    onValueChange={setIsAnonymous}
+                    trackColor={{ false: "#D8E3E0", true: "#00866B" }}
+                    thumbColor="#FFFFFF"
+                  />
+                </View>
+
+                {isAnonymous ? (
+                  <View style={s.formInput}>
+                    <MaterialCommunityIcons
+                      name="account-question-outline"
+                      size={24}
+                      color="#7A8A87"
+                    />
+
+                    <TextInput
+                      style={s.formTextInput}
+                      placeholder="Tên ẩn danh: Thỏ lém lỉnh..."
+                      placeholderTextColor="#8A9996"
+                      value={anonymousName}
+                      onChangeText={setAnonymousName}
+                    />
+                  </View>
+                ) : null}
+              </>
+            )}
+
+            <View style={s.safeNotice}>
+              <MaterialCommunityIcons
+                name="shield-check-outline"
+                size={20}
+                color="#00866B"
+              />
+
+              <Text style={s.safeNoticeText}>
+                SOUL AI có thể kiểm duyệt bài viết để giữ cộng đồng an toàn và tích cực.
+              </Text>
+            </View>
 
             <View style={s.bigInputWrap}>
               <TextInput
                 style={s.bigInput}
                 multiline
-                placeholder="What is on your mind today?"
+                placeholder="Hôm nay bạn đang nghĩ gì?"
                 placeholderTextColor="#8A9996"
                 value={content}
                 onChangeText={setContent}
                 maxLength={1000}
               />
+
               <Text style={s.counter}>{content.length}/1000</Text>
             </View>
 
@@ -99,9 +232,10 @@ export function CreatePostModal({
                 size={25}
                 color="#7A8A87"
               />
+
               <TextInput
                 style={s.formTextInput}
-                placeholder="Image / Video URL optional"
+                placeholder="Link hình ảnh / video nếu có"
                 placeholderTextColor="#8A9996"
                 value={mediaUrl}
                 onChangeText={setMediaUrl}
@@ -111,9 +245,10 @@ export function CreatePostModal({
 
             <View style={s.formInput}>
               <Text style={s.hashIcon}>#</Text>
+
               <TextInput
                 style={s.formTextInput}
-                placeholder="Hashtags: stress, self-care"
+                placeholder="Hashtag: stress, chăm-sóc-bản-thân"
                 placeholderTextColor="#8A9996"
                 value={hashtags}
                 onChangeText={setHashtags}
@@ -121,7 +256,7 @@ export function CreatePostModal({
               />
             </View>
 
-            <Text style={s.feelingLabel}>How are you feeling?</Text>
+            <Text style={s.feelingLabel}>Bạn đang cảm thấy thế nào?</Text>
 
             <View style={s.emotionGrid}>
               {emotions.map((e) => {
@@ -140,37 +275,20 @@ export function CreatePostModal({
               })}
             </View>
 
-            <View style={s.anonymousRow}>
-              <View style={s.anonLeft}>
-                <MaterialCommunityIcons
-                  name="incognito"
-                  size={24}
-                  color="#95A19E"
-                />
-                <Text style={s.anonText}>Post anonymously</Text>
-              </View>
-
-              <Switch
-                value={isAnonymous}
-                onValueChange={setIsAnonymous}
-                trackColor={{ false: "#D8E3E0", true: "#00866B" }}
-                thumbColor="#FFFFFF"
-              />
-            </View>
-
             <Pressable style={s.submitButton} onPress={onSubmit}>
               <MaterialCommunityIcons
-                name="send-outline"
+                name={isEditing ? "content-save-outline" : "send-outline"}
                 size={24}
                 color="#FFFFFF"
               />
+
               <Text style={s.submitText}>
-                {isEditing ? "Update & Submit" : "Submit for Review"}
+                {isEditing ? "Cập nhật bài viết" : "Đăng bài"}
               </Text>
             </Pressable>
 
             <Pressable onPress={onClose}>
-              <Text style={s.cancelText}>Cancel</Text>
+              <Text style={s.cancelText}>Hủy</Text>
             </Pressable>
           </ScrollView>
         </View>

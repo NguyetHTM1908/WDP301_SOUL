@@ -82,6 +82,8 @@ export const forumStyles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    borderWidth: 1,
+    borderColor: "#D9EEE8",
   },
 
   searchInput: {
@@ -101,10 +103,13 @@ export const forumStyles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999,
     backgroundColor: "#EAF6F2",
+    borderWidth: 1,
+    borderColor: "#D9EEE8",
   },
 
   filterChipActive: {
     backgroundColor: "#00866B",
+    borderColor: "#00866B",
   },
 
   filterText: {
@@ -125,11 +130,21 @@ export const forumStyles = StyleSheet.create({
 
   postCard: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 22,
+    borderRadius: 24,
     padding: 16,
     marginBottom: 14,
     borderWidth: 1,
     borderColor: "#E3ECE9",
+    shadowColor: "#0B3D35",
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 3,
+  },
+
+  postCardFlagged: {
+    borderColor: "#FCD34D",
+    backgroundColor: "#FFFDF7",
   },
 
   postHeader: {
@@ -188,17 +203,59 @@ export const forumStyles = StyleSheet.create({
   },
 
   statusBadge: {
-    backgroundColor: "#FFF4D6",
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  statusBadgeSuccess: {
+    backgroundColor: "#DFF8EC",
+  },
+
+  statusBadgeWarning: {
+    backgroundColor: "#FFF4D6",
+  },
+
+  statusBadgeDanger: {
+    backgroundColor: "#FEE2E2",
   },
 
   statusText: {
     color: "#A16207",
-    fontWeight: "800",
+    fontWeight: "900",
     fontSize: 11,
     textTransform: "capitalize",
+  },
+
+  statusTextSuccess: {
+    color: "#047857",
+  },
+
+  statusTextDanger: {
+    color: "#DC2626",
+  },
+
+  aiReviewBox: {
+    marginTop: 14,
+    borderRadius: 16,
+    backgroundColor: "#FFF7E6",
+    borderWidth: 1,
+    borderColor: "#FCD34D",
+    padding: 12,
+    flexDirection: "row",
+    gap: 8,
+    alignItems: "flex-start",
+  },
+
+  aiReviewText: {
+    flex: 1,
+    color: "#92400E",
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: "700",
   },
 
   postContent: {
@@ -229,12 +286,36 @@ export const forumStyles = StyleSheet.create({
   },
 
   postImage: {
-  marginTop: 16,
-  height: 270,
-  width: "100%",
-  borderRadius: 16,
-  backgroundColor: "#E8F5F1",
-},
+    marginTop: 16,
+    height: 270,
+    width: "100%",
+    borderRadius: 18,
+    backgroundColor: "#E8F5F1",
+  },
+
+  webPreview: {
+    width: "100%",
+    height: 260,
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "#F3F4F6",
+    marginTop: 12,
+  },
+
+  mediaPlaceholder: {
+    height: 220,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F3F4F6",
+    borderRadius: 16,
+    marginTop: 12,
+  },
+
+  mediaPlaceholderText: {
+    marginTop: 8,
+    color: "#6B7280",
+    fontSize: 14,
+  },
 
   actionRow: {
     marginTop: 16,
@@ -244,30 +325,7 @@ export const forumStyles = StyleSheet.create({
     flexWrap: "wrap",
     rowGap: 10,
   },
-webPreview: {
-  width: "100%",
-  height: 260,
-  borderRadius: 16,
-  overflow: "hidden",
-  backgroundColor: "#F3F4F6",
-  marginTop: 12,
-},
 
-
-mediaPlaceholder: {
-  height: 220,
-  justifyContent: "center",
-  alignItems: "center",
-  backgroundColor: "#F3F4F6",
-  borderRadius: 16,
-  marginTop: 12,
-},
-
-mediaPlaceholderText: {
-  marginTop: 8,
-  color: "#6B7280",
-  fontSize: 14,
-},
   actionItem: {
     flexDirection: "row",
     alignItems: "center",
@@ -283,6 +341,63 @@ mediaPlaceholderText: {
     color: "#36534D",
     fontSize: 14,
     fontWeight: "800",
+  },
+
+  anonymousBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: "#EAF7F3",
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+
+  anonymousBadgeText: {
+    color: "#00866B",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+
+  iconButtonSoft: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: "#F1F7F5",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  reactionBar: {
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  reactionPill: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#F0FBF7",
+    borderWidth: 1,
+    borderColor: "#DCEBE7",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+
+  commentPill: {
+    minHeight: 38,
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    backgroundColor: "#EAF7F3",
+    borderWidth: 1,
+    borderColor: "#D4EAE3",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
 
   emptyBox: {
@@ -354,6 +469,25 @@ mediaPlaceholderText: {
     marginTop: 8,
     color: "#6D7D79",
     fontSize: 15,
+    lineHeight: 21,
+  },
+
+  safeNotice: {
+    marginTop: 16,
+    borderRadius: 16,
+    backgroundColor: "#EAF7F3",
+    padding: 12,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+
+  safeNoticeText: {
+    flex: 1,
+    color: "#064D3D",
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 19,
   },
 
   bigInputWrap: {
@@ -363,6 +497,7 @@ mediaPlaceholderText: {
     borderWidth: 1,
     borderColor: "#DDE7E4",
     padding: 14,
+    backgroundColor: "#FFFFFF",
   },
 
   bigInput: {
@@ -388,6 +523,7 @@ mediaPlaceholderText: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    backgroundColor: "#FFFFFF",
   },
 
   formTextInput: {
@@ -508,6 +644,10 @@ mediaPlaceholderText: {
     justifyContent: "space-between",
     paddingHorizontal: 8,
     elevation: 10,
+    shadowColor: "#0B3D35",
+    shadowOpacity: 0.16,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
   },
 
   bottomTab: {
@@ -557,6 +697,13 @@ mediaPlaceholderText: {
     fontWeight: "900",
     color: "#064D3D",
     flex: 1,
+  },
+
+  inlineCommentMeta: {
+    marginTop: 2,
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#7A8A87",
   },
 
   inlineCommentText: {
@@ -721,6 +868,17 @@ mediaPlaceholderText: {
     maxHeight: "84%",
   },
 
+  reportIconCircle: {
+    alignSelf: "center",
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: "#EAF7F3",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
   reportTitle: {
     fontSize: 24,
     fontWeight: "900",
@@ -748,6 +906,9 @@ mediaPlaceholderText: {
     paddingVertical: 9,
     borderRadius: 999,
     backgroundColor: "#EAF7F3",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
 
   reasonChipActive: {
@@ -758,7 +919,6 @@ mediaPlaceholderText: {
     color: "#064D3D",
     fontWeight: "800",
     fontSize: 12,
-    textTransform: "capitalize",
   },
 
   reasonTextActive: {
@@ -882,4 +1042,196 @@ mediaPlaceholderText: {
     fontWeight: "900",
     fontSize: 15,
   },
+  crisisReviewBox: {
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+  },
+
+  crisisReviewText: {
+    color: "#991B1B",
+  },
+identityPreview: {
+  marginTop: 18,
+  borderRadius: 20,
+  backgroundColor: "#F0FBF7",
+  borderWidth: 1,
+  borderColor: "#D8EFE7",
+  padding: 14,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+
+identityAvatar: {
+  width: 52,
+  height: 52,
+  borderRadius: 26,
+  backgroundColor: "#D7F2EA",
+},
+
+identityInfo: {
+  flex: 1,
+},
+
+identityLabel: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#00866B",
+  textTransform: "uppercase",
+},
+
+identityName: {
+  marginTop: 3,
+  fontSize: 17,
+  fontWeight: "900",
+  color: "#064D3D",
+},
+
+identityMeta: {
+  marginTop: 3,
+  fontSize: 12,
+  lineHeight: 17,
+  color: "#6A807B",
+  fontWeight: "600",
+},
+
+identityEditButton: {
+  width: 38,
+  height: 38,
+  borderRadius: 19,
+  backgroundColor: "#FFFFFF",
+  alignItems: "center",
+  justifyContent: "center",
+  borderWidth: 1,
+  borderColor: "#D8EFE7",
+},
+
+commentAuthorWrap: {
+  flex: 1,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 9,
+},
+
+commentAvatar: {
+  width: 34,
+  height: 34,
+  borderRadius: 17,
+  backgroundColor: "#D7F2EA",
+},
+
+commentNameRow: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 5,
+},
+
+commentComposerHint: {
+  marginTop: 6,
+  marginBottom: 8,
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 6,
+},
+
+commentComposerHintText: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#60706C",
+},
+identitySettingsCard: {
+  marginTop: 16,
+  borderRadius: 22,
+  backgroundColor: "#FFFFFF",
+  borderWidth: 1,
+  borderColor: "#DDEBE7",
+  padding: 16,
+},
+
+identitySettingsTop: {
+  flexDirection: "row",
+  alignItems: "center",
+  gap: 12,
+},
+
+
+exitAnonymousButton: {
+  marginTop: 14,
+  minHeight: 48,
+  borderRadius: 16,
+  backgroundColor: "#FEF2F2",
+  borderWidth: 1,
+  borderColor: "#FCA5A5",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
+
+exitAnonymousText: {
+  color: "#DC2626",
+  fontSize: 15,
+  fontWeight: "900",
+},
+
+enableAnonymousButton: {
+  marginTop: 14,
+  minHeight: 48,
+  borderRadius: 16,
+  backgroundColor: "#EAF7F3",
+  borderWidth: 1,
+  borderColor: "#BFE8DC",
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 8,
+},
+anonSubText: {
+  marginTop: 3,
+  fontSize: 12,
+  color: "#7A8A87",
+  fontWeight: "600",
+  lineHeight: 17,
+},
+enableAnonymousText: {
+  color: "#00866B",
+  fontSize: 15,
+  fontWeight: "900",
+},
+
+
+identityPreviewAvatar: {
+  width: 52,
+  height: 52,
+  borderRadius: 26,
+  backgroundColor: "#D7F2EA",
+},
+
+identityPreviewInfo: {
+  flex: 1,
+},
+
+identityPreviewLabel: {
+  fontSize: 12,
+  fontWeight: "800",
+  color: "#00866B",
+  textTransform: "uppercase",
+},
+
+identityPreviewName: {
+  marginTop: 3,
+  fontSize: 17,
+  fontWeight: "900",
+  color: "#064D3D",
+},
+
+identityPreviewMeta: {
+  marginTop: 3,
+  fontSize: 12,
+  lineHeight: 17,
+  color: "#6A807B",
+  fontWeight: "600",
+},
+
+
 });

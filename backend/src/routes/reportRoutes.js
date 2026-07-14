@@ -4,11 +4,13 @@ const router = express.Router();
 const {
   createReport,
   getMyReports,
-} = require("../controllers/reportController");
+  createAppeal,
+} = require("../controllers/forum/reportController");
 
 const auth = require("../middleware/auth");
 
 router.get("/my-reports", auth, getMyReports);
 router.post("/", auth, createReport);
+router.post("/appeal", auth, createAppeal);
 
 module.exports = router;

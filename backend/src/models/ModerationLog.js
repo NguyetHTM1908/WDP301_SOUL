@@ -13,54 +13,66 @@ const moderationLogSchema = new mongoose.Schema(
         required: true,
       },
     },
+
     action: {
       type: String,
-  enum: [
-    "approve_post",
-    "reject_post",
-    "hide_content",
-    "delete_content",
-    "restore_content",
-    "warn_user",
-    "block_user",
-    "resolve_report",
-    "reject_report",
-  ],
-  required: true,
-},
+      enum: [
+        "approve_post",
+        "reject_post",
+        "hide_content",
+        "delete_content",
+        "restore_content",
+        "warn_user",
+        "block_user",
+        "resolve_report",
+        "reject_report",
+        "appeal_requested",
+        "appeal_accepted",
+        "appeal_rejected",
+      ],
+      required: true,
+    },
+
     reason: {
       type: String,
       default: null,
     },
+
     note: {
       type: String,
       default: null,
     },
+
     performedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
+
     previousStatus: {
       type: String,
       default: null,
     },
+
     newStatus: {
       type: String,
       default: null,
     },
   },
   {
-    timestamps: { createdAt: true, updatedAt: false }, // Moderation logs are append-only histories
+    timestamps: { createdAt: true, updatedAt: false },
   }
 );
 
-// Indexes
 moderationLogSchema.index({ "target.type": 1, "target.id": 1 });
 moderationLogSchema.index({ performedBy: 1 });
 moderationLogSchema.index({ action: 1 });
 moderationLogSchema.index({ createdAt: -1 });
 
-const ModerationLog = mongoose.model("ModerationLog", moderationLogSchema, "moderation_logs");
+const ModerationLog = mongoose.model(
+  "ModerationLog",
+  moderationLogSchema,
+  "moderation_logs"
+);
 
 module.exports = ModerationLog;

@@ -1,14 +1,18 @@
 import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Image, Pressable, Text, View } from "react-native";
+import { Image, Pressable, Text, View, Alert } from "react-native";
+import { router } from "expo-router";
 import { forumStyles as s } from "@/styles/forum.styles";
 import { CommentThread } from "./CommentThread";
+import { ForumUser, getForumAuthor } from "@/utils/forumIdentity";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
-type ReactionType = "like" | "support" | "hug";
+type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type Props = {
   item: any;
   mode: "community" | "mine";
+  currentUser?: ForumUser | null;
   moodLabel: (mood: string) => string;
   openCommentPostId: string | null;
   commentsByPost: Record<string, any[]>;
@@ -19,6 +23,16 @@ type Props = {
   setCommentInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setReplyInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setOpenReplyCommentId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  commentAnonymousByPost: Record<string, boolean>;
+  setCommentAnonymousByPost: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+  replyAnonymousByComment: Record<string, boolean>;
+  setReplyAnonymousByComment: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+
   onReactPost: (postId: string, type: ReactionType) => void;
   onReportPost: (postId: string) => void;
   onToggleComments: (postId: string) => void;
@@ -40,9 +54,18 @@ type Props = {
   onDeletePost: (postId: string) => void;
 };
 
+function getItemId(item: any) {
+  return (
+    item?._id?.toString?.() ||
+    item?.id?.toString?.() ||
+    item?._id ||
+    item?.id ||
+    ""
+  );
+}
+
 function normalizeImageUrl(url: any) {
   if (!url || typeof url !== "string") return "";
-
   return url.trim();
 }
 
@@ -50,9 +73,66 @@ function isRemoteUrl(url: string) {
   return /^https?:\/\//i.test(url);
 }
 
+function getStatusInfo(item: any) {
+  if (item?.isFlagged && item?.toxicityLevel === "high") {
+    return {
+      label: "Cần xem xét khẩn cấp",
+      tone: "danger",
+      icon: "alert-circle-outline",
+    };
+  }
+
+  if (item?.isFlagged) {
+    return {
+      label: "AI đang xem xét",
+      tone: "warning",
+      icon: "shield-alert-outline",
+    };
+  }
+
+  if (item?.status === "hidden") {
+    return {
+      label: "Đã ẩn",
+      tone: "danger",
+      icon: "eye-off-outline",
+    };
+  }
+
+  if (item?.status === "deleted") {
+    return {
+      label: "Đã xóa",
+      tone: "danger",
+      icon: "trash-can-outline",
+    };
+  }
+
+  if (item?.status === "rejected") {
+    return {
+      label: "Bị từ chối",
+      tone: "danger",
+      icon: "close-circle-outline",
+    };
+  }
+
+  if (item?.status === "approved") {
+    return {
+      label: "Đã đăng",
+      tone: "success",
+      icon: "check-circle-outline",
+    };
+  }
+
+  return {
+    label: "Đang chờ duyệt",
+    tone: "warning",
+    icon: "clock-outline",
+  };
+}
+
 export function PostCard({
   item,
   mode,
+  currentUser,
   moodLabel,
   openCommentPostId,
   commentsByPost,
@@ -63,6 +143,10 @@ export function PostCard({
   setCommentInputs,
   setReplyInputs,
   setOpenReplyCommentId,
+  commentAnonymousByPost,
+  setCommentAnonymousByPost,
+  replyAnonymousByComment,
+  setReplyAnonymousByComment,
   onReactPost,
   onReportPost,
   onToggleComments,
@@ -77,43 +161,109 @@ export function PostCard({
 }: Props) {
   const [imageError, setImageError] = useState(false);
 
-  const postId = item?._id?.toString?.() || item?._id;
-
-  const authorName = item?.isAnonymous
-    ? "Anonymous Soul"
-    : item?.authorId?.fullName || "SOUL User";
-
-  const avatar = item?.isAnonymous
-    ? "https://i.pravatar.cc/100?img=12"
-    : item?.authorId?.avatarUrl || "https://i.pravatar.cc/100?img=32";
+  const postId = getItemId(item);
+  const author = getForumAuthor(item);
 
   const mediaUrl = normalizeImageUrl(item?.mediaUrls?.[0]?.url);
   const shouldShowImage = isRemoteUrl(mediaUrl) && !imageError;
 
+  const stats = item?.statistics || {};
+  const statusInfo = getStatusInfo(item);
+
+  const reviewIcon =
+    item?.toxicityLevel === "high"
+      ? "alert-circle-outline"
+      : "shield-alert-outline";
+
+  const handleDeletePress = () => {
+    if (!postId) return;
+    onDeletePost(postId);
+  };
+
   return (
-    <View style={s.postCard}>
+    <View style={[s.postCard, item?.isFlagged && s.postCardFlagged]}>
       <View style={s.postHeader}>
-        <View style={s.authorRow}>
-          <Image source={{ uri: avatar }} style={s.avatar} />
+        <Pressable
+          style={s.authorRow}
+          onPress={() => {
+            if (item?.isAnonymous) {
+              Alert.alert("Thông báo", "Tài khoản đăng dưới dạng ẩn danh nên không thể xem trang cá nhân.");
+              return;
+            }
+            const authorId = item?.authorId?._id || item?.authorId;
+            if (authorId) {
+              router.push(`/profile/${authorId}` as any);
+            }
+          }}
+        >
+          <AvatarFallback
+            uri={author.avatarUrl}
+            name={author.fullName || "Người dùng SOUL"}
+            size={40}
+            style={s.avatar}
+          />
 
           <View style={s.authorInfo}>
             <View style={s.nameRow}>
-              <Text style={s.authorName}>{authorName}</Text>
-              <MaterialCommunityIcons
-                name="check-decagram"
-                size={15}
-                color="#00866B"
-              />
+              <Text style={s.authorName}>{author.fullName}</Text>
+
+              {author.isAnonymous ? (
+                <View style={s.anonymousBadge}>
+                  <MaterialCommunityIcons
+                    name="incognito"
+                    size={13}
+                    color="#00866B"
+                  />
+                  <Text style={s.anonymousBadgeText}>Ẩn danh</Text>
+                </View>
+              ) : (
+                <MaterialCommunityIcons
+                  name="check-decagram"
+                  size={15}
+                  color="#00866B"
+                />
+              )}
             </View>
 
-            <Text style={s.postMeta}>{moodLabel(item?.emotionStatus)}</Text>
+            <Text style={s.postMeta}>
+              {author.isAnonymous
+                ? "Danh tính ẩn danh"
+                : moodLabel(item?.emotionStatus)}
+            </Text>
           </View>
-        </View>
+        </Pressable>
 
         {mode === "mine" ? (
           <View style={s.mineActions}>
-            <View style={s.statusBadge}>
-              <Text style={s.statusText}>{item?.status || "pending"}</Text>
+            <View
+              style={[
+                s.statusBadge,
+                statusInfo.tone === "success" && s.statusBadgeSuccess,
+                statusInfo.tone === "warning" && s.statusBadgeWarning,
+                statusInfo.tone === "danger" && s.statusBadgeDanger,
+              ]}
+            >
+              <MaterialCommunityIcons
+                name={statusInfo.icon as any}
+                size={13}
+                color={
+                  statusInfo.tone === "success"
+                    ? "#047857"
+                    : statusInfo.tone === "danger"
+                      ? "#DC2626"
+                      : "#A16207"
+                }
+              />
+
+              <Text
+                style={[
+                  s.statusText,
+                  statusInfo.tone === "success" && s.statusTextSuccess,
+                  statusInfo.tone === "danger" && s.statusTextDanger,
+                ]}
+              >
+                {statusInfo.label}
+              </Text>
             </View>
 
             <View style={s.ownerActions}>
@@ -125,7 +275,7 @@ export function PostCard({
                 />
               </Pressable>
 
-              <Pressable onPress={() => onDeletePost(postId)}>
+              <Pressable onPress={handleDeletePress}>
                 <MaterialCommunityIcons
                   name="trash-can-outline"
                   size={22}
@@ -135,15 +285,47 @@ export function PostCard({
             </View>
           </View>
         ) : (
-          <Pressable onPress={() => onReportPost(postId)}>
+          <Pressable
+            style={s.iconButtonSoft}
+            onPress={() => {
+              if (!postId) return;
+              onReportPost(postId);
+            }}
+          >
             <MaterialCommunityIcons
               name="flag-outline"
-              size={23}
+              size={21}
               color="#60706C"
             />
           </Pressable>
         )}
       </View>
+
+      {item?.isFlagged ? (
+        <View
+          style={[
+            s.aiReviewBox,
+            item?.toxicityLevel === "high" && s.crisisReviewBox,
+          ]}
+        >
+          <MaterialCommunityIcons
+            name={reviewIcon as any}
+            size={18}
+            color={item?.toxicityLevel === "high" ? "#DC2626" : "#B45309"}
+          />
+
+          <Text
+            style={[
+              s.aiReviewText,
+              item?.toxicityLevel === "high" && s.crisisReviewText,
+            ]}
+          >
+            {item?.toxicityLevel === "high"
+              ? "SOUL AI phát hiện bài viết có thể liên quan đến nguy cơ tự hại hoặc gây hại. Bài viết chỉ hiển thị với bạn trong khi chờ quản trị viên xem xét."
+              : "SOUL AI đã chuyển bài viết này đến quản trị viên để xem xét. Bài viết chỉ hiển thị với bạn cho đến khi có quyết định."}
+          </Text>
+        </View>
+      ) : null}
 
       <Text style={s.postContent}>{item?.content}</Text>
 
@@ -161,7 +343,7 @@ export function PostCard({
         <Image
           source={{ uri: mediaUrl }}
           style={s.postImage}
-          resizeMode="contain"
+          resizeMode="cover"
           onError={() => setImageError(true)}
         />
       ) : null}
@@ -173,47 +355,71 @@ export function PostCard({
             size={36}
             color="#8A9996"
           />
+
           <Text style={s.mediaPlaceholderText}>
             Không thể tải ảnh. Hãy dùng link ảnh trực tiếp.
           </Text>
         </View>
       ) : null}
 
-      <View style={s.actionRow}>
+      <View style={s.reactionBar}>
         <Pressable
-          style={s.actionItem}
-          onPress={() => onReactPost(postId, "like")}
-        >
-          <Text style={s.actionEmoji}>❤️</Text>
-          <Text style={s.actionText}>{item?.statistics?.likeCount || 0}</Text>
-        </Pressable>
-
-        <Pressable
-          style={s.actionItem}
-          onPress={() => onReactPost(postId, "support")}
+          style={s.reactionPill}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "support");
+          }}
         >
           <Text style={s.actionEmoji}>💚</Text>
-          <Text style={s.actionText}>{item?.statistics?.supportCount || 0}</Text>
+          <Text style={s.actionText}>{stats.supportCount || 0}</Text>
         </Pressable>
 
         <Pressable
-          style={s.actionItem}
-          onPress={() => onReactPost(postId, "hug")}
+          style={s.reactionPill}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "hug");
+          }}
         >
           <Text style={s.actionEmoji}>🤗</Text>
-          <Text style={s.actionText}>{item?.statistics?.hugCount || 0}</Text>
+          <Text style={s.actionText}>{stats.hugCount || 0}</Text>
         </Pressable>
 
         <Pressable
-          style={s.actionItem}
-          onPress={() => onToggleComments(postId)}
+          style={s.reactionPill}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "encourage");
+          }}
+        >
+          <Text style={s.actionEmoji}>🌟</Text>
+          <Text style={s.actionText}>{stats.encourageCount || 0}</Text>
+        </Pressable>
+
+        <Pressable
+          style={s.reactionPill}
+          onPress={() => {
+            if (!postId) return;
+            onReactPost(postId, "thankyou");
+          }}
+        >
+          <Text style={s.actionEmoji}>🙏</Text>
+          <Text style={s.actionText}>{stats.thankyouCount || 0}</Text>
+        </Pressable>
+
+        <Pressable
+          style={s.commentPill}
+          onPress={() => {
+            if (!postId) return;
+            onToggleComments(postId);
+          }}
         >
           <MaterialCommunityIcons
             name="comment-outline"
-            size={22}
-            color="#60706C"
+            size={19}
+            color="#064D3D"
           />
-          <Text style={s.actionText}>{item?.statistics?.commentCount || 0}</Text>
+          <Text style={s.actionText}>{stats.commentCount || 0}</Text>
         </Pressable>
       </View>
 
@@ -224,10 +430,15 @@ export function PostCard({
           commentInput={commentInputs[postId] || ""}
           replyInputs={replyInputs}
           openReplyCommentId={openReplyCommentId}
+          currentUser={currentUser}
           currentUserId={currentUserId}
           setCommentInputs={setCommentInputs}
           setReplyInputs={setReplyInputs}
           setOpenReplyCommentId={setOpenReplyCommentId}
+          commentAnonymousByPost={commentAnonymousByPost}
+          setCommentAnonymousByPost={setCommentAnonymousByPost}
+          replyAnonymousByComment={replyAnonymousByComment}
+          setReplyAnonymousByComment={setReplyAnonymousByComment}
           onSendComment={onSendComment}
           onReplyComment={onReplyComment}
           onReactComment={onReactComment}

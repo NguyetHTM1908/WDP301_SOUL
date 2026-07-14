@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 
+const REACTION_TYPES = ["support", "hug", "encourage", "thankyou"];
+
 const reactionSchema = new mongoose.Schema(
   {
     userId: {
@@ -9,12 +11,38 @@ const reactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ["like", "support", "hug"],
+      enum: REACTION_TYPES,
       required: true,
     },
     createdAt: {
       type: Date,
       default: Date.now,
+    },
+  },
+  { _id: false }
+);
+
+const displayAuthorSchema = new mongoose.Schema(
+  {
+    id: {
+      type: String,
+      default: null,
+    },
+
+    fullName: {
+      type: String,
+      default: null,
+      trim: true,
+    },
+
+    avatarUrl: {
+      type: String,
+      default: null,
+    },
+
+    isAnonymous: {
+      type: Boolean,
+      default: false,
     },
   },
   { _id: false }
@@ -34,6 +62,11 @@ const commentSchema = new mongoose.Schema(
       required: true,
     },
 
+    displayAuthor: {
+      type: displayAuthorSchema,
+      default: null,
+    },
+
     parentCommentId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Comment",
@@ -51,6 +84,12 @@ const commentSchema = new mongoose.Schema(
       default: false,
     },
 
+    anonymousName: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+
     status: {
       type: String,
       enum: ["active", "hidden", "deleted"],
@@ -58,9 +97,11 @@ const commentSchema = new mongoose.Schema(
     },
 
     statistics: {
-      likeCount: { type: Number, default: 0 },
       supportCount: { type: Number, default: 0 },
       hugCount: { type: Number, default: 0 },
+      encourageCount: { type: Number, default: 0 },
+      thankyouCount: { type: Number, default: 0 },
+      replyCount: { type: Number, default: 0 },
       reportCount: { type: Number, default: 0 },
     },
 
@@ -70,7 +111,10 @@ const commentSchema = new mongoose.Schema(
       default: null,
     },
 
-    reactions: [reactionSchema],
+    reactions: {
+      type: [reactionSchema],
+      default: [],
+    },
 
     editedAt: {
       type: Date,
@@ -82,6 +126,7 @@ const commentSchema = new mongoose.Schema(
 
 commentSchema.index({ postId: 1 });
 commentSchema.index({ authorId: 1 });
+commentSchema.index({ "displayAuthor.id": 1 });
 commentSchema.index({ parentCommentId: 1 });
 commentSchema.index({ status: 1 });
 

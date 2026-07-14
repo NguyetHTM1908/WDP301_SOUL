@@ -1,109 +1,349 @@
-import apiClient from "./api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "@/api/config";
+
+const EVENT_PATH = "/events";
+
+export type EventApprovalStatus = "pending" | "approved" | "rejected";
+
+export type EventScheduleStatus =
+  | "upcoming"
+  | "ongoing"
+  | "completed"
+  | "cancelled";
+
+export type EventTypeValue =
+  | "workshop"
+  | "talkshow"
+  | "webinar"
+  | "community_event";
+
+export type EventMode = "online" | "offline";
+
+export type RegistrationStatus =
+  | "all"
+  | "registered"
+  | "cancelled"
+  | "attended";
+
+export type EventPayload = {
+  title: string;
+  description?: string | null;
+  speakerName?: string | null;
+  organizerName?: string | null;
+  contactEmail?: string | null;
+  bannerImage?: string | null;
+  images?: { url: string; type?: "image" }[];
+  eventType?: EventTypeValue | null;
+  eventMode: EventMode;
+  startDateTime: string;
+  endDateTime: string;
+  location?: string | null;
+  meetingLink?: string | null;
+  capacity?: number | null;
+};
+
+async function getToken() {
+  const token = await AsyncStorage.getItem("token");
+
+  if (!token) {
+    throw new Error("Bạn cần đăng nhập.");
+  }
+
+  return token;
+}
+
+async function handleResponse(res: Response) {
+  const text = await res.text();
+
+  let data: any = null;
+
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    data = text;
+  }
+
+  console.log("EVENT API STATUS:", res.status);
+  console.log("EVENT API DATA:", data);
+
+  if (!res.ok) {
+    throw new Error(
+      data?.message ||
+        data?.error ||
+        JSON.stringify(data) ||
+        `API error ${res.status}`
+    );
+  }
+
+  return data;
+}
+
+async function authHeaders() {
+  const token = await getToken();
+
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+async function jsonAuthHeaders() {
+  const token = await getToken();
+
+  return {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
+  };
+}
+
+function buildQuery(params?: Record<string, any>) {
+  const query = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null && value !== "") {
+      query.append(key, String(value));
+    }
+  });
+
+  return query.toString();
+}
+
+export function normalizeListResponse(res: any) {
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res?.data)) return res.data;
+  if (Array.isArray(res?.events)) return res.events;
+  if (Array.isArray(res?.data?.events)) return res.data.events;
+  return [];
+}
+
+export const eventService = {
+  async getEvents(params?: {
+    eventType?: EventTypeValue | string;
+    eventMode?: EventMode | string;
+    page?: number;
+    limit?: number;
+    from?: string;
+    to?: string;
+  }) {
+    const query = buildQuery(params);
+    const url = `${API_BASE_URL}${EVENT_PATH}${query ? `?${query}` : ""}`;
+
+    const res = await fetch(url, {
+      method: "GET",
+    });
+
+    return handleResponse(res);
+  },
+
+  async getEventCalendar(params?: { from?: string; to?: string }) {
+    const query = buildQuery(params);
+    const url = `${API_BASE_URL}${EVENT_PATH}/calendar${
+      query ? `?${query}` : ""
+    }`;
+
+    const res = await fetch(url, {
+      method: "GET",
+    });
+
+    return handleResponse(res);
+  },
+
+  async getEventById(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/${id}`, {
+      method: "GET",
+    });
+
+    return handleResponse(res);
+  },
+
+  async registerEvent(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/${id}/register`, {
+      method: "POST",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+
+  async cancelRegistration(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/${id}/cancel`, {
+      method: "POST",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+
+  async getRegisteredEvents(params?: {
+    status?: RegistrationStatus;
+    page?: number;
+    limit?: number;
+  }) {
+    const query = buildQuery(params);
+    const url = `${API_BASE_URL}${EVENT_PATH}/me/registered${
+      query ? `?${query}` : ""
+    }`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+
+  async getMyCalendar(params?: {
+    status?: RegistrationStatus;
+    page?: number;
+    limit?: number;
+  }) {
+    const query = buildQuery(params);
+    const url = `${API_BASE_URL}${EVENT_PATH}/me/calendar${
+      query ? `?${query}` : ""
+    }`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+};
+
+export const eventOwnerService = {
+  async createEvent(body: EventPayload) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}`, {
+      method: "POST",
+      headers: await jsonAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    return handleResponse(res);
+  },
+
+  async getMyEvents() {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/me/created`, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+
+  async getMyEventById(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/me/created/${id}`, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+
+  async updateEvent(id: string, body: Partial<EventPayload>) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/${id}`, {
+      method: "PATCH",
+      headers: await jsonAuthHeaders(),
+      body: JSON.stringify(body),
+    });
+
+    return handleResponse(res);
+  },
+
+  async deleteEvent(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/${id}`, {
+      method: "DELETE",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
+  },
+
+  async getEventRegistrations(
+    id: string,
+    status: RegistrationStatus = "all",
+    params?: {
+      page?: number;
+      limit?: number;
+    }
+  ) {
+    const query = buildQuery({
+      status,
+      page: params?.page,
+      limit: params?.limit,
+    });
+
+    const res = await fetch(
+      `${API_BASE_URL}${EVENT_PATH}/${id}/registrations${
+        query ? `?${query}` : ""
+      }`,
+      {
+        method: "GET",
+        headers: await authHeaders(),
+      }
+    );
+
+    return handleResponse(res);
+  },
+};
 
 export const eventAdminService = {
-  // Lấy danh sách sự kiện
-  getEvents: async () => {
-    try {
-      const response = await apiClient.get("/events");
-      return response.data;
-    } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể tải danh sách sự kiện";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] getEvents lỗi ${errStatus}:`, errMsg);
-      throw new Error(errMsg);
-    }
+  async getAdminAllEvents(params?: {
+    approvalStatus?: EventApprovalStatus;
+    status?: EventScheduleStatus;
+    eventMode?: EventMode;
+    eventType?: EventTypeValue;
+    page?: number;
+    limit?: number;
+  }) {
+    const query = buildQuery(params);
+    const url = `${API_BASE_URL}${EVENT_PATH}/admin/all${
+      query ? `?${query}` : ""
+    }`;
+
+    const res = await fetch(url, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
   },
 
-  // Lấy chi tiết sự kiện theo ID
-  getEventById: async (id: string) => {
-    try {
-      const response = await apiClient.get(`/events/${id}`);
-      return response.data;
-    } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể tải chi tiết sự kiện";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] getEventById lỗi ${errStatus}:`, errMsg);
-      throw new Error(errMsg);
-    }
+  async getAdminPendingEvents() {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/admin/pending`, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
   },
 
-  // Tạo sự kiện mới
-  createEvent: async (eventData: any) => {
-    try {
-      console.log("[EventAPI] createEvent - Token header:", apiClient.defaults.headers.common["Authorization"]);
-      const response = await apiClient.post("/events", eventData);
-      console.log("[EventAPI] createEvent thành công:", response.status);
-      return response.data;
-    } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể tạo sự kiện";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] createEvent lỗi ${errStatus}:`, errMsg, error.response?.data);
-      throw new Error(errMsg);
-    }
+  async getEventById(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/admin/${id}`, {
+      method: "GET",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
   },
 
-  // Cập nhật sự kiện
-  updateEvent: async (id: string, eventData: any) => {
-    try {
-      console.log("[EventAPI] updateEvent - Token header:", apiClient.defaults.headers.common["Authorization"]);
-      const response = await apiClient.patch(`/events/${id}`, eventData);
-      console.log("[EventAPI] updateEvent thành công:", response.status);
-      return response.data;
-    } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể cập nhật sự kiện";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] updateEvent lỗi ${errStatus}:`, errMsg, error.response?.data);
-      throw new Error(errMsg);
-    }
+  async approveEvent(id: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/admin/${id}/approve`, {
+      method: "PATCH",
+      headers: await authHeaders(),
+    });
+
+    return handleResponse(res);
   },
 
-  // Xóa sự kiện
-  deleteEvent: async (id: string) => {
-    try {
-      console.log("[EventAPI] deleteEvent id:", id, "- Token:", apiClient.defaults.headers.common["Authorization"]);
-      const response = await apiClient.delete(`/events/${id}`);
-      console.log("[EventAPI] deleteEvent thành công:", response.status, response.data);
-      return response.data;
-    } catch (error: any) {
-      const errMsg = error.response?.data?.message || error.message || "Không thể xóa sự kiện";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] deleteEvent lỗi ${errStatus}:`, errMsg, error.response?.data);
-      throw new Error(errMsg);
-    }
-  },
+  async rejectEvent(id: string, reason?: string) {
+    const res = await fetch(`${API_BASE_URL}${EVENT_PATH}/admin/${id}/reject`, {
+      method: "PATCH",
+      headers: await jsonAuthHeaders(),
+      body: JSON.stringify({
+        reason: reason || "Event không phù hợp hoặc thiếu thông tin.",
+      }),
+    });
 
-  getEventRegistrations: async (
-    id: string,
-    params?: { status?: string; page?: number; limit?: number }
-  ) => {
-    try {
-      const response = await apiClient.get(`/events/${id}/registrations`, {
-        params,
-      });
-      return response.data;
-    } catch (error: any) {
-      const errMsg =
-        error.response?.data?.message ||
-        error.message ||
-        "Khong the tai danh sach nguoi dang ky";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] getEventRegistrations error ${errStatus}:`, errMsg);
-      throw new Error(errMsg);
-    }
-  },
-
-  removeEventRegistration: async (eventId: string, userId: string) => {
-    try {
-      const response = await apiClient.delete(`/events/${eventId}/registrations/${userId}`);
-      return response.data;
-    } catch (error: any) {
-      const errMsg =
-        error.response?.data?.message ||
-        error.message ||
-        "Khong the xoa dang ky khoi su kien";
-      const errStatus = error.response?.status;
-      console.error(`[EventAPI] removeEventRegistration error ${errStatus}:`, errMsg);
-      throw new Error(errMsg);
-    }
+    return handleResponse(res);
   },
 };

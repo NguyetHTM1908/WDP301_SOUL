@@ -204,6 +204,33 @@ export const authStyles = StyleSheet.create({
     marginTop: 15,
   },
 
+  // Inline error text dưới ô nhập liệu
+  errorText: {
+    color: "#EF4444",
+    fontSize: 12,
+    marginTop: -10,
+    marginBottom: 8,
+    marginLeft: 6,
+    fontWeight: "500",
+  },
+
+  // Server error text hiển thị dưới form
+  serverErrorBox: {
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FCA5A5",
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  serverErrorText: {
+    color: "#DC2626",
+    fontSize: 13,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+
   // Nhập mã OTP 4 số
   otpRow: {
     flexDirection: "row",
@@ -266,5 +293,69 @@ export const authStyles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 20,
     marginBottom: 30,
+  },
+  // Custom Alert Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(15, 23, 42, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    width: "100%",
+    maxWidth: 340,
+    alignItems: "center",
+    shadowColor: "#006B5C",
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 10,
+    borderWidth: 1,
+    borderColor: "#E2F2ED",
+  },
+  successIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#E2F2ED",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  modalTitleText: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#004C43",
+    textAlign: "center",
+    marginBottom: 10,
+  },
+  modalDescText: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalConfirmButton: {
+    backgroundColor: "#006B5C",
+    borderRadius: 16,
+    height: 50,
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    shadowColor: "#006B5C",
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  modalConfirmButtonText: {
+    color: "#FFFFFF",
+    fontSize: 15,
+    fontWeight: "700",
   },
 });

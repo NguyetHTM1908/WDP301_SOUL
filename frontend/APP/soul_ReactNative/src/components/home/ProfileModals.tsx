@@ -12,15 +12,17 @@ import {
   Alert,
   Image,
   StyleSheet,
+  Platform,
 } from "react-native";
 import { useAuthStore } from "@/store";
+import DateTimePicker from "@react-native-community/datetimepicker";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type ProfileModalsProps = {
   showMyProfile: boolean;
   onCloseMyProfile: () => void;
   showEditProfile: boolean;
   onCloseEditProfile: () => void;
-  // Mở trực tiếp modal Edit Profile từ bên ngoài (dùng khi bấm bút chì trong My Profile)
   onOpenEditProfile: () => void;
 };
 
@@ -34,16 +36,62 @@ export function ProfileModals({
   const { user } = useAuthStore();
   const updateProfile = useAuthStore((state) => state.updateProfile);
 
-  // States phục vụ biểu mẫu Edit Profile
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
   const [avatarUrl, setAvatarUrl] = useState("");
   const [bio, setBio] = useState("");
+  const [interests, setInterests] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Đồng bộ thông tin người dùng từ store khi mở biểu mẫu chỉnh sửa
+  // Danh sách chủ đề quan tâm có thể chọn
+  const INTEREST_OPTIONS = [
+    "áp lực", "lo âu", "chánh niệm", "trầm cảm", "chăm sóc bản thân",
+    "chữa lành", "học tập", "mối quan hệ", "cô đơn", "động lực",
+    "giấc ngủ", "thể dục", "lòng biết ơn", "sự tự tin", "công việc",
+  ];
+
+  const toggleInterest = (tag: string) => {
+    setInterests((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  // Chuyển string YYYY-MM-DD thành Date object để truyền vào DateTimePicker
+  const getBirthDateObject = () => {
+    if (dateOfBirth) {
+      const parts = dateOfBirth.split("-");
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; 
+        const day = parseInt(parts[2], 10);
+        const date = new Date(year, month, day);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+    }
+    return new Date(2000, 0, 1); 
+  };
+
+  const handleToggleDatePicker = () => {
+    setShowDatePicker((prev) => !prev);
+  };
+
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    if (Platform.OS !== "ios") {
+      setShowDatePicker(false);
+    }
+    if (selectedDate) {
+      const year = selectedDate.getFullYear();
+      const month = String(selectedDate.getMonth() + 1).padStart(2, "0");
+      const day = String(selectedDate.getDate()).padStart(2, "0");
+      setDateOfBirth(`${year}-${month}-${day}`);
+    }
+  };
+
   const syncFormFields = () => {
     if (user) {
       setFullName(user.fullName || "");
@@ -54,6 +102,7 @@ export function ProfileModals({
       );
       setAvatarUrl(user.avatarUrl || "");
       setBio(user.bio || "");
+      setInterests(Array.isArray(user.interests) ? user.interests : []);
     }
   };
 
@@ -63,8 +112,6 @@ export function ProfileModals({
     }
   }, [showEditProfile, user]);
 
-  // Chuyển từ xem thông tin sang chỉnh sửa thông tin
-  // Đóng My Profile trước, sau đó mở Edit Profile sau 300ms để animation mượt mà
   const handleTransitionToEdit = () => {
     onCloseMyProfile();
     setTimeout(() => {
@@ -72,7 +119,6 @@ export function ProfileModals({
     }, 300);
   };
 
-  // Xử lý lưu thông tin chỉnh sửa
   const handleSaveProfile = async () => {
     if (!fullName.trim()) {
       Alert.alert("Thông báo", "Họ tên không được để trống.");
@@ -87,6 +133,7 @@ export function ProfileModals({
       dateOfBirth: dateOfBirth || undefined,
       avatarUrl: avatarUrl || undefined,
       bio: bio || undefined,
+      interests,
     });
     setSaving(false);
 
@@ -100,7 +147,6 @@ export function ProfileModals({
 
   return (
     <>
-      {/* ================= MODAL: CHI TIẾT TÀI KHOẢN (MY PROFILE) ================= */}
       <Modal
         visible={showMyProfile}
         animationType="slide"
@@ -113,7 +159,6 @@ export function ProfileModals({
               <MaterialCommunityIcons name="arrow-left" size={24} color="#005F56" />
             </TouchableOpacity>
             <Text style={styles.modalTitle}>Hồ sơ của tôi</Text>
-            {/* Click nút bút chì chuyển tiếp sang Edit */}
             <TouchableOpacity 
               onPress={handleTransitionToEdit} 
               style={styles.headerIconBtn}
@@ -123,10 +168,11 @@ export function ProfileModals({
           </View>
 
           <ScrollView contentContainerStyle={styles.modalScroll}>
-            {/* Phần Header cá nhân (Avatar bên trái, Text bên phải) */}
             <View style={styles.profileHeaderBox}>
-              <Image
-                source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+              <AvatarFallback
+                uri={user?.avatarUrl}
+                name={user?.fullName || "Người dùng SOUL"}
+                size={80}
                 style={styles.profileHeaderAvatar}
               />
               <View style={styles.profileHeaderText}>
@@ -135,10 +181,8 @@ export function ProfileModals({
               </View>
             </View>
 
-            {/* Thẻ thông tin cá nhân nền trắng */}
             <View style={styles.detailsCard}>
               
-              {/* Email */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="email-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -149,7 +193,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Họ và Tên */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="account-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -160,7 +203,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Số điện thoại */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="phone-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -171,7 +213,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Giới tính */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="gender-male-female" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -190,7 +231,6 @@ export function ProfileModals({
 
               <View style={styles.detailDivider} />
 
-              {/* Ngày sinh */}
               <View style={styles.detailRow}>
                 <MaterialCommunityIcons name="calendar-outline" size={22} color="#006B5C" style={styles.detailIcon} />
                 <View style={styles.detailTextGroup}>
@@ -208,7 +248,6 @@ export function ProfileModals({
         </SafeAreaView>
       </Modal>
 
-      {/* ================= MODAL: CHỈNH SỬA HỒ SƠ (EDIT PROFILE) ================= */}
       <Modal
         visible={showEditProfile}
         animationType="slide"
@@ -236,11 +275,12 @@ export function ProfileModals({
           >
             <View style={styles.formContainer}>
               
-              {/* Phần Avatar tròn lớn có Camera Badge */}
               <View style={styles.avatarContainer}>
                 <View style={styles.avatarLargeWrapper}>
-                  <Image
-                    source={{ uri: avatarUrl || user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+                  <AvatarFallback
+                    uri={avatarUrl || user?.avatarUrl}
+                    name={user?.fullName || "Người dùng SOUL"}
+                    size={110}
                     style={styles.avatarLarge}
                   />
                   <View style={styles.cameraBadge}>
@@ -270,7 +310,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Bio */}
               <Text style={styles.inputLabel}>Bio</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons
@@ -288,7 +327,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Số điện thoại */}
               <Text style={styles.inputLabel}>Số điện thoại</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons
@@ -307,7 +345,6 @@ export function ProfileModals({
                 />
               </View>
 
-              {/* Giới tính */}
               <Text style={styles.inputLabel}>Giới tính</Text>
               <View style={styles.genderContainer}>
                 <TouchableOpacity
@@ -360,9 +397,12 @@ export function ProfileModals({
                 </TouchableOpacity>
               </View>
 
-              {/* Ngày sinh */}
               <Text style={styles.inputLabel}>Ngày sinh (YYYY-MM-DD)</Text>
-              <View style={styles.inputWrapper}>
+              <TouchableOpacity
+                style={styles.inputWrapper}
+                onPress={handleToggleDatePicker}
+                activeOpacity={0.7}
+              >
                 <MaterialCommunityIcons
                   name="calendar-outline"
                   size={20}
@@ -370,15 +410,35 @@ export function ProfileModals({
                   style={styles.inputIcon}
                 />
                 <TextInput
-                  style={styles.textInput}
+                  style={[styles.textInput, { color: "#0F172A" }]}
                   value={dateOfBirth}
-                  onChangeText={setDateOfBirth}
-                  placeholder="Ví dụ: 1998-05-15"
+                  editable={false}
+                  pointerEvents="none"
+                  placeholder="Chọn ngày sinh"
                   placeholderTextColor="#94A3B8"
                 />
-              </View>
+              </TouchableOpacity>
 
-              {/* Link ảnh đại diện */}
+              {showDatePicker && (
+                <View style={Platform.OS === "ios" ? styles.iosPickerContainer : null}>
+                  <DateTimePicker
+                    value={getBirthDateObject()}
+                    mode="date"
+                    display={Platform.OS === "ios" ? "spinner" : "default"}
+                    maximumDate={new Date()}
+                    onChange={handleDateChange}
+                  />
+                  {Platform.OS === "ios" && (
+                    <TouchableOpacity
+                      style={styles.iosDoneButton}
+                      onPress={() => setShowDatePicker(false)}
+                    >
+                      <Text style={styles.iosDoneButtonText}>Xong</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
               <Text style={styles.inputLabel}>Đường dẫn ảnh đại diện (URL)</Text>
               <View style={styles.inputWrapper}>
                 <MaterialCommunityIcons
@@ -395,6 +455,35 @@ export function ProfileModals({
                   placeholderTextColor="#94A3B8"
                   autoCapitalize="none"
                 />
+              </View>
+
+              {/* Chủ đề quan tâm */}
+              <Text style={styles.inputLabel}>Chủ đề quan tâm 🌱</Text>
+              <Text style={{ fontSize: 12, color: "#94A3B8", marginBottom: 10 }}>
+                Chọn những chủ đề bạn quan tâm để hệ thống gợi ý bạn bè phù hợp hơn
+              </Text>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                {INTEREST_OPTIONS.map((tag) => {
+                  const selected = interests.includes(tag);
+                  return (
+                    <TouchableOpacity
+                      key={tag}
+                      onPress={() => toggleInterest(tag)}
+                      style={{
+                        paddingHorizontal: 12,
+                        paddingVertical: 7,
+                        borderRadius: 20,
+                        borderWidth: 1.5,
+                        borderColor: selected ? "#006B5C" : "#CBD5E1",
+                        backgroundColor: selected ? "#E0F7EF" : "#FFFFFF",
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, fontWeight: "700", color: selected ? "#006B5C" : "#64748B" }}>
+                        #{tag}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
               </View>
 
               {/* Nút to dưới cùng: Lưu thay đổi */}
@@ -459,7 +548,6 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   
-  // Giao diện Hồ sơ của tôi (My Profile)
   profileHeaderBox: {
     flexDirection: "row",
     alignItems: "center",
@@ -528,7 +616,6 @@ const styles = StyleSheet.create({
     backgroundColor: "#F1F5F9",
   },
 
-  // Giao diện Chỉnh sửa hồ sơ (Edit Profile)
   formContainer: {
     width: "100%",
   },
@@ -649,5 +736,28 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "800",
     color: "#FFFFFF",
+  },
+  iosPickerContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    marginTop: 8,
+    padding: 8,
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    alignItems: "center",
+  },
+  iosDoneButton: {
+    marginTop: 8,
+    backgroundColor: "#006B5C",
+    paddingVertical: 8,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignSelf: "stretch",
+    alignItems: "center",
+  },
+  iosDoneButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
   },
 });

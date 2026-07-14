@@ -6,19 +6,19 @@ export function HeroCard() {
   return (
     <View style={styles.heroCard}>
       <View style={styles.heroBadge}>
-        <Text style={styles.heroBadgeText}>✨ Daily Insight</Text>
+        <Text style={styles.heroBadgeText}>✨ Gợi ý hôm nay</Text>
       </View>
 
       <Text style={styles.heroTitle}>
-        You’re stronger{"\n"}than you think 💚
+        Bạn mạnh mẽ hơn{"\n"}bạn nghĩ 💚
       </Text>
 
       <Text style={styles.heroDescription}>
-        Small steps today,{"\n"}big change tomorrow.
+        Từng bước nhỏ hôm nay,{"\n"}tạo nên thay đổi lớn ngày mai.
       </Text>
 
       <TouchableOpacity style={styles.heroButton}>
-        <Text style={styles.heroButtonText}>Start your journey</Text>
+        <Text style={styles.heroButtonText}>Bắt đầu hành trình</Text>
 
         <MaterialCommunityIcons
           name="arrow-right"

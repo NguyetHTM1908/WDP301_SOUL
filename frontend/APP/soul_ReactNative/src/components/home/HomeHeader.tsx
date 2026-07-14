@@ -1,5 +1,4 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { useState } from "react";
 import {
   Image,
   Pressable,
@@ -10,40 +9,29 @@ import {
 import { router } from "expo-router";
 import { useAuthStore } from "@/store";
 import { styles } from "@/styles/home.styles";
-import { ProfileModals } from "./ProfileModals";
+import { AvatarFallback } from "../profile/AvatarFallback";
 
 type Props = {
   showSidebar: boolean;
   onToggleSidebar: () => void;
+  showProfileMenu: boolean;
+  onToggleProfileMenu: () => void;
+  onCloseProfileMenu: () => void;
 };
 
-export function HomeHeader({ showSidebar, onToggleSidebar }: Props) {
-  const [showProfileMenu, setShowProfileMenu] = useState(false);
-  const { user, logout } = useAuthStore();
+export function HomeHeader({
+  showSidebar,
+  onToggleSidebar,
+  showProfileMenu,
+  onToggleProfileMenu,
+  onCloseProfileMenu,
+}: Props) {
+  const { user } = useAuthStore();
 
-  // States quản lý hiển thị Modals xem và sửa thông tin cá nhân
-  const [showMyProfile, setShowMyProfile] = useState(false);
-  const [showEditProfile, setShowEditProfile] = useState(false);
-
-  // Lấy tên gọi thân mật (từ đầu tiên của họ tên, mặc định là Vy)
   const greetingName = user ? user.fullName.split(" ")[0] : "Vy";
-
-  // Xử lý sự kiện từ menu Avatar
-  const handleActionPress = (text: string) => {
-    if (text === "Log out") {
-      logout();
-      router.replace("/(auth)/login");
-    } else if (text === "My Profile") {
-      setShowMyProfile(true);
-    } else if (text === "Edit Profile") {
-      setShowEditProfile(true);
-    }
-    setShowProfileMenu(false);
-  };
 
   return (
     <View style={styles.header}>
-      {/* Nút mở Sidebar trái */}
       <TouchableOpacity
         style={[styles.menuButton, showSidebar && styles.menuButtonActive]}
         onPress={onToggleSidebar}
@@ -55,15 +43,13 @@ export function HomeHeader({ showSidebar, onToggleSidebar }: Props) {
         />
       </TouchableOpacity>
 
-      {/* Lời chào mừng */}
       <View style={styles.greetingBox}>
-        <Text style={styles.headerTitle}>Hi, {greetingName} 👋</Text>
+        <Text style={styles.headerTitle}>Chào, {greetingName} 👋</Text>
         <Text style={styles.headerSubtitle}>
-          Welcome back to your safe space
+          Chào mừng bạn trở lại không gian an toàn của mình
         </Text>
       </View>
 
-      {/* Thông báo & Avatar */}
       <View style={styles.headerRight}>
         <View style={styles.bellWrap}>
           <MaterialCommunityIcons
@@ -76,67 +62,96 @@ export function HomeHeader({ showSidebar, onToggleSidebar }: Props) {
           </View>
         </View>
 
-        {/* Bấm Avatar hiển thị popover menu */}
+        {/* Bấm Avatar để hiển thị menu hồ sơ (menu render ở tầng root) */}
         <Pressable
           style={styles.profileWrapper}
-          onPress={() => setShowProfileMenu(!showProfileMenu)}
+          onPress={onToggleProfileMenu}
         >
-          <Image
-            source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
+          <AvatarFallback
+            uri={user?.avatarUrl}
+            name={user?.fullName || "Người dùng SOUL"}
+            size={40}
             style={styles.avatar}
           />
-
-          {showProfileMenu && (
-            <View style={styles.profileMenu}>
-              <View style={styles.profileTop}>
-                <Image
-                  source={{ uri: user?.avatarUrl || "https://i.pravatar.cc/150?img=47" }}
-                  style={styles.profileImg}
-                />
-                <View>
-                  <Text style={styles.profileName}>{user?.fullName || "Vy Nguyễn"}</Text>
-                  <Text style={styles.profileSub}>
-                    {user?.bio || "Take care of your mind 🌱"}
-                  </Text>
-                </View>
-              </View>
-
-              {[
-                ["account-outline", "My Profile"],
-                ["pencil-outline", "Edit Profile"],
-                ["trophy-outline", "Achievements"],
-                ["bell-outline", "Reminders"],
-                ["logout", "Log out"],
-              ].map(([icon, text], index) => (
-                <TouchableOpacity
-                  key={text}
-                  onPress={() => handleActionPress(text)}
-                  style={[
-                    styles.profileAction,
-                    index === 4 && styles.profileLogout,
-                  ]}
-                >
-                  <MaterialCommunityIcons
-                    name={icon as any}
-                    size={22}
-                    color={index === 4 ? "#FF6B6B" : "#214B5B"}
-                  />
-                  <Text style={styles.profileActionText}>{text}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
         </Pressable>
       </View>
-
-      {/* Nhúng các Modal Profile tách riêng */}
-      <ProfileModals
-        showMyProfile={showMyProfile}
-        onCloseMyProfile={() => setShowMyProfile(false)}
-        showEditProfile={showEditProfile}
-        onCloseEditProfile={() => setShowEditProfile(false)}
-        onOpenEditProfile={() => setShowEditProfile(true)}
-      />
     </View>
+  );
+}
+
+// Component dropdown menu — được render ở tầng root để không bị clip
+type ProfileMenuProps = {
+  onClose: () => void;
+  onEditProfile: () => void;
+};
+
+export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
+  const { user, logout } = useAuthStore();
+
+  const handleActionPress = (text: string) => {
+    onClose();
+    if (text === "Đăng xuất") {
+      logout();
+      router.replace("/(auth)/login");
+    } else if (text === "Hồ sơ của tôi") {
+      router.push(`/profile/${user?._id || "me"}` as any);
+    } else if (text === "Chỉnh sửa hồ sơ") {
+      // Mở modal Edit Profile — render ở tầng root (index.tsx)
+      onEditProfile();
+    }
+  };
+
+  return (
+    <>
+      {/* Lớp nền trong suốt để bấm ngoài đóng menu */}
+      <Pressable style={styles.profileOverlay} onPress={onClose} />
+
+      <View style={styles.profileMenuFloating}>
+        <TouchableOpacity
+          style={styles.profileTop}
+          onPress={() => {
+            onClose();
+            router.push(`/profile/${user?._id || "me"}` as any);
+          }}
+        >
+          <AvatarFallback
+            uri={user?.avatarUrl}
+            name={user?.fullName || "Người dùng SOUL"}
+            size={50}
+            style={styles.profileImg}
+          />
+          <View>
+            <Text style={styles.profileName}>{user?.fullName || "Vy Nguyễn"}</Text>
+            <Text style={styles.profileSub}>
+              {user?.bio || "Chăm sóc tâm trí của bạn 🌱"}
+            </Text>
+          </View>
+        </TouchableOpacity>
+
+        {[
+          ["account-outline", "Hồ sơ của tôi"],
+          ["pencil-outline", "Chỉnh sửa hồ sơ"],
+          ["trophy-outline", "Thành tích"],
+          ["bell-outline", "Lời nhắc"],
+          ["logout", "Đăng xuất"],
+        ].map(([icon, text], index) => (
+          <TouchableOpacity
+            key={text}
+            onPress={() => handleActionPress(text)}
+            style={[
+              styles.profileAction,
+              index === 4 && styles.profileLogout,
+            ]}
+          >
+            <MaterialCommunityIcons
+              name={icon as any}
+              size={22}
+              color={index === 4 ? "#FF6B6B" : "#214B5B"}
+            />
+            <Text style={styles.profileActionText}>{text}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+    </>
   );
 }

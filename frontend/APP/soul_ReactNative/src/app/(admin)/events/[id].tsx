@@ -1,244 +1,736 @@
-import React, { useState, useCallback } from "react";
+import React, { useCallback, useState } from "react";
 import {
-  View,
-  Text,
-  TouchableOpacity,
+  ActivityIndicator,
+  Alert,
+  Platform,
   SafeAreaView,
   ScrollView,
-  Alert,
-  ActivityIndicator,
-  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, useFocusEffect } from "expo-router";
-import { styles } from "@/styles/admin-events.styles";
-import { colors } from "@/constants/colors";
+import { router, useFocusEffect, useLocalSearchParams } from "expo-router";
 import { eventAdminService } from "@/services/eventApi";
+
+function showMessage(title: string, message: string, onOk?: () => void) {
+  if (Platform.OS === "web") {
+    const alertFn = (globalThis as any).alert;
+
+    if (typeof alertFn === "function") {
+      alertFn(`${title}: ${message}`);
+    }
+
+    onOk?.();
+    return;
+  }
+
+  Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
+}
+
+function askConfirm(message: string) {
+  if (Platform.OS === "web") {
+    const confirmFn = (globalThis as any).confirm;
+    return typeof confirmFn === "function" ? confirmFn(message) : true;
+  }
+
+  return null;
+}
+
+function askPrompt(message: string, defaultValue: string) {
+  if (Platform.OS === "web") {
+    const promptFn = (globalThis as any).prompt;
+    return typeof promptFn === "function"
+      ? promptFn(message, defaultValue)
+      : defaultValue;
+  }
+
+  return defaultValue;
+}
+
+function getSafeId(rawId: unknown) {
+  if (Array.isArray(rawId)) return rawId[0] || "";
+  if (typeof rawId === "string") return rawId;
+  return "";
+}
+
+function isInvalidRouteId(id: string) {
+  return !id || id === "[id]" || id === "undefined" || id === "null";
+}
+
+function formatDateTime(value?: string) {
+  if (!value) return "Chưa cập nhật";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "Thời gian không hợp lệ";
+  }
+
+  return new Intl.DateTimeFormat("vi-VN", {
+    dateStyle: "short",
+    timeStyle: "short",
+  }).format(date);
+}
+
+function getApprovalMeta(status?: string) {
+  if (status === "approved") {
+    return {
+      label: "Đã duyệt",
+      icon: "check-decagram",
+      color: "#047857",
+      bg: "#DCFCE7",
+    };
+  }
+
+  if (status === "rejected") {
+    return {
+      label: "Đã từ chối",
+      icon: "close-circle-outline",
+      color: "#DC2626",
+      bg: "#FEE2E2",
+    };
+  }
+
+  return {
+    label: "Chờ duyệt",
+    icon: "clock-outline",
+    color: "#B45309",
+    bg: "#FEF3C7",
+  };
+}
+
+function getEventModeLabel(mode?: string) {
+  if (mode === "online") return "Online";
+  if (mode === "offline") return "Offline";
+  return "Chưa rõ";
+}
+
+function getEventPlaceText(event: any) {
+  if (event?.eventMode === "online") {
+    return event?.meetingLink || "Chưa có link online";
+  }
+
+  return event?.location || "Chưa có địa điểm";
+}
+
+function getOrganizerName(event: any) {
+  return (
+    event?.createdBy?.fullName ||
+    event?.organizerName ||
+    event?.owner?.fullName ||
+    "Không rõ"
+  );
+}
 
 export default function AdminEventDetail() {
   const params = useLocalSearchParams();
-  // Đảm bảo id luôn là string, không phải string[]
-  const id = Array.isArray(params.id) ? params.id[0] : (params.id as string);
+  const id = getSafeId(params.id);
 
   const [event, setEvent] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
+
+  const fetchEvent = useCallback(async () => {
+    if (isInvalidRouteId(id)) {
+      setLoading(false);
+      showMessage("Lỗi", "Không tìm thấy ID sự kiện.", () => {
+        router.replace("/(admin)/events" as any);
+      });
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const response = await eventAdminService.getEventById(id);
+      const eventData = response?.data?.event || response?.data;
+
+      if (response?.success && eventData) {
+        setEvent(eventData);
+      } else {
+        showMessage(
+          "Lỗi",
+          response?.message || "Không tìm thấy event.",
+          () => {
+            router.replace("/(admin)/events" as any);
+          }
+        );
+      }
+    } catch (error: any) {
+      showMessage("Lỗi", error?.message || "Không thể tải event.", () => {
+        router.replace("/(admin)/events" as any);
+      });
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!id) return;
-      const fetchEvent = async () => {
-        setLoading(true);
-        try {
-          const response = await eventAdminService.getEventById(id);
-          if (response.success && response.data) {
-            setEvent(response.data);
-          } else {
-            showAlert("Lỗi", "Không tìm thấy sự kiện");
-            router.replace("/(admin)/events");
-          }
-        } catch (error: any) {
-          const msg = error?.message || error?.error || "Không thể tải sự kiện";
-          showAlert("Lỗi", msg);
-          router.replace("/(admin)/events");
-        } finally {
-          setLoading(false);
-        }
-      };
       fetchEvent();
-    }, [id])
+    }, [fetchEvent])
   );
 
-  // Helper hiển thị thông báo tương thích cả Web lẫn Mobile
-  const showAlert = (title: string, message: string, onOk?: () => void) => {
-    if (Platform.OS === "web") {
-      window.alert(`${title}: ${message}`);
-      onOk?.();
-    } else {
-      Alert.alert(title, message, [{ text: "OK", onPress: onOk }]);
-    }
-  };
+  const handleApprove = async () => {
+    if (!event || approving) return;
 
-  const handleDelete = async () => {
-    if (deleting) return; // Chặn bấm nhiều lần
+    const approveNow = async () => {
+      setApproving(true);
 
-    // Hỏi xác nhận
-    const confirmed = await new Promise<boolean>((resolve) => {
-      if (Platform.OS === "web") {
-        resolve(window.confirm("Bạn có chắc chắn muốn xóa sự kiện này?\nHành động này không thể hoàn tác."));
-      } else {
-        Alert.alert(
-          "Xác nhận xóa",
-          "Bạn có chắc chắn muốn xóa sự kiện này? Hành động này không thể hoàn tác.",
-          [
-            { text: "Hủy", style: "cancel", onPress: () => resolve(false) },
-            { text: "Xóa", style: "destructive", onPress: () => resolve(true) },
-          ]
-        );
-      }
-    });
+      try {
+        const response = await eventAdminService.approveEvent(id);
 
-    if (!confirmed) return;
-
-    setDeleting(true);
-    try {
-      console.log("[Delete Event] Đang xóa id:", id);
-      const response = await eventAdminService.deleteEvent(id);
-      console.log("[Delete Event] Phản hồi:", JSON.stringify(response));
-
-      if (response.success) {
-        // Điều hướng TRƯỚC, tránh useFocusEffect kéo lại dữ liệu đã xóa
-        router.replace("/(admin)/events");
-        // Hiển thị thông báo sau khi điều hướng (trên mobile)
-        if (Platform.OS !== "web") {
-          Alert.alert("Thành công", "Đã xóa sự kiện thành công!");
+        if (response?.success) {
+          showMessage(
+            "Thành công",
+            "Event đã được duyệt và hiển thị cho user đăng ký.",
+            () => fetchEvent()
+          );
+        } else {
+          showMessage("Lỗi", response?.message || "Không thể duyệt event.");
         }
-      } else {
-        const msg = response.message || "Không thể xóa sự kiện";
-        showAlert("Lỗi", msg);
+      } catch (error: any) {
+        showMessage(
+          "Không thể duyệt event",
+          error?.message ||
+            "Event có thể đang trùng lịch tại cùng địa điểm/link meeting hoặc dữ liệu chưa hợp lệ."
+        );
+      } finally {
+        setApproving(false);
       }
-    } catch (error: any) {
-      console.error("[Delete Event] Lỗi:", JSON.stringify(error));
-      const msg = error?.message || error?.error || "Đã xảy ra lỗi khi xóa";
-      showAlert("Lỗi xóa sự kiện", msg);
-    } finally {
-      setDeleting(false);
+    };
+
+    const webConfirm = askConfirm("Bạn có chắc muốn duyệt event này?");
+
+    if (webConfirm === false) return;
+
+    if (webConfirm === true) {
+      await approveNow();
+      return;
     }
+
+    Alert.alert("Duyệt event", "Bạn có chắc muốn duyệt event này?", [
+      { text: "Hủy", style: "cancel" },
+      { text: "Duyệt", onPress: approveNow },
+    ]);
   };
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case "upcoming": return "Sắp diễn ra";
-      case "ongoing": return "Đang diễn ra";
-      case "completed": return "Đã kết thúc";
-      case "cancelled": return "Đã hủy";
-      default: return status;
+  const handleReject = async () => {
+    if (!event || rejecting) return;
+
+    const defaultReason = "Event không phù hợp hoặc thiếu thông tin.";
+    const inputReason = askPrompt("Nhập lý do từ chối:", defaultReason);
+
+    if (Platform.OS === "web" && inputReason === null) return;
+
+    const reason =
+      typeof inputReason === "string" && inputReason.trim()
+        ? inputReason.trim()
+        : defaultReason;
+
+    const rejectNow = async () => {
+      setRejecting(true);
+
+      try {
+        const response = await eventAdminService.rejectEvent(id, reason);
+
+        if (response?.success) {
+          showMessage("Thành công", "Đã từ chối event.", () => fetchEvent());
+        } else {
+          showMessage("Lỗi", response?.message || "Không thể từ chối event.");
+        }
+      } catch (error: any) {
+        showMessage("Lỗi", error?.message || "Không thể từ chối event.");
+      } finally {
+        setRejecting(false);
+      }
+    };
+
+    if (Platform.OS === "web") {
+      await rejectNow();
+      return;
     }
+
+    Alert.alert("Từ chối event", "Bạn có chắc muốn từ chối event này?", [
+      { text: "Hủy", style: "cancel" },
+      { text: "Từ chối", style: "destructive", onPress: rejectNow },
+    ]);
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleString("vi-VN");
+  const goBackToEventList = () => {
+    router.replace("/(admin)/events" as any);
   };
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/(admin)/events")}>
-            <MaterialCommunityIcons name="arrow-left" size={24} color={colors.dark} />
+          <TouchableOpacity
+            style={styles.iconButtonLight}
+            onPress={goBackToEventList}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color="#064D3D"
+            />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Chi tiết Sự kiện</Text>
-          <View style={{ width: 24 }} />
+
+          <Text style={styles.title}>Chi tiết sự kiện</Text>
         </View>
-        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
+
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#00866B" />
+          <Text style={styles.loadingText}>Đang tải event...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  if (!event) return null;
+  if (!event) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.iconButtonLight}
+            onPress={goBackToEventList}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color="#064D3D"
+            />
+          </TouchableOpacity>
+
+          <Text style={styles.title}>Không tìm thấy event</Text>
+          <Text style={styles.subtitle}>Event không tồn tại hoặc đã bị xóa.</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const approval = getApprovalMeta(event.approvalStatus);
+  const isPending = event.approvalStatus === "pending";
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => router.replace("/(admin)/events")}>
-          <MaterialCommunityIcons name="arrow-left" size={24} color={colors.dark} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Chi tiết Sự kiện</Text>
-        <TouchableOpacity onPress={() => router.push(`/(admin)/events/edit/${id}`)}>
-          <MaterialCommunityIcons name="pencil" size={24} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.iconButtonLight}
+            onPress={goBackToEventList}
+          >
+            <MaterialCommunityIcons
+              name="arrow-left"
+              size={24}
+              color="#064D3D"
+            />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.iconButtonGreen} onPress={fetchEvent}>
+            <MaterialCommunityIcons name="refresh" size={22} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.title}>Chi tiết sự kiện</Text>
+        <Text style={styles.subtitle}>
+          Admin kiểm tra thông tin, duyệt hoặc từ chối event.
+        </Text>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.content}>
+        <View style={styles.card}>
+          <View style={styles.cardTop}>
+            <View style={[styles.eventIcon, { backgroundColor: approval.bg }]}>
+              <MaterialCommunityIcons
+                name={approval.icon as any}
+                size={32}
+                color={approval.color}
+              />
+            </View>
 
-        <View style={styles.detailSection}>
-          <Text style={styles.detailTitle}>{event.title}</Text>
-
-          <View style={[styles.statusBadge, { alignSelf: "flex-start", marginBottom: 16, backgroundColor: "#FEF3C7" }]}>
-            <Text style={[styles.statusText, { color: "#D97706" }]}>{getStatusText(event.status)}</Text>
+            <View style={styles.cardTitleBlock}>
+              <Text style={styles.cardTitle}>
+                {event.title || "Sự kiện SOUL"}
+              </Text>
+              <Text style={styles.cardSubtitle}>
+                Người tạo: {getOrganizerName(event)}
+              </Text>
+            </View>
           </View>
 
-          <View style={styles.eventInfoRow}>
-            <MaterialCommunityIcons name="calendar-clock" size={20} color={colors.primary} />
-            <Text style={styles.eventInfoText}>Bắt đầu: {formatDate(event.startDateTime)}</Text>
+          <View style={[styles.badge, { backgroundColor: approval.bg }]}>
+            <MaterialCommunityIcons
+              name={approval.icon as any}
+              size={16}
+              color={approval.color}
+            />
+            <Text style={[styles.badgeText, { color: approval.color }]}>
+              {approval.label}
+            </Text>
           </View>
 
-          {event.endDateTime && (
-            <View style={styles.eventInfoRow}>
-              <MaterialCommunityIcons name="calendar-check" size={20} color={colors.primary} />
-              <Text style={styles.eventInfoText}>Kết thúc: {formatDate(event.endDateTime)}</Text>
+          {!!event.description && (
+            <Text style={styles.description}>{event.description}</Text>
+          )}
+
+          <View style={styles.infoPanel}>
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons
+                name="calendar-clock"
+                size={18}
+                color="#00866B"
+              />
+              <Text style={styles.infoText}>
+                Bắt đầu: {formatDateTime(event.startDateTime)}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons
+                name="calendar-check"
+                size={18}
+                color="#00866B"
+              />
+              <Text style={styles.infoText}>
+                Kết thúc: {formatDateTime(event.endDateTime)}
+              </Text>
+            </View>
+
+            <View style={styles.infoRow}>
+              <MaterialCommunityIcons
+                name={
+                  event.eventMode === "online"
+                    ? "video-outline"
+                    : "map-marker"
+                }
+                size={18}
+                color="#00866B"
+              />
+              <Text style={styles.infoText}>
+                {getEventModeLabel(event.eventMode)} · {getEventPlaceText(event)}
+              </Text>
+            </View>
+
+            <View style={[styles.infoRow, { marginBottom: 0 }]}>
+              <MaterialCommunityIcons
+                name="account-outline"
+                size={18}
+                color="#00866B"
+              />
+              <Text style={styles.infoText}>
+                Người tổ chức: {getOrganizerName(event)}
+              </Text>
+            </View>
+          </View>
+
+          {!!event.rejectedReason && (
+            <View style={styles.rejectReasonBox}>
+              <MaterialCommunityIcons
+                name="alert-circle-outline"
+                size={18}
+                color="#DC2626"
+              />
+              <Text style={styles.rejectReasonText}>
+                Lý do từ chối: {event.rejectedReason}
+              </Text>
             </View>
           )}
 
-          <View style={styles.eventInfoRow}>
-            <MaterialCommunityIcons name="map-marker" size={20} color={colors.primary} />
-            <Text style={styles.eventInfoText}>{event.location || "Chưa xác định"}</Text>
-          </View>
+          {isPending ? (
+            <View style={styles.actions}>
+              <TouchableOpacity
+                style={[styles.approveButton, approving && styles.disabled]}
+                onPress={handleApprove}
+                disabled={approving || rejecting}
+              >
+                {approving ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name="check"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.actionTextWhite}>Duyệt</Text>
+                  </>
+                )}
+              </TouchableOpacity>
 
-          <View style={styles.eventInfoRow}>
-            <MaterialCommunityIcons name="account-tie" size={20} color={colors.primary} />
-            <Text style={styles.eventInfoText}>Diễn giả: {event.speakerName || "Chưa cập nhật"}</Text>
-          </View>
+              <TouchableOpacity
+                style={[styles.rejectButton, rejecting && styles.disabled]}
+                onPress={handleReject}
+                disabled={approving || rejecting}
+              >
+                {rejecting ? (
+                  <ActivityIndicator color="#DC2626" />
+                ) : (
+                  <>
+                    <MaterialCommunityIcons
+                      name="close"
+                      size={20}
+                      color="#DC2626"
+                    />
+                    <Text style={styles.actionTextRed}>Từ chối</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.lockBox}>
+              <MaterialCommunityIcons
+                name="lock-check-outline"
+                size={20}
+                color="#00866B"
+              />
+              <Text style={styles.lockText}>
+                Event đã được xử lý. Admin không cần xem danh sách người đăng ký.
+              </Text>
+            </View>
+          )}
         </View>
-
-        <View style={styles.statsRow}>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{event.registeredCount ?? 0}</Text>
-            <Text style={styles.statLabel}>Đã đăng ký</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>{event.capacity || "∞"}</Text>
-            <Text style={styles.statLabel}>Sức chứa</Text>
-          </View>
-          <View style={styles.statBox}>
-            <Text style={styles.statNum}>
-              {event.capacity ? Math.round(((event.registeredCount ?? 0) / event.capacity) * 100) : 0}%
-            </Text>
-            <Text style={styles.statLabel}>Lấp đầy</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.registrationManageButton}
-          activeOpacity={0.82}
-          onPress={() => router.push(`/(admin)/events/registrations/${id}`)}
-        >
-          <View style={styles.registrationManageIcon}>
-            <MaterialCommunityIcons name="account-multiple-check" size={24} color={colors.dark} />
-          </View>
-          <View style={styles.registrationManageTextWrap}>
-            <Text style={styles.registrationManageTitle}>Quản lý người đăng ký</Text>
-            <Text style={styles.registrationManageSub}>
-              Xem danh sách và cập nhật trạng thái tham gia
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={24} color="#9CA3AF" />
-        </TouchableOpacity>
-
-        <View style={styles.detailSection}>
-          <Text style={styles.detailTitle}>Mô tả chi tiết</Text>
-          <Text style={styles.descText}>{event.description || "Chưa có mô tả."}</Text>
-        </View>
-
-        <View style={styles.actionRow}>
-          <TouchableOpacity
-            style={styles.editBtn}
-            onPress={() => router.push(`/(admin)/events/edit/${id}`)}
-          >
-            <Text style={styles.btnText}>Cập nhật</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.deleteBtn, deleting && { opacity: 0.6 }]}
-            onPress={handleDelete}
-            disabled={deleting}
-          >
-            <Text style={styles.btnText}>{deleting ? "Đang xóa..." : "Xóa Sự kiện"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: "#F3FBF8",
+  },
+
+  header: {
+    paddingHorizontal: 22,
+    paddingTop: 18,
+    paddingBottom: 20,
+    backgroundColor: "#DDF5EC",
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+  },
+
+  headerTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+
+  iconButtonLight: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+
+  iconButtonGreen: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "#00866B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  title: {
+    fontSize: 26,
+    fontWeight: "800",
+    color: "#064D3D",
+  },
+
+  subtitle: {
+    fontSize: 14,
+    color: "#49756C",
+    marginTop: 6,
+    lineHeight: 20,
+  },
+
+  content: {
+    padding: 18,
+    paddingBottom: 34,
+  },
+
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E2F3EE",
+  },
+
+  cardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  eventIcon: {
+    width: 58,
+    height: 58,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+
+  cardTitleBlock: {
+    flex: 1,
+  },
+
+  cardTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#064D3D",
+  },
+
+  cardSubtitle: {
+    fontSize: 13,
+    color: "#64748B",
+    marginTop: 4,
+  },
+
+  badge: {
+    alignSelf: "flex-start",
+    marginTop: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+  },
+
+  badgeText: {
+    fontSize: 13,
+    fontWeight: "800",
+  },
+
+  description: {
+    fontSize: 14,
+    color: "#475569",
+    lineHeight: 21,
+    marginTop: 14,
+  },
+
+  infoPanel: {
+    marginTop: 16,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+  },
+
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 12,
+  },
+
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#475569",
+    fontWeight: "600",
+  },
+
+  rejectReasonBox: {
+    marginTop: 16,
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FCA5A5",
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  rejectReasonText: {
+    flex: 1,
+    color: "#DC2626",
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 20,
+  },
+
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 18,
+  },
+
+  approveButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "#00866B",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+
+  rejectButton: {
+    flex: 1,
+    height: 46,
+    borderRadius: 16,
+    backgroundColor: "#FEE2E2",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 7,
+  },
+
+  actionTextWhite: {
+    color: "#FFFFFF",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+
+  actionTextRed: {
+    color: "#DC2626",
+    fontWeight: "800",
+    fontSize: 14,
+  },
+
+  disabled: {
+    opacity: 0.6,
+  },
+
+  lockBox: {
+    marginTop: 18,
+    backgroundColor: "#E6F7F1",
+    borderRadius: 18,
+    padding: 14,
+    flexDirection: "row",
+    gap: 8,
+  },
+
+  lockText: {
+    flex: 1,
+    color: "#006B5C",
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
+  },
+
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  loadingText: {
+    marginTop: 12,
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+});

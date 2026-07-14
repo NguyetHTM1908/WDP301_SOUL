@@ -18,7 +18,7 @@ const generateToken = (userId) => {
  */
 const register = async (req, res) => {
   try {
-    const { fullName, email, password, phone, gender, dateOfBirth } = req.body;
+    const { fullName, email, password, phone, gender, dateOfBirth, role } = req.body;
 
     // 1. Kiểm tra các trường bắt buộc
     if (!fullName || !email || !password) {
@@ -70,17 +70,30 @@ const register = async (req, res) => {
     const passwordHash = await bcrypt.hash(password, salt);
 
     // 7. Tạo người dùng mới
-    const newUser = await User.create({
+    // Chỉ cho phép chọn user hoặc event_organizer khi đăng ký, không cho phép tự gán admin
+    const allowedRoles = ["user", "event_organizer"];
+    const finalRole = (role && allowedRoles.includes(role)) ? role : "user";
+
+    const userFields = {
       fullName,
       email,
-      phone: phone || null,
       passwordHash,
-      gender: gender || null,
-      dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
-      role: "user",
+      role: finalRole,
       status: "active",
       isEmailVerified: false,
-    });
+    };
+
+    if (phone) {
+      userFields.phone = phone;
+    }
+    if (gender) {
+      userFields.gender = gender;
+    }
+    if (dateOfBirth) {
+      userFields.dateOfBirth = new Date(dateOfBirth);
+    }
+
+    const newUser = await User.create(userFields);
 
     // 8. Tạo JWT token
     const token = generateToken(newUser._id);
@@ -404,7 +417,7 @@ const googleLogin = async (req, res) => {
         user.avatarUrl = avatarUrl;
         isUpdated = true;
       }
-      
+
       user.lastLoginAt = new Date();
       await user.save();
 
@@ -413,8 +426,8 @@ const googleLogin = async (req, res) => {
 
       return res.status(200).json({
         success: true,
-        message: isUpdated 
-          ? "Liên kết tài khoản và đăng nhập bằng Google thành công." 
+        message: isUpdated
+          ? "Liên kết tài khoản và đăng nhập bằng Google thành công."
           : "Đăng nhập bằng Google thành công.",
         data: {
           user,
@@ -627,6 +640,74 @@ const updateProfile = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Đổi mật khẩu tài khoản
+ * @route   PUT /api/auth/change-password
+ * @access  Private (Cần Token)
+ */
+const changePassword = async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    const userId = req.user._id;
+
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập mật khẩu hiện tại và mật khẩu mới.",
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới phải có ít nhất 6 ký tự.",
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy người dùng.",
+      });
+    }
+
+    // Nếu người dùng đăng nhập bằng Google và chưa thiết lập mật khẩu thì sao?
+    // user.passwordHash có thể rỗng hoặc không có
+    const isMatch = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!isMatch) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu hiện tại không đúng.",
+      });
+    }
+
+    // Kiểm tra mật khẩu mới không được trùng với mật khẩu hiện tại
+    const isSame = await bcrypt.compare(newPassword, user.passwordHash);
+    if (isSame) {
+      return res.status(400).json({
+        success: false,
+        message: "Mật khẩu mới không được trùng với mật khẩu hiện tại.",
+      });
+    }
+
+    // Mã hóa mật khẩu mới
+    const salt = await bcrypt.genSalt(10);
+    user.passwordHash = await bcrypt.hash(newPassword, salt);
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Đổi mật khẩu thành công.",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi đổi mật khẩu: " + error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -639,6 +720,8 @@ module.exports = {
   initiateGoogleAuth,
   googleCallback,
   updateProfile,
+  changePassword,
 };
+
 
 

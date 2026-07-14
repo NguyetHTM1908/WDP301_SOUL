@@ -8,63 +8,129 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { forumStyles as s } from "@/styles/forum.styles";
+
+export type ReportReason =
+  | "toxic_language"
+  | "harassment"
+  | "spam"
+  | "self_harm"
+  | "other";
 
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSubmit: (reason: string, description: string) => void;
+  onSubmit: (reason: ReportReason, description: string) => void | Promise<void>;
 };
 
-const reasons = [
-  "negative_content",
-  "toxic_behavior",
-  "harassment",
-  "spam",
-  "self_harm_risk",
+const reasons: Array<{
+  value: ReportReason;
+  label: string;
+  icon: string;
+}> = [
+  {
+    value: "toxic_language",
+    label: "Ngôn từ độc hại",
+    icon: "alert-circle-outline",
+  },
+  {
+    value: "harassment",
+    label: "Quấy rối",
+    icon: "account-alert-outline",
+  },
+  {
+    value: "spam",
+    label: "Spam",
+    icon: "email-alert-outline",
+  },
+  {
+    value: "self_harm",
+    label: "Nguy cơ tự hại",
+    icon: "heart-alert-outline",
+  },
+  {
+    value: "other",
+    label: "Nội dung không phù hợp",
+    icon: "flag-outline",
+  },
 ];
 
 export function ReportModal({ visible, onClose, onSubmit }: Props) {
-  const [reason, setReason] = useState("negative_content");
+  const [reason, setReason] = useState<ReportReason>("toxic_language");
   const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = () => {
-    onSubmit(reason, description || "Nội dung có thể không phù hợp.");
-    setReason("negative_content");
+  const resetForm = () => {
+    setReason("toxic_language");
     setDescription("");
   };
 
+  const handleSubmit = async () => {
+    if (submitting) return;
+
+    try {
+      setSubmitting(true);
+      await onSubmit(
+        reason,
+        description.trim() || "Nội dung có thể không phù hợp với cộng đồng."
+      );
+      resetForm();
+      onClose();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleClose = () => {
-    setReason("negative_content");
-    setDescription("");
+    if (submitting) return;
+    resetForm();
     onClose();
   };
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={handleClose}
+    >
       <KeyboardAvoidingView
         style={s.reportBackdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={s.reportModal}>
-          <Text style={s.reportTitle}>Report content</Text>
+          <View style={s.reportIconCircle}>
+            <MaterialCommunityIcons
+              name="shield-alert-outline"
+              size={30}
+              color="#00866B"
+            />
+          </View>
 
+          <Text style={s.reportTitle}>Báo cáo nội dung</Text>
           <Text style={s.reportSub}>
-            Help us keep SOUL safe and supportive.
+            Giúp SOUL giữ cộng đồng an toàn, tôn trọng và luôn hỗ trợ nhau.
           </Text>
 
           <View style={s.reasonList}>
             {reasons.map((item) => {
-              const active = reason === item;
+              const active = reason === item.value;
 
               return (
                 <Pressable
-                  key={item}
+                  key={item.value}
                   style={[s.reasonChip, active && s.reasonChipActive]}
-                  onPress={() => setReason(item)}
+                  onPress={() => setReason(item.value)}
+                  disabled={submitting}
                 >
+                  <MaterialCommunityIcons
+                    name={item.icon as any}
+                    size={16}
+                    color={active ? "#FFFFFF" : "#064D3D"}
+                  />
                   <Text style={[s.reasonText, active && s.reasonTextActive]}>
-                    {item.replaceAll("_", " ")}
+                    {item.label}
                   </Text>
                 </Pressable>
               );
@@ -74,18 +140,26 @@ export function ReportModal({ visible, onClose, onSubmit }: Props) {
           <TextInput
             style={s.reportInput}
             multiline
-            placeholder="More details optional..."
+            placeholder="Mô tả thêm nếu cần..."
             placeholderTextColor="#8A9996"
             value={description}
             onChangeText={setDescription}
+            editable={!submitting}
           />
 
-          <Pressable style={s.submitButton} onPress={handleSubmit}>
-            <Text style={s.submitText}>Submit Report</Text>
+          <Pressable
+            style={[s.submitButton, submitting && { opacity: 0.65 }]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            <MaterialCommunityIcons name="flag-outline" size={22} color="#FFFFFF" />
+            <Text style={s.submitText}>
+              {submitting ? "Đang gửi..." : "Gửi báo cáo"}
+            </Text>
           </Pressable>
 
-          <Pressable onPress={handleClose}>
-            <Text style={s.cancelText}>Cancel</Text>
+          <Pressable onPress={handleClose} disabled={submitting}>
+            <Text style={s.cancelText}>Hủy</Text>
           </Pressable>
         </View>
       </KeyboardAvoidingView>

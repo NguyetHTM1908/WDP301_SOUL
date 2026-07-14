@@ -8,18 +8,18 @@ const {
   getMyPosts,
   updateMyPost,
   deleteMyPost,
-} = require("../controllers/postController");
+} = require("../controllers/forum/postController");
 
 const auth = require("../middleware/auth");
 const checkForumBan = require("../middleware/checkForumBan");
 
 router.get("/", getApprovedPosts);
 router.get("/my-posts", auth, getMyPosts);
+router.get("/:id", getPostDetail);
 
 router.post("/", auth, checkForumBan, createPost);
+
 router.put("/:id", auth, checkForumBan, updateMyPost);
 router.delete("/:id", auth, deleteMyPost);
-
-router.get("/:id", auth, getPostDetail);
 
 module.exports = router;

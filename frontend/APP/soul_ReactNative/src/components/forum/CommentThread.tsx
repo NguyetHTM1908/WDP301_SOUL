@@ -1,9 +1,10 @@
 import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
+import type { ForumUser } from "@/utils/forumIdentity";
 
-type ReactionType = "like" | "support" | "hug";
+type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type Props = {
   postId: string;
@@ -11,10 +12,21 @@ type Props = {
   commentInput: string;
   replyInputs: Record<string, string>;
   openReplyCommentId: string | null;
+  currentUser?: ForumUser | null;
   currentUserId: string | null;
   setCommentInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setReplyInputs: React.Dispatch<React.SetStateAction<Record<string, string>>>;
   setOpenReplyCommentId: React.Dispatch<React.SetStateAction<string | null>>;
+
+  commentAnonymousByPost: Record<string, boolean>;
+  setCommentAnonymousByPost: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+  replyAnonymousByComment: Record<string, boolean>;
+  setReplyAnonymousByComment: React.Dispatch<
+    React.SetStateAction<Record<string, boolean>>
+  >;
+
   onSendComment: (postId: string) => void;
   onReplyComment: (
     postId: string,
@@ -31,16 +43,55 @@ type Props = {
   onReportComment: (commentId: string) => void;
 };
 
+function getAnonymousAlias(user?: ForumUser | null) {
+  return user?.anonymousAlias || "Ẩn danh SOUL";
+}
+
+const DEFAULT_AVATAR_URL =
+  "https://ui-avatars.com/api/?name=SOUL&background=E8F8F3&color=00866B";
+
+const ANONYMOUS_AVATAR_URL =
+  "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg";
+
+function getCommentAvatarUrl(comment: any) {
+  if (comment?.isAnonymous === true) {
+    return (
+      comment?.displayAuthor?.avatarUrl ||
+      comment?.authorId?.anonymousAvatarUrl ||
+      comment?.authorId?.avatarUrl ||
+      ANONYMOUS_AVATAR_URL
+    );
+  }
+
+  const name =
+    comment?.displayAuthor?.fullName ||
+    comment?.authorId?.fullName ||
+    comment?.author?.fullName ||
+    "SOUL User";
+
+  return (
+    comment?.displayAuthor?.avatarUrl ||
+    comment?.authorId?.avatarUrl ||
+    comment?.author?.avatarUrl ||
+    `${DEFAULT_AVATAR_URL}&name=${encodeURIComponent(name)}`
+  );
+}
+
 export function CommentThread({
   postId,
   comments,
   commentInput,
   replyInputs,
   openReplyCommentId,
+  currentUser,
   currentUserId,
   setCommentInputs,
   setReplyInputs,
   setOpenReplyCommentId,
+  commentAnonymousByPost,
+  setCommentAnonymousByPost,
+  replyAnonymousByComment,
+  setReplyAnonymousByComment,
   onSendComment,
   onReplyComment,
   onReactComment,
@@ -52,8 +103,14 @@ export function CommentThread({
   const [editingContent, setEditingContent] = useState("");
   const [menuOpenCommentId, setMenuOpenCommentId] = useState<string | null>(null);
 
+  const commentAsAnonymous = Boolean(commentAnonymousByPost[postId]);
+
   const getCommentId = (comment: any) =>
-    comment?._id?.toString?.() || comment?._id || "";
+    comment?._id?.toString?.() ||
+    comment?.id?.toString?.() ||
+    comment?._id ||
+    comment?.id ||
+    "";
 
   const getAuthorId = (comment: any) => {
     if (!comment?.authorId) return null;
@@ -76,11 +133,30 @@ export function CommentThread({
       return comment.parentCommentId;
     }
 
-    return comment.parentCommentId._id?.toString?.() || null;
+    return (
+      comment.parentCommentId._id?.toString?.() ||
+      comment.parentCommentId.id?.toString?.() ||
+      null
+    );
   };
 
-  const getCommentAuthorName = (comment: any) =>
-    comment?.authorId?.fullName || "Anonymous";
+  const getCommentAuthorName = (comment: any) => {
+    if (comment?.isAnonymous === true) {
+      return (
+        comment?.displayAuthor?.fullName ||
+        comment?.anonymousName ||
+        comment?.authorId?.anonymousAlias ||
+        comment?.authorId?.fullName ||
+        "Ẩn danh SOUL"
+      );
+    }
+
+    return (
+      comment?.displayAuthor?.fullName ||
+      comment?.authorId?.fullName ||
+      "Người dùng SOUL"
+    );
+  };
 
   const parentComments = comments.filter((comment) => !getParentId(comment));
 
@@ -110,6 +186,20 @@ export function CommentThread({
     });
   };
 
+  const toggleMainCommentIdentity = () => {
+    setCommentAnonymousByPost((prev) => ({
+      ...prev,
+      [postId]: !prev[postId],
+    }));
+  };
+
+  const toggleReplyIdentity = (commentId: string) => {
+    setReplyAnonymousByComment((prev) => ({
+      ...prev,
+      [commentId]: !prev[commentId],
+    }));
+  };
+
   const openReplyInput = (comment: any) => {
     const commentId = getCommentId(comment);
     const authorName = getCommentAuthorName(comment);
@@ -120,6 +210,11 @@ export function CommentThread({
     setReplyInputs((prev) => ({
       ...prev,
       [commentId]: prev[commentId] || `@${authorName} `,
+    }));
+
+    setReplyAnonymousByComment((prev) => ({
+      ...prev,
+      [commentId]: prev[commentId] || false,
     }));
   };
 
@@ -159,6 +254,53 @@ export function CommentThread({
     onDeleteComment(postId, commentId);
   };
 
+  const renderIdentityToggle = ({
+    active,
+    onPress,
+    anonymousText,
+    realText,
+  }: {
+    active: boolean;
+    onPress: () => void;
+    anonymousText: string;
+    realText: string;
+  }) => {
+    return (
+      <Pressable
+        onPress={onPress}
+        style={{
+          alignSelf: "flex-start",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+          borderRadius: 999,
+          backgroundColor: active ? "#E8F8F3" : "#F1F5F9",
+          borderWidth: 1,
+          borderColor: active ? "#00866B" : "#CBD5E1",
+          marginBottom: 8,
+        }}
+      >
+        <MaterialCommunityIcons
+          name={active ? "incognito" : "account-circle-outline"}
+          size={16}
+          color={active ? "#00866B" : "#475569"}
+        />
+
+        <Text
+          style={{
+            fontSize: 12,
+            fontWeight: "700",
+            color: active ? "#00866B" : "#475569",
+          }}
+        >
+          {active ? anonymousText : realText}
+        </Text>
+      </Pressable>
+    );
+  };
+
   const renderContent = (comment: any) => {
     const commentId = getCommentId(comment);
 
@@ -169,7 +311,7 @@ export function CommentThread({
             style={s.replyInput}
             value={editingContent}
             onChangeText={setEditingContent}
-            placeholder="Edit your comment..."
+            placeholder="Chỉnh sửa bình luận..."
             placeholderTextColor="#8A9996"
           />
 
@@ -202,7 +344,7 @@ export function CommentThread({
                 size={17}
                 color="#064D3D"
               />
-              <Text style={s.commentMenuText}>Edit</Text>
+              <Text style={s.commentMenuText}>Chỉnh sửa</Text>
             </Pressable>
 
             <Pressable
@@ -215,7 +357,7 @@ export function CommentThread({
                 color="#EF4444"
               />
               <Text style={[s.commentMenuText, s.commentMenuDeleteText]}>
-                Delete
+                Xóa
               </Text>
             </Pressable>
           </>
@@ -230,7 +372,7 @@ export function CommentThread({
             size={17}
             color="#064D3D"
           />
-          <Text style={s.commentMenuText}>Report</Text>
+          <Text style={s.commentMenuText}>Báo cáo</Text>
         </Pressable>
       </View>
     );
@@ -239,60 +381,73 @@ export function CommentThread({
   const renderActions = (comment: any, rootParentId?: string) => {
     const commentId = getCommentId(comment);
     const submitParentId = rootParentId || commentId;
+    const stats = comment?.statistics || {};
+    const replyAsAnonymous = Boolean(replyAnonymousByComment[commentId]);
 
     const authorId = getAuthorId(comment);
     const isOwner =
-      !!currentUserId &&
-      !!authorId &&
-      String(authorId) === String(currentUserId);
+      comment?.viewer?.isOwner === true ||
+      comment?.isMine === true ||
+      (!!currentUserId &&
+        !!authorId &&
+        String(authorId) === String(currentUserId));
 
     return (
       <>
         <View style={s.commentActionRow}>
-          <Pressable onPress={() => onReactComment(postId, commentId, "like")}>
-            <Text style={s.commentActionText}>
-              ❤️ {comment?.statistics?.likeCount || 0}
-            </Text>
-          </Pressable>
-
           <Pressable onPress={() => onReactComment(postId, commentId, "support")}>
-            <Text style={s.commentActionText}>
-              💚 {comment?.statistics?.supportCount || 0}
-            </Text>
+            <Text style={s.commentActionText}>💚 {stats.supportCount || 0}</Text>
           </Pressable>
 
           <Pressable onPress={() => onReactComment(postId, commentId, "hug")}>
-            <Text style={s.commentActionText}>
-              🤗 {comment?.statistics?.hugCount || 0}
-            </Text>
+            <Text style={s.commentActionText}>🤗 {stats.hugCount || 0}</Text>
+          </Pressable>
+
+          <Pressable onPress={() => onReactComment(postId, commentId, "encourage")}>
+            <Text style={s.commentActionText}>🌟 {stats.encourageCount || 0}</Text>
+          </Pressable>
+
+          <Pressable onPress={() => onReactComment(postId, commentId, "thankyou")}>
+            <Text style={s.commentActionText}>🙏 {stats.thankyouCount || 0}</Text>
           </Pressable>
 
           <Pressable onPress={() => openReplyInput(comment)}>
-            <Text style={s.commentActionText}>Reply</Text>
+            <Text style={s.commentActionText}>Trả lời</Text>
           </Pressable>
         </View>
 
         {openReplyCommentId === commentId ? (
-          <View style={s.replyInputRow}>
-            <TextInput
-              style={s.replyInput}
-              placeholder="Write a reply..."
-              placeholderTextColor="#8A9996"
-              value={replyInputs[commentId] || ""}
-              onChangeText={(text) =>
-                setReplyInputs((prev) => ({
-                  ...prev,
-                  [commentId]: text,
-                }))
-              }
-            />
+          <View>
+            {renderIdentityToggle({
+              active: replyAsAnonymous,
+              onPress: () => toggleReplyIdentity(commentId),
+              anonymousText: `Trả lời ẩn danh với tên ${getAnonymousAlias(
+                currentUser
+              )}`,
+              realText: "Trả lời bằng tài khoản của tôi",
+            })}
 
-            <Pressable
-              style={s.replySend}
-              onPress={() => onReplyComment(postId, submitParentId, commentId)}
-            >
-              <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
-            </Pressable>
+            <View style={s.replyInputRow}>
+              <TextInput
+                style={s.replyInput}
+                placeholder="Viết phản hồi..."
+                placeholderTextColor="#8A9996"
+                value={replyInputs[commentId] || ""}
+                onChangeText={(text) =>
+                  setReplyInputs((prev) => ({
+                    ...prev,
+                    [commentId]: text,
+                  }))
+                }
+              />
+
+              <Pressable
+                style={s.replySend}
+                onPress={() => onReplyComment(postId, submitParentId, commentId)}
+              >
+                <MaterialCommunityIcons name="send" size={18} color="#FFFFFF" />
+              </Pressable>
+            </View>
           </View>
         ) : null}
 
@@ -304,13 +459,41 @@ export function CommentThread({
   const renderCommentCard = (comment: any, rootParentId?: string) => {
     const commentId = getCommentId(comment);
     const isReply = !!rootParentId;
+    const avatarUrl = getCommentAvatarUrl(comment);
 
     return (
       <View key={commentId} style={isReply ? s.replyCard : s.inlineCommentCard}>
         <View style={s.commentTopRow}>
-          <Text style={s.inlineCommentAuthor}>
-            {getCommentAuthorName(comment)}
-          </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              flex: 1,
+              gap: 10,
+            }}
+          >
+            <Image
+              source={{ uri: avatarUrl }}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: "#E8F8F3",
+              }}
+            />
+
+            <View style={{ flex: 1 }}>
+              <Text style={s.inlineCommentAuthor}>
+                {getCommentAuthorName(comment)}
+              </Text>
+
+              {comment?.isAnonymous ? (
+                <Text style={s.inlineCommentMeta}>
+                  {isReply ? "Phản hồi ẩn danh" : "Bình luận ẩn danh"}
+                </Text>
+              ) : null}
+            </View>
+          </View>
 
           <Pressable
             style={s.commentMenuButton}
@@ -349,10 +532,19 @@ export function CommentThread({
         );
       })}
 
+      {renderIdentityToggle({
+        active: commentAsAnonymous,
+        onPress: toggleMainCommentIdentity,
+        anonymousText: `Bình luận ẩn danh với tên ${getAnonymousAlias(
+          currentUser
+        )}`,
+        realText: "Bình luận bằng tài khoản của tôi",
+      })}
+
       <View style={s.inlineCommentInputRow}>
         <TextInput
           style={s.inlineCommentInput}
-          placeholder="Write a comment..."
+          placeholder="Viết một bình luận động viên..."
           placeholderTextColor="#8A9996"
           value={commentInput}
           onChangeText={(text) =>
