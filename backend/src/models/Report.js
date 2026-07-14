@@ -49,6 +49,11 @@ const reportSchema = new mongoose.Schema(
         default: false,
       },
 
+      needsAdminReview: {
+        type: Boolean,
+        default: false,
+      },
+
       violationType: {
         type: String,
         enum: [
@@ -76,6 +81,29 @@ const reportSchema = new mongoose.Schema(
         type: Number,
         min: 0,
         max: 100,
+        default: null,
+      },
+
+      riskLevel: {
+        type: String,
+        enum: ["low", "medium", "high", "emergency", null],
+        default: null,
+      },
+
+      safetyTriggered: {
+        type: Boolean,
+        default: false,
+      },
+
+      safetyType: {
+        type: String,
+        enum: [
+          "self_harm_risk",
+          "medical_emergency",
+          "violence",
+          "illegal_content",
+          null,
+        ],
         default: null,
       },
 
@@ -126,14 +154,23 @@ const reportSchema = new mongoose.Schema(
 );
 
 reportSchema.index({ targetType: 1, targetId: 1 });
+
 reportSchema.index({ reporterId: 1 });
+
 reportSchema.index({ reportedUserId: 1 });
+
 reportSchema.index({ reportSource: 1 });
+
 reportSchema.index({ status: 1 });
+
 reportSchema.index({ createdAt: -1 });
 
 reportSchema.index(
-  { targetType: 1, targetId: 1, reporterId: 1 },
+  {
+    targetType: 1,
+    targetId: 1,
+    reporterId: 1,
+  },
   {
     unique: true,
     partialFilterExpression: {
@@ -144,7 +181,11 @@ reportSchema.index(
 );
 
 reportSchema.index(
-  { targetType: 1, targetId: 1, reportSource: 1 },
+  {
+    targetType: 1,
+    targetId: 1,
+    reportSource: 1,
+  },
   {
     unique: true,
     partialFilterExpression: {
