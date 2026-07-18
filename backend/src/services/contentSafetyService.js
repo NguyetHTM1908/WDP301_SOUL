@@ -25,6 +25,11 @@ function normalizeText(text) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/đ/g, "d")
     .replace(/['’]/g, "")
+    .replace(/(.)\1{2,}/g, "$1$1")
+    .replace(
+      /[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu,
+      " "
+    )
     .replace(/[.,!?;:()[\]{}"`~@#$%^&*_+=|\\/<>-]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
@@ -48,19 +53,23 @@ const MEDICAL_EMERGENCY_PATTERNS = [
 ];
 
 const SELF_HARM_PATTERNS = [
-  /\b(muon|mong|uoc|chi muon|rat muon|het muon|khong muon|khong can|chan|met moi).{0,80}(chet|tu tu|bien mat mai mai|khong song|khong ton tai|roi khoi cuoc doi)\b/,
-
+  /\b(muon|mong|uoc|chi muon|rat muon|het muon|khong muon|khong can|chan|met moi).{0,100}(chet|tu tu|bien mat mai mai|khong song|khong ton tai|roi khoi cuoc doi)\b/,
   /\b(muon chet|muon di chet|khong muon song|khong thiet song|khong con muon song|het muon song|song lam gi nua|khong con ly do song)\b/,
-
-  /\b(chet di cho roi|chet di cho xong|mong chet di cho roi|muon ngu mai khong day|ket thuc cuoc doi|ket thuc moi thu)\b/,
-
+  /\b(khong con|chang con|het|chẳng còn|khong).{0,60}(thiet tha|luyen tiec|hy vong|ly do|dong luc).{0,80}(song|su song|cuoc song|cuoc doi|tiep tuc)\b/,
+  /\b(khong thiet tha|chang thiet tha|het thiet tha).{0,50}(su song|cuoc song|cuoc doi|song nua)\b/,
+  /\b(su song|cuoc song|cuoc doi).{0,60}(khong con y nghia|chang con y nghia|vo nghia|het y nghia)\b/,
+  /\b(khong con gi|chang con gi|het gi).{0,60}(de song|de tiep tuc|de co gang|de luyen tiec)\b/,
+  /\b(chet di cho roi|chet di cho xong|mong chet di cho roi|muon ngu mai khong day|ngu mot giac khong day|ket thuc cuoc doi|ket thuc moi thu)\b/,
+  /\b(muon|mong|uoc|gia nhu|chi can).{0,80}(bien mat|khong thuc day|khong ton tai|chua tung ton tai|roi khoi the gioi nay)\b/,
   /\b(muon bien mat|bien mat mai mai|bien mat khoi moi thu|khong muon ton tai|khong can ton tai)\b/,
-
-  /\b(cat|rach|tu cat|lam dau|tu lam dau|lam hai|tu hai).{0,50}(co tay|tay|ban than|minh|toi|tao|em)\b/,
-
-  /\b(that co|treo co|uong thuoc de chet|uong het thuoc|nhay lau|nhay cau)\b/,
-
+  /\b(moi nguoi|gia dinh|bo me|ban be|ho|nguoi khac).{0,100}(se tot hon|se nhe nhom hon|se do kho hon|se bot met hon).{0,100}(neu khong co minh|neu minh bien mat|neu minh khong con)\b/,
+  /\b(khong co minh|minh khong con|minh bien mat).{0,80}(moi nguoi|gia dinh|bo me|ban be).{0,80}(tot hon|nhe nhom hon|bot met hon)\b/,
+  /\b(cam on|xin loi|tam biet).{0,120}(lan cuoi|bai cuoi|loi cuoi|khong con gap lai|khong con nua|roi khoi cuoc doi)\b/,
+  /\b(day la|co le la|chac la).{0,40}(bai cuoi|loi cuoi|lan cuoi).{0,100}(cua minh|minh viet|minh noi|tren doi)\b/,
+  /\b(cat|rach|tu cat|lam dau|tu lam dau|lam hai|tu hai).{0,60}(co tay|tay|ban than|minh|toi|tao|em)\b/,
+  /\b(that co|treo co|uong thuoc de chet|uong het thuoc|nhay lau|nhay cau|lao vao xe)\b/,
   /\b(i want to die|i wanna die|i do not want to live|i dont want to live|suicide|suicidal|kill myself|end my life|self harm|hurt myself|cut myself)\b/,
+  /\b(i wish i would not wake up|i wish i wouldnt wake up|everyone would be better without me|there is no reason to live|life is not worth living)\b/,
 ];
 
 const VIOLENCE_PATTERNS = [

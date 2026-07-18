@@ -28,6 +28,7 @@ type ForumStatus =
   | "all"
   | "pending"
   | "approved"
+  | "ai_review"
   | "hidden"
   | "reported"
   | "deleted";
@@ -40,6 +41,75 @@ type ForumPostStatus = Exclude<
 type ForumMedia = {
   url: string;
   type: "image" | "video";
+};
+
+
+type ImageModerationLayer1 = {
+  provider?: string;
+  checked?: boolean;
+  categories?: {
+    adult?: string;
+    spoof?: string;
+    medical?: string;
+    violence?: string;
+    racy?: string;
+  };
+  riskLevel?: "low" | "medium" | "high";
+  isViolationSuspected?: boolean;
+  needsAdminReview?: boolean;
+  reason?: string | null;
+  error?: string | null;
+};
+
+type ImageModerationLayer2 = {
+  provider?: string;
+  checked?: boolean;
+  selfHarmSuspected?: boolean;
+  woundOrBlood?: boolean;
+  dangerousObject?: boolean;
+  contextType?:
+    | "self_harm"
+    | "medical"
+    | "art"
+    | "violence"
+    | "safe"
+    | "unknown";
+  confidenceScore?: number;
+  riskLevel?: "low" | "medium" | "high";
+  isViolationSuspected?: boolean;
+  needsAdminReview?: boolean;
+  reason?: string | null;
+  description?: string | null;
+  error?: string | null;
+};
+
+type ImageModerationResult = {
+  imageUrl?: string;
+  checked?: boolean;
+  decision?: "safe" | "review_required" | "blocked";
+  riskLevel?: "low" | "medium" | "high";
+  isViolationSuspected?: boolean;
+  needsAdminReview?: boolean;
+  reason?: string | null;
+  layer1?: ImageModerationLayer1;
+  layer2?: ImageModerationLayer2;
+};
+
+type ImageModeration = {
+  checked?: boolean;
+  status?:
+    | "not_checked"
+    | "not_applicable"
+    | "safe"
+    | "review_required"
+    | "blocked"
+    | "failed";
+  overallRiskLevel?: "low" | "medium" | "high";
+  isViolationSuspected?: boolean;
+  needsAdminReview?: boolean;
+  reason?: string | null;
+  results?: ImageModerationResult[];
+  checkedAt?: string | null;
 };
 
 type ForumPost = {
@@ -62,6 +132,7 @@ type ForumPost = {
 
   hashtags: string[];
   mediaUrls: ForumMedia[];
+  imageModeration?: ImageModeration | null;
 };
 
 type AdminReport = {
@@ -110,6 +181,11 @@ const filters: {
     label: "Đã duyệt",
     value: "approved",
     icon: "check-circle-outline",
+  },
+  {
+    label: "AI cần xem xét",
+    value: "ai_review",
+    icon: "shield-alert-outline",
   },
   {
     label: "Bị báo cáo",
@@ -268,6 +344,11 @@ function mapApiPostToForumPost(
   let uiStatus: ForumPostStatus =
     "pending";
 
+  const imageNeedsReview =
+    item?.imageModeration?.needsAdminReview === true ||
+    item?.imageModeration?.status === "review_required" ||
+    item?.imageModeration?.status === "blocked";
+
   if (
     realStatus === "deleted" ||
     realStatus === "rejected"
@@ -275,11 +356,10 @@ function mapApiPostToForumPost(
     uiStatus = "deleted";
   } else if (realStatus === "hidden") {
     uiStatus = "hidden";
-  } else if (
-    item?.isFlagged ||
-    reportCount > 0
-  ) {
+  } else if (reportCount > 0) {
     uiStatus = "reported";
+  } else if (imageNeedsReview || item?.isFlagged) {
+    uiStatus = "ai_review";
   } else if (realStatus === "approved") {
     uiStatus = "approved";
   } else {
@@ -355,6 +435,7 @@ function mapApiPostToForumPost(
 
     hashtags,
     mediaUrls,
+    imageModeration: item?.imageModeration || null,
   };
 }
 
@@ -376,6 +457,15 @@ function getStatusInfo(
       color: "#00866B",
       bg: "#E8F8F3",
       icon: "check-circle-outline",
+    };
+  }
+
+  if (status === "ai_review") {
+    return {
+      label: "AI cần xem xét",
+      color: "#D97706",
+      bg: "#FFF7E6",
+      icon: "shield-alert-outline",
     };
   }
 
@@ -712,7 +802,7 @@ export default function AdminForumScreen() {
                 realStatus || status,
 
               isFlagged:
-                status === "reported"
+                status === "reported" || status === "ai_review"
                   ? item.isFlagged
                   : false,
             }
@@ -737,7 +827,7 @@ export default function AdminForumScreen() {
             realStatus || status,
 
           isFlagged:
-            status === "reported"
+            status === "reported" || status === "ai_review"
               ? currentSelectedPost.isFlagged
               : false,
         };
@@ -2209,6 +2299,125 @@ export default function AdminForumScreen() {
                       </Text>
                     </View>
                   )}
+
+
+                  {selectedPost.imageModeration &&
+                  selectedPost.imageModeration.status !== "not_applicable" ? (
+                    <View
+                      style={{
+                        marginBottom: 20,
+                        borderRadius: 16,
+                        padding: 16,
+                        backgroundColor: "#FFF7E6",
+                        borderWidth: 1,
+                        borderColor: "#FCD34D",
+                      }}
+                    >
+                      <View
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          marginBottom: 10,
+                        }}
+                      >
+                        <MaterialCommunityIcons
+                          name="image-search-outline"
+                          size={22}
+                          color="#B45309"
+                        />
+                        <Text
+                          style={{
+                            marginLeft: 8,
+                            fontSize: 16,
+                            fontWeight: "800",
+                            color: "#92400E",
+                          }}
+                        >
+                          Kết quả kiểm duyệt hình ảnh
+                        </Text>
+                      </View>
+
+                      <Text style={{ color: "#78350F", lineHeight: 21 }}>
+                        Trạng thái: {selectedPost.imageModeration.status || "Chưa xác định"}
+                      </Text>
+                      <Text style={{ color: "#78350F", lineHeight: 21 }}>
+                        Mức rủi ro: {selectedPost.imageModeration.overallRiskLevel || "low"}
+                      </Text>
+                      <Text style={{ color: "#78350F", lineHeight: 21 }}>
+                        Cần admin xem xét: {selectedPost.imageModeration.needsAdminReview ? "Có" : "Không"}
+                      </Text>
+
+                      {selectedPost.imageModeration.reason ? (
+                        <Text style={{ marginTop: 8, color: "#78350F", lineHeight: 21 }}>
+                          Lý do: {selectedPost.imageModeration.reason}
+                        </Text>
+                      ) : null}
+
+                      {selectedPost.imageModeration.results?.map((result, index) => (
+                        <View
+                          key={`${result.imageUrl || "image"}-${index}`}
+                          style={{
+                            marginTop: 14,
+                            paddingTop: 14,
+                            borderTopWidth: 1,
+                            borderTopColor: "#FDE68A",
+                          }}
+                        >
+                          <Text style={{ fontWeight: "800", color: "#92400E" }}>
+                            Ảnh {index + 1}
+                          </Text>
+                          <Text style={{ marginTop: 6, color: "#78350F" }}>
+                            Quyết định: {result.decision || "Chưa xác định"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Google SafeSearch: {result.layer1?.checked ? "Đã kiểm tra" : "Kiểm tra thất bại"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Adult: {result.layer1?.categories?.adult || "UNKNOWN"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Violence: {result.layer1?.categories?.violence || "UNKNOWN"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Medical: {result.layer1?.categories?.medical || "UNKNOWN"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Vision AI: {result.layer2?.checked ? "Đã kiểm tra" : "Kiểm tra thất bại"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Ngữ cảnh: {result.layer2?.contextType || "unknown"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Độ tin cậy: {result.layer2?.confidenceScore ?? 0}%
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Dấu hiệu tự hại: {result.layer2?.selfHarmSuspected ? "Có" : "Không"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Vết thương hoặc máu: {result.layer2?.woundOrBlood ? "Có" : "Không"}
+                          </Text>
+                          <Text style={{ marginTop: 4, color: "#78350F" }}>
+                            Vật nguy hiểm: {result.layer2?.dangerousObject ? "Có" : "Không"}
+                          </Text>
+                          {result.layer2?.description ? (
+                            <Text style={{ marginTop: 6, color: "#78350F", lineHeight: 20 }}>
+                              Mô tả: {result.layer2.description}
+                            </Text>
+                          ) : null}
+                          {result.layer1?.error ? (
+                            <Text style={{ marginTop: 6, color: "#DC2626" }}>
+                              Lỗi Google: {result.layer1.error}
+                            </Text>
+                          ) : null}
+                          {result.layer2?.error ? (
+                            <Text style={{ marginTop: 6, color: "#DC2626" }}>
+                              Lỗi Vision AI: {result.layer2.error}
+                            </Text>
+                          ) : null}
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
 
                   <View
                     style={{

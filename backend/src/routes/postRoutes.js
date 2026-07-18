@@ -8,18 +8,59 @@ const {
   getMyPosts,
   updateMyPost,
   deleteMyPost,
-} = require("../controllers/forum/postController");
+} = require(
+  "../controllers/forum/postController"
+);
 
-const auth = require("../middleware/auth");
-const checkForumBan = require("../middleware/checkForumBan");
+const auth =
+  require(
+    "../middleware/auth"
+  );
 
-router.get("/", getApprovedPosts);
-router.get("/my-posts", auth, getMyPosts);
-router.get("/:id", getPostDetail);
+const checkForumBan =
+  require(
+    "../middleware/checkForumBan"
+  );
 
-router.post("/", auth, checkForumBan, createPost);
 
-router.put("/:id", auth, checkForumBan, updateMyPost);
-router.delete("/:id", auth, deleteMyPost);
+router.get(
+  "/",
+  getApprovedPosts
+);
 
-module.exports = router;
+
+router.get(
+  "/my-posts",
+  auth,
+  getMyPosts
+);
+
+
+router.get(
+  "/:id",
+  auth,
+  getPostDetail
+);
+
+router.post(
+  "/",
+  auth,
+  checkForumBan,
+  createPost
+);
+
+router.put(
+  "/:id",
+  auth,
+  checkForumBan,
+  updateMyPost
+);
+
+router.delete(
+  "/:id",
+  auth,
+  deleteMyPost
+);
+
+module.exports =
+  router;
