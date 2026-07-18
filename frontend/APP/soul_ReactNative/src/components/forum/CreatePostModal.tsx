@@ -28,25 +28,19 @@ type Props = {
   visible: boolean;
   isEditing?: boolean;
   currentUser?: ForumUser | null;
-
   content: string;
   mediaUrl: string;
   hashtags: string;
   emotionStatus: string;
-
   isAnonymous: boolean;
   anonymousName: string;
-
   emotions: Emotion[];
-
   setContent: (value: string) => void;
   setMediaUrl: (value: string) => void;
   setHashtags: (value: string) => void;
   setEmotionStatus: (value: string) => void;
-
   setIsAnonymous: (value: boolean) => void;
   setAnonymousName: (value: string) => void;
-
   onClose: () => void;
   onSubmit: () => void;
   hideAnonymous?: boolean;
@@ -56,25 +50,19 @@ export function CreatePostModal({
   visible,
   isEditing = false,
   currentUser,
-
   content,
   mediaUrl,
   hashtags,
   emotionStatus,
-
   isAnonymous,
   anonymousName,
-
   emotions,
-
   setContent,
   setMediaUrl,
   setHashtags,
   setEmotionStatus,
-
   setIsAnonymous,
   setAnonymousName,
-
   onClose,
   onSubmit,
   hideAnonymous = false,
@@ -84,7 +72,7 @@ export function CreatePostModal({
     anonymousModeEnabled: false,
   });
 
-  const displayIdentity = (!hideAnonymous && isAnonymous)
+  const displayIdentity = !hideAnonymous && isAnonymous
     ? {
         id: currentUser?.anonymousIdentityId || null,
         fullName: anonymousName || currentUser?.anonymousAlias || "Anonymous Soul",
@@ -93,32 +81,32 @@ export function CreatePostModal({
       }
     : realIdentity;
 
+  const normalizedMediaUrl = mediaUrl.trim();
+  const mediaUrlIsValid =
+    !normalizedMediaUrl || /^https?:\/\//i.test(normalizedMediaUrl);
+
+  const handleSubmit = () => {
+    if (!content.trim()) return;
+    if (!mediaUrlIsValid) return;
+    onSubmit();
+  };
+
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
         style={s.modalBackdrop}
         behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={s.createModal}>
           <View style={s.modalHandle} />
-
           <Pressable style={s.closeButton} onPress={onClose}>
             <MaterialCommunityIcons name="close" size={28} color="#1F332F" />
           </Pressable>
 
-          <ScrollView
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-          >
+          <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
             <Text style={s.modalTitle}>
               {isEditing ? "Chỉnh sửa bài viết" : "Chia sẻ cảm xúc của bạn ✨"}
             </Text>
-
             <Text style={s.modalSub}>
               {hideAnonymous
                 ? "Chia sẻ suy nghĩ và câu chuyện của bạn lên trang cá nhân."
@@ -126,30 +114,22 @@ export function CreatePostModal({
             </Text>
 
             <View style={s.identityPreview}>
-              <Image
-                source={{ uri: displayIdentity.avatarUrl || "" }}
-                style={s.identityPreviewAvatar}
-              />
-
+              <Image source={{ uri: displayIdentity.avatarUrl || "" }} style={s.identityPreviewAvatar} />
               <View style={s.identityPreviewInfo}>
                 <Text style={s.identityPreviewLabel}>
                   {hideAnonymous
                     ? "Đăng lên trang cá nhân"
                     : isAnonymous
-                    ? "Đăng ẩn danh với tên"
-                    : "Đăng bài với tên"}
+                      ? "Đăng ẩn danh với tên"
+                      : "Đăng bài với tên"}
                 </Text>
-
-                <Text style={s.identityPreviewName}>
-                  {displayIdentity.fullName}
-                </Text>
-
+                <Text style={s.identityPreviewName}>{displayIdentity.fullName}</Text>
                 <Text style={s.identityPreviewMeta}>
                   {hideAnonymous
                     ? "Bài viết sẽ hiển thị công khai trên dòng thời gian của bạn."
                     : isAnonymous
-                    ? "Hồ sơ thật của bạn sẽ không hiển thị trong bài viết này."
-                    : "Tên và ảnh đại diện thật của bạn sẽ được hiển thị."}
+                      ? "Hồ sơ thật của bạn sẽ không hiển thị trong bài viết này."
+                      : "Tên và ảnh đại diện thật của bạn sẽ được hiển thị."}
                 </Text>
               </View>
             </View>
@@ -158,20 +138,12 @@ export function CreatePostModal({
               <>
                 <View style={s.anonymousRow}>
                   <View style={s.anonLeft}>
-                    <MaterialCommunityIcons
-                      name="incognito"
-                      size={24}
-                      color="#95A19E"
-                    />
-
+                    <MaterialCommunityIcons name="incognito" size={24} color="#95A19E" />
                     <View style={{ flex: 1 }}>
                       <Text style={s.anonText}>Đăng bài ẩn danh</Text>
-                      <Text style={s.anonSubText}>
-                        Sử dụng tên và ảnh đại diện ẩn danh cho bài viết này.
-                      </Text>
+                      <Text style={s.anonSubText}>Sử dụng tên và ảnh đại diện ẩn danh cho bài viết này.</Text>
                     </View>
                   </View>
-
                   <Switch
                     value={isAnonymous}
                     onValueChange={setIsAnonymous}
@@ -182,12 +154,7 @@ export function CreatePostModal({
 
                 {isAnonymous ? (
                   <View style={s.formInput}>
-                    <MaterialCommunityIcons
-                      name="account-question-outline"
-                      size={24}
-                      color="#7A8A87"
-                    />
-
+                    <MaterialCommunityIcons name="account-question-outline" size={24} color="#7A8A87" />
                     <TextInput
                       style={s.formTextInput}
                       placeholder="Tên ẩn danh: Thỏ lém lỉnh..."
@@ -201,14 +168,9 @@ export function CreatePostModal({
             )}
 
             <View style={s.safeNotice}>
-              <MaterialCommunityIcons
-                name="shield-check-outline"
-                size={20}
-                color="#00866B"
-              />
-
+              <MaterialCommunityIcons name="shield-check-outline" size={20} color="#00866B" />
               <Text style={s.safeNoticeText}>
-                SOUL AI có thể kiểm duyệt bài viết để giữ cộng đồng an toàn và tích cực.
+                SOUL AI sẽ kiểm tra nội dung và hình ảnh để giữ cộng đồng an toàn.
               </Text>
             </View>
 
@@ -222,30 +184,30 @@ export function CreatePostModal({
                 onChangeText={setContent}
                 maxLength={1000}
               />
-
               <Text style={s.counter}>{content.length}/1000</Text>
             </View>
 
-            <View style={s.formInput}>
-              <MaterialCommunityIcons
-                name="image-outline"
-                size={25}
-                color="#7A8A87"
-              />
-
+            <View style={[s.formInput, !mediaUrlIsValid && { borderColor: "#DC2626" }]}>
+              <MaterialCommunityIcons name="image-outline" size={25} color="#7A8A87" />
               <TextInput
                 style={s.formTextInput}
-                placeholder="Link hình ảnh / video nếu có"
+                placeholder="Link hình ảnh trực tiếp nếu có"
                 placeholderTextColor="#8A9996"
                 value={mediaUrl}
                 onChangeText={setMediaUrl}
                 autoCapitalize="none"
+                autoCorrect={false}
+                keyboardType="url"
               />
             </View>
+            {!mediaUrlIsValid ? (
+              <Text style={{ color: "#DC2626", marginTop: 6, marginLeft: 8, fontSize: 12 }}>
+                Link ảnh phải bắt đầu bằng http:// hoặc https://
+              </Text>
+            ) : null}
 
             <View style={s.formInput}>
               <Text style={s.hashIcon}>#</Text>
-
               <TextInput
                 style={s.formTextInput}
                 placeholder="Hashtag: stress, chăm-sóc-bản-thân"
@@ -257,11 +219,9 @@ export function CreatePostModal({
             </View>
 
             <Text style={s.feelingLabel}>Bạn đang cảm thấy thế nào?</Text>
-
             <View style={s.emotionGrid}>
               {emotions.map((e) => {
                 const active = emotionStatus === e.value;
-
                 return (
                   <Pressable
                     key={e.value}
@@ -275,13 +235,19 @@ export function CreatePostModal({
               })}
             </View>
 
-            <Pressable style={s.submitButton} onPress={onSubmit}>
+            <Pressable
+              style={[
+                s.submitButton,
+                (!content.trim() || !mediaUrlIsValid) && { opacity: 0.55 },
+              ]}
+              onPress={handleSubmit}
+              disabled={!content.trim() || !mediaUrlIsValid}
+            >
               <MaterialCommunityIcons
                 name={isEditing ? "content-save-outline" : "send-outline"}
                 size={24}
                 color="#FFFFFF"
               />
-
               <Text style={s.submitText}>
                 {isEditing ? "Cập nhật bài viết" : "Đăng bài"}
               </Text>

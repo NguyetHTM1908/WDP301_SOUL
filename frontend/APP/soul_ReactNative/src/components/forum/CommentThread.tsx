@@ -53,6 +53,61 @@ const DEFAULT_AVATAR_URL =
 const ANONYMOUS_AVATAR_URL =
   "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg";
 
+function getMongoObjectIdDate(value: any) {
+  const rawId =
+    value?._id?.toString?.() ||
+    value?.id?.toString?.() ||
+    value?._id ||
+    value?.id ||
+    "";
+
+  const id = String(rawId);
+
+  if (!/^[a-fA-F0-9]{24}$/.test(id)) {
+    return null;
+  }
+
+  const seconds = Number.parseInt(id.slice(0, 8), 16);
+
+  if (!Number.isFinite(seconds)) {
+    return null;
+  }
+
+  return new Date(seconds * 1000);
+}
+
+function getCommentDate(comment: any) {
+  const value =
+    comment?.createdAt ||
+    comment?.created_at ||
+    comment?.createdDate ||
+    comment?.dateCreated;
+
+  if (value) {
+    const date = new Date(value);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  return getMongoObjectIdDate(comment);
+}
+
+function formatCommentTime(comment: any) {
+  const date = getCommentDate(comment);
+
+  if (!date) return "";
+
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
 function getCommentAvatarUrl(comment: any) {
   if (comment?.isAnonymous === true) {
     return (
@@ -487,11 +542,19 @@ export function CommentThread({
                 {getCommentAuthorName(comment)}
               </Text>
 
-              {comment?.isAnonymous ? (
-                <Text style={s.inlineCommentMeta}>
-                  {isReply ? "Phản hồi ẩn danh" : "Bình luận ẩn danh"}
-                </Text>
-              ) : null}
+              <Text style={s.inlineCommentMeta}>
+                {comment?.isAnonymous
+                  ? isReply
+                    ? "Phản hồi ẩn danh"
+                    : "Bình luận ẩn danh"
+                  : isReply
+                    ? "Phản hồi"
+                    : "Bình luận"}
+
+                {formatCommentTime(comment)
+                  ? ` • ${formatCommentTime(comment)}`
+                  : ""}
+              </Text>
             </View>
           </View>
 
