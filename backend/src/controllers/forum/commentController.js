@@ -1,5 +1,6 @@
 const Comment = require("../../models/Comment");
 const Post = require("../../models/Post");
+const { createNotification } = require("../../services/notificationService");
 
 const ANONYMOUS_AVATAR_URL =
   "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg";
@@ -193,6 +194,41 @@ exports.createComment = async (req, res) => {
       "authorId",
       "fullName email avatarUrl anonymousAlias anonymousIdentityId anonymousAvatarUrl"
     );
+
+    // Thông báo: comment vào bài viết của người khác
+    const commenterName = !shouldBeAnonymous
+      ? (req.user?.fullName || "Ai đó")
+      : finalAnonymousName || "Một người dùng";
+
+    if (!parentCommentId) {
+      // Bình luận vào bài viết - thông báo cho tác giả bài viết
+      if (post.authorId && post.authorId.toString() !== req.user._id.toString()) {
+        createNotification(
+          post.authorId,
+          "post_comment",
+          "💬 Có bình luận mới",
+          `${commenterName} đã bình luận vào bài viết của bạn.`,
+          { type: "post", id: postId }
+        );
+      }
+    } else {
+      // Reply comment - thông báo cho tác giả comment gốc
+      const parentComment = await Comment.findById(parentCommentId).select("authorId isAnonymous");
+      if (
+        parentComment &&
+        !parentComment.isAnonymous &&
+        parentComment.authorId &&
+        parentComment.authorId.toString() !== req.user._id.toString()
+      ) {
+        createNotification(
+          parentComment.authorId,
+          "comment_reply",
+          "💬 Có người trả lời bình luận",
+          `${commenterName} đã trả lời bình luận của bạn.`,
+          { type: "post", id: postId }
+        );
+      }
+    }
 
     return res.status(201).json({
       success: true,

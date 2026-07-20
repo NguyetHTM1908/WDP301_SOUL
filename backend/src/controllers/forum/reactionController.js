@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const Post = require("../../models/Post");
 const Comment = require("../../models/Comment");
+const { createNotification } = require("../../services/notificationService");
 
 const ALLOWED_REACTIONS = ["support", "hug", "encourage", "thankyou"];
 
@@ -147,6 +148,17 @@ exports.reactToPost = async (req, res) => {
     applyReactionStats(post);
 
     await post.save();
+
+    // Thông báo cho tác giả bài viết (nếu không phải chính mình)
+    if (post.authorId && post.authorId.toString() !== req.user._id.toString()) {
+      createNotification(
+        post.authorId,
+        "post_reaction",
+        "💚 Có người cảm xúc với bài viết của bạn",
+        `Ai đó đã gửi ${type === 'support' ? 'đồng cảm' : type === 'hug' ? '?ôm ấp' : type === 'encourage' ? 'cổ vũ' : 'cảm ơn'} cho bài viết của bạn.`,
+        { type: "post", id: post._id }
+      );
+    }
 
     return res.status(200).json({
       success: true,

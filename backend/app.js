@@ -27,6 +27,7 @@ const emotionAnalysisRoutes = require(
 );
 const aiRoutes = require("./src/routes/aiRoutes");
 const messageRoutes = require("./src/routes/messageRoutes");
+const notificationRoutes = require("./src/routes/notificationRoutes");
 
 const app = express();
 
@@ -120,6 +121,7 @@ app.use(
 app.use("/api/users", usersRouter);
 app.use("/api/ai", aiRoutes);
 app.use("/api/messages", messageRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use((req, res) => {
   return res.status(404).json({
