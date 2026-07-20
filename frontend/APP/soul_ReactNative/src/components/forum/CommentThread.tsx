@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { Pressable, Text, TextInput, View } from "react-native";
+import { Image, Pressable, Text, TextInput, View } from "react-native";
 import { forumStyles as s } from "@/styles/forum.styles";
 import type { ForumUser } from "@/utils/forumIdentity";
 
@@ -45,6 +45,91 @@ type Props = {
 
 function getAnonymousAlias(user?: ForumUser | null) {
   return user?.anonymousAlias || "Ẩn danh SOUL";
+}
+
+const DEFAULT_AVATAR_URL =
+  "https://ui-avatars.com/api/?name=SOUL&background=E8F8F3&color=00866B";
+
+const ANONYMOUS_AVATAR_URL =
+  "https://cdn-media.sforum.vn/storage/app/media/thunguyen/13.jpg";
+
+function getMongoObjectIdDate(value: any) {
+  const rawId =
+    value?._id?.toString?.() ||
+    value?.id?.toString?.() ||
+    value?._id ||
+    value?.id ||
+    "";
+
+  const id = String(rawId);
+
+  if (!/^[a-fA-F0-9]{24}$/.test(id)) {
+    return null;
+  }
+
+  const seconds = Number.parseInt(id.slice(0, 8), 16);
+
+  if (!Number.isFinite(seconds)) {
+    return null;
+  }
+
+  return new Date(seconds * 1000);
+}
+
+function getCommentDate(comment: any) {
+  const value =
+    comment?.createdAt ||
+    comment?.created_at ||
+    comment?.createdDate ||
+    comment?.dateCreated;
+
+  if (value) {
+    const date = new Date(value);
+
+    if (!Number.isNaN(date.getTime())) {
+      return date;
+    }
+  }
+
+  return getMongoObjectIdDate(comment);
+}
+
+function formatCommentTime(comment: any) {
+  const date = getCommentDate(comment);
+
+  if (!date) return "";
+
+  return date.toLocaleString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+  });
+}
+
+function getCommentAvatarUrl(comment: any) {
+  if (comment?.isAnonymous === true) {
+    return (
+      comment?.displayAuthor?.avatarUrl ||
+      comment?.authorId?.anonymousAvatarUrl ||
+      comment?.authorId?.avatarUrl ||
+      ANONYMOUS_AVATAR_URL
+    );
+  }
+
+  const name =
+    comment?.displayAuthor?.fullName ||
+    comment?.authorId?.fullName ||
+    comment?.author?.fullName ||
+    "SOUL User";
+
+  return (
+    comment?.displayAuthor?.avatarUrl ||
+    comment?.authorId?.avatarUrl ||
+    comment?.author?.avatarUrl ||
+    `${DEFAULT_AVATAR_URL}&name=${encodeURIComponent(name)}`
+  );
 }
 
 export function CommentThread({
@@ -429,20 +514,48 @@ export function CommentThread({
   const renderCommentCard = (comment: any, rootParentId?: string) => {
     const commentId = getCommentId(comment);
     const isReply = !!rootParentId;
+    const avatarUrl = getCommentAvatarUrl(comment);
 
     return (
       <View key={commentId} style={isReply ? s.replyCard : s.inlineCommentCard}>
         <View style={s.commentTopRow}>
-          <View style={{ flex: 1 }}>
-            <Text style={s.inlineCommentAuthor}>
-              {getCommentAuthorName(comment)}
-            </Text>
+          <View
+            style={{
+              flexDirection: "row",
+              alignItems: "center",
+              flex: 1,
+              gap: 10,
+            }}
+          >
+            <Image
+              source={{ uri: avatarUrl }}
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: 17,
+                backgroundColor: "#E8F8F3",
+              }}
+            />
 
-            {comment?.isAnonymous ? (
-              <Text style={s.inlineCommentMeta}>
-                {isReply ? "Phản hồi ẩn danh" : "Bình luận ẩn danh"}
+            <View style={{ flex: 1 }}>
+              <Text style={s.inlineCommentAuthor}>
+                {getCommentAuthorName(comment)}
               </Text>
-            ) : null}
+
+              <Text style={s.inlineCommentMeta}>
+                {comment?.isAnonymous
+                  ? isReply
+                    ? "Phản hồi ẩn danh"
+                    : "Bình luận ẩn danh"
+                  : isReply
+                    ? "Phản hồi"
+                    : "Bình luận"}
+
+                {formatCommentTime(comment)
+                  ? ` • ${formatCommentTime(comment)}`
+                  : ""}
+              </Text>
+            </View>
           </View>
 
           <Pressable

@@ -184,7 +184,7 @@ const userSchema = new mongoose.Schema(
 userSchema.methods.toJSON = function () {
   const user = this.toObject();
   delete user.passwordHash;
-  return user;
+return user;
 };
 
 const User = mongoose.model("User", userSchema);

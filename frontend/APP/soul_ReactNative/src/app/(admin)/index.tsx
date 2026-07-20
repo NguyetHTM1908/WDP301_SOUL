@@ -79,15 +79,8 @@ export default function AdminDashboard() {
       route: "/(admin)/forum",
     },
     {
-      title: "Xem Báo cáo Nội dung",
-      description: "Xét duyệt và xử lý các bài đăng bị báo cáo vi phạm",
-      icon: "shield-alert",
-      color: "#EF4444",
-      route: "/(admin)/forum",
-    },
-    {
       title: "Sự kiện & Hoạt động",
-      description: "Tạo và điều phối các workshop/talkshow tâm lý",
+      description: "Duyệt sự kiện, từ chối event và xem danh sách người đăng ký",
       icon: "calendar-star",
       color: colors.darkTeal,
       route: "/(admin)/events",
@@ -113,7 +106,10 @@ export default function AdminDashboard() {
       return;
     }
 
-    Alert.alert("Thông báo", `Tính năng "${action.title}" đang được hoàn thiện.`);
+    Alert.alert(
+      "Thông báo",
+      `Tính năng "${action.title}" đang được hoàn thiện.`
+    );
   };
 
   return (
@@ -128,7 +124,11 @@ export default function AdminDashboard() {
           </Text>
         </View>
 
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+          activeOpacity={0.8}
+        >
           <MaterialCommunityIcons name="logout" size={22} color="#EF4444" />
         </TouchableOpacity>
       </View>

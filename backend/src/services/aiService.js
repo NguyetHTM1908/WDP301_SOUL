@@ -1,3 +1,9 @@
+const {
+  RISK_LEVELS,
+  SAFETY_TYPES,
+  detectRisk,
+} = require("./contentSafetyService");
+
 const SYSTEM_PROMPT = `
 Bạn là Soul AI — người bạn đồng hành cảm xúc của nền tảng SOUL.
 
@@ -36,80 +42,72 @@ Không dùng tiếng Anh hoặc từ lóng:
 heal, toxic, trigger, overthinking, negative energy, vibe.
 `;
 
-const SELF_HARM_KEYWORDS = [
-  "muốn chết",
-  "tự tử",
-  "không muốn sống",
-  "chết đi",
-  "cắt tay",
-  "uống thuốc",
-  "tự làm đau",
-  "kết thúc cuộc đời",
-  "biến mất mãi mãi",
-  "muốn biến mất",
-  "không còn lý do sống",
-  "i want to die",
-  "suicide",
-];
+function getEmergencyReply() {
+  return "Mình nghe bạn nói đang có dấu hiệu cơ thể đáng lo, nên lúc này cần ưu tiên an toàn trước. Nếu bạn đang khó thở nhiều, đau ngực, chóng mặt dữ dội, sắp ngất hoặc cảm thấy tình trạng nguy hiểm, hãy gọi cấp cứu hoặc nhờ người đang ở gần hỗ trợ ngay. Bạn có thể nói ngay cho người gần nhất biết cơ thể bạn đang gặp vấn đề gì không?";
+}
 
-const MEDICAL_EMERGENCY_KEYWORDS = [
-  "khó thở",
-  "khong tho",
-  "không thở được",
-  "khong tho duoc",
-  "đau ngực",
-  "dau nguc",
-  "ngất",
-  "sắp ngất",
-  "sap ngat",
-  "chóng mặt dữ dội",
-];
+function getSelfHarmReply() {
+  return "Điều bạn vừa nói cho thấy bạn có thể đang ở trong một thời điểm rất nguy hiểm. Nếu bạn đang chuẩn bị làm hại bản thân hoặc có sẵn thứ gì có thể khiến bạn bị thương, hãy đặt nó ra xa, đi đến chỗ có người và gọi ngay cho một người bạn tin tưởng hoặc dịch vụ khẩn cấp tại nơi bạn sống. Ngay lúc này bạn có đang ở nơi an toàn không?";
+}
 
-function detectRisk(message = "") {
-  const msg = message.toLowerCase();
+function getViolenceReply() {
+  return "Cơn giận lúc này có vẻ đang rất mạnh và có nguy cơ khiến một người bị thương. Hãy tạm rời khỏi người bạn đang muốn đối đầu, đặt xa dao, kéo hoặc bất kỳ vật gì có thể gây thương tích, rồi gọi cho một người đáng tin để họ ở cùng bạn. Hiện tại bạn và người đó có đang ở cùng một nơi không?";
+}
 
-  if (MEDICAL_EMERGENCY_KEYWORDS.some((keyword) => msg.includes(keyword))) {
-    return {
-      riskLevel: "emergency",
-      safetyWarning: true,
-    };
+function getIllegalContentReply() {
+  return "Mình không thể hỗ trợ hành vi có thể gây hại hoặc vi phạm pháp luật. Bạn nên dừng việc đó lại và tìm một cách giải quyết hợp pháp, an toàn hơn. Điều gì đang khiến bạn nghĩ đến hướng xử lý này?";
+}
+
+function getFallbackReply() {
+  return "Mình đang hơi khó phản hồi rõ lúc này. Bạn có thể nói ngắn lại điều đang làm bạn nặng lòng nhất không?";
+}
+
+function getSafetyReply(safetyType) {
+  switch (safetyType) {
+    case SAFETY_TYPES.MEDICAL_EMERGENCY:
+      return getEmergencyReply();
+
+    case SAFETY_TYPES.SELF_HARM_RISK:
+      return getSelfHarmReply();
+
+    case SAFETY_TYPES.VIOLENCE:
+      return getViolenceReply();
+
+    case SAFETY_TYPES.ILLEGAL_CONTENT:
+      return getIllegalContentReply();
+
+    default:
+      return null;
   }
+}
 
-  if (SELF_HARM_KEYWORDS.some((keyword) => msg.includes(keyword))) {
-    return {
-      riskLevel: "high",
-      safetyWarning: true,
-    };
-  }
-
-  return {
-    riskLevel: "low",
-    safetyWarning: false,
-  };
+function createResponseTime(startTime) {
+  return Number(((Date.now() - startTime) / 1000).toFixed(2));
 }
 
 async function callSoulAI(message) {
-  const start = Date.now();
+  const startTime = Date.now();
+  const cleanMessage = String(message || "").trim();
 
-  const { riskLevel, safetyWarning } = detectRisk(message);
-
-  if (riskLevel === "emergency") {
-    return {
-      reply:
-        "Mình nghe bạn nói đang có dấu hiệu cơ thể đáng lo, nên mình muốn ưu tiên an toàn trước. Nếu bạn đang khó thở nhiều, đau ngực, chóng mặt, sắp ngất hoặc cảm thấy nguy hiểm, hãy gọi cấp cứu hoặc nhờ người gần bạn hỗ trợ ngay. Nếu tình trạng nhẹ hơn và bạn vẫn an toàn, mình có thể ở đây cùng bạn vài phút để giúp bạn chậm lại nhịp thở.",
-      riskLevel,
-      safetyWarning,
-      time: Number(((Date.now() - start) / 1000).toFixed(2)),
-    };
+  if (!cleanMessage) {
+    throw new Error("message is required");
   }
 
-  if (riskLevel === "high") {
+  const safetyResult = detectRisk(cleanMessage);
+  const safetyReply = getSafetyReply(safetyResult.safetyType);
+
+  /**
+   * Các nội dung nguy hiểm được xử lý ngay tại backend,
+   * không gửi tiếp sang model chat thông thường.
+   */
+  if (
+    safetyResult.riskLevel === RISK_LEVELS.EMERGENCY ||
+    safetyResult.riskLevel === RISK_LEVELS.HIGH
+  ) {
     return {
-      reply:
-        "Mình nghe thấy bạn đang ở trong một trạng thái rất nặng nề, và điều này cần được xem là nghiêm túc. Ngay lúc này, bạn có đang ở nơi an toàn không? Nếu bạn có ý định làm hại bản thân hoặc cảm thấy mình không kiểm soát được hành động, hãy gọi người thân đáng tin cậy ở gần bạn hoặc liên hệ dịch vụ hỗ trợ khẩn cấp tại nơi bạn sống ngay bây giờ.",
-      riskLevel,
-      safetyWarning,
-      time: Number(((Date.now() - start) / 1000).toFixed(2)),
+      reply: safetyReply || getFallbackReply(),
+      ...safetyResult,
+      time: createResponseTime(startTime),
     };
   }
 
@@ -117,10 +115,18 @@ async function callSoulAI(message) {
     throw new Error("Missing AI_SERVER_URL in environment variables");
   }
 
-  const aiUrl = `${process.env.AI_SERVER_URL.replace(/\/$/, "")}/chat`;
+  const baseUrl = process.env.AI_SERVER_URL.replace(/\/$/, "");
+  const aiUrl = `${baseUrl}/chat`;
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 120000);
+
+  const timeoutMilliseconds = Number(
+    process.env.SOUL_AI_TIMEOUT_MS || 120000
+  );
+
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, timeoutMilliseconds);
 
   try {
     const response = await fetch(aiUrl, {
@@ -129,7 +135,8 @@ async function callSoulAI(message) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        message,
+        message: cleanMessage,
+        systemPrompt: SYSTEM_PROMPT,
       }),
       signal: controller.signal,
     });
@@ -137,24 +144,36 @@ async function callSoulAI(message) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok) {
-      console.error("SOUL AI SPACE ERROR:", data);
-      throw new Error(data?.detail || data?.error || "Soul AI Space error");
+      console.error("SOUL AI SERVER ERROR:", {
+        status: response.status,
+        data,
+      });
+
+      throw new Error(
+        data?.detail ||
+          data?.error ||
+          data?.message ||
+          `Soul AI server failed with status ${response.status}`
+      );
     }
 
-    const reply = data?.reply || "";
+    const reply = String(
+      data?.reply ||
+        data?.response ||
+        data?.result ||
+        data?.text ||
+        ""
+    ).trim();
 
     return {
-      reply:
-        reply ||
-        "Mình đang hơi khó phản hồi rõ lúc này. Bạn có thể nói ngắn lại điều đang làm bạn nặng lòng nhất không?",
-      riskLevel,
-      safetyWarning,
-      time: Number(((Date.now() - start) / 1000).toFixed(2)),
+      reply: reply || getFallbackReply(),
+      ...safetyResult,
+      time: createResponseTime(startTime),
     };
   } catch (error) {
     console.error("CALL SOUL AI ERROR:", error);
 
-    if (error.name === "AbortError") {
+    if (error?.name === "AbortError") {
       throw new Error("Soul AI response timeout");
     }
 
@@ -165,7 +184,13 @@ async function callSoulAI(message) {
 }
 
 module.exports = {
+  SYSTEM_PROMPT,
   askSoulAI: callSoulAI,
   callSoulAI,
+
+  getEmergencyReply,
+  getSelfHarmReply,
+  getViolenceReply,
+
   detectRisk,
 };
