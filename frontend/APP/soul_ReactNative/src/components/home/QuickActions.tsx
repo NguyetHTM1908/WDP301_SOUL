@@ -6,7 +6,14 @@ import { styles } from "@/styles/home.styles";
 const features = [
   ["brain", "AI Companion", "Emotion-aware chat", "#D8F8EC", "#009688", "/ai-chat"],
   ["book-outline", "Diary", "Private reflection", "#DFF1FF", "#2196F3", ""],
-  ["head-heart-outline", "Emotional Test", "Check your state", "#E1F9E8", "#2BC56D", ""],
+  [
+    "head-heart-outline",
+    "Emotional Test",
+    "Check your state",
+    "#E1F9E8",
+    "#2BC56D",
+    "/emotional-test",
+  ],
   ["calendar-month-outline", "Events", "Healing workshop", "#FFF1E2", "#FF7A00", ""],
 ];
 

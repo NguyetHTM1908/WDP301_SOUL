@@ -1,13 +1,218 @@
-const axios = require("axios");
+const SYSTEM_PROMPT = `
+Bạn là Soul AI — người bạn đồng hành cảm xúc của nền tảng SOUL.
 
-const askSoulAI = async (message) => {
-  const response = await axios.post(
-    "http://localhost:8001/chat",
-    { message },
-    { timeout: 120000 }
-  );
+Vai trò của bạn là AI Emotional Companion, không phải bác sĩ, chuyên gia tâm lý hay therapist.
+Bạn không chẩn đoán, không kê thuốc, không kết luận người dùng mắc bệnh.
+Bạn chỉ lắng nghe, phản chiếu cảm xúc, giúp người dùng chậm lại và nhìn rõ điều đang xảy ra trong lòng mình.
 
-  return response.data.reply;
+Phong cách trả lời:
+- Luôn dùng tiếng Việt tự nhiên, đời thường.
+- Xưng là "mình", gọi người dùng là "bạn".
+- Giọng ấm áp, trưởng thành, chân thành.
+- Trả lời như một người bạn đang lắng nghe, không như chatbot tư vấn.
+- Ưu tiên phản chiếu cảm xúc hơn là đưa lời khuyên.
+- Không vội giải pháp ở câu đầu.
+- Không đánh số, không bullet point.
+- Không dùng "tôi".
+- Không mô tả cảm xúc của chính Soul AI.
+- Kết thúc bằng tối đa 1 câu hỏi gợi mở cụ thể.
+
+Không được nói:
+"Rất tiếc vì điều này."
+"Mọi chuyện sẽ ổn."
+"Hãy cố lên."
+"Bạn không một mình."
+"Tôi hiểu hoàn toàn cảm giác của bạn."
+"Hy vọng thông tin này hữu ích."
+"Mình cũng từng..."
+"Mình cảm thấy..."
+"Mình nghĩ..."
+"Mình thấy mình..."
+"Mình cũng lo..."
+"Bạn có muốn cùng..."
+"Chúng ta cùng..."
+
+Không dùng tiếng Anh hoặc từ lóng:
+heal, toxic, trigger, overthinking, negative energy, vibe.
+`;
+
+const SELF_HARM_KEYWORDS = [
+  "muốn chết",
+  "tự tử",
+  "không muốn sống",
+  "chết đi",
+  "cắt tay",
+  "uống thuốc",
+  "tự làm đau",
+  "kết thúc cuộc đời",
+  "biến mất mãi mãi",
+  "muốn biến mất",
+  "không còn lý do sống",
+  "i want to die",
+  "suicide",
+];
+
+const MEDICAL_EMERGENCY_KEYWORDS = [
+  "khó thở",
+  "khong tho",
+  "không thở được",
+  "khong tho duoc",
+  "đau ngực",
+  "dau nguc",
+  "ngất",
+  "sắp ngất",
+  "sap ngat",
+  "chóng mặt dữ dội",
+];
+
+function detectRisk(message = "") {
+  const msg = message.toLowerCase();
+
+  if (MEDICAL_EMERGENCY_KEYWORDS.some((keyword) => msg.includes(keyword))) {
+    return {
+      riskLevel: "emergency",
+      safetyWarning: true,
+    };
+  }
+
+  if (SELF_HARM_KEYWORDS.some((keyword) => msg.includes(keyword))) {
+    return {
+      riskLevel: "high",
+      safetyWarning: true,
+    };
+  }
+
+  return {
+    riskLevel: "low",
+    safetyWarning: false,
+  };
+}
+
+function buildPrompt(message) {
+  const userPrompt = `
+Người dùng vừa chia sẻ:
+"${message}"
+
+Hãy trả lời như Soul AI.
+
+Yêu cầu bắt buộc:
+- Trả lời từ 120 đến 180 từ.
+- Từ 4 đến 7 câu.
+- Không bullet point.
+- Không đánh số.
+- Không mở đầu bằng câu hỏi.
+- Không dùng "tôi".
+- Luôn xưng "mình", gọi người dùng là "bạn".
+- Không nói về cảm xúc hoặc trải nghiệm của Soul AI.
+- Đồng cảm và phản chiếu cảm xúc trước.
+- Chỉ đưa 1 gợi ý nhỏ nếu thật sự phù hợp.
+- Kết thúc bằng tối đa 1 câu hỏi gợi mở cụ thể.
+`;
+
+  return `<|im_start|>system
+${SYSTEM_PROMPT}
+<|im_end|>
+<|im_start|>user
+${userPrompt}
+<|im_end|>
+<|im_start|>assistant
+`;
+}
+
+function cleanReply(text = "", prompt = "") {
+  let reply = text;
+
+  if (reply.includes(prompt)) {
+    reply = reply.replace(prompt, "");
+  }
+
+  reply = reply
+    .replace(/<\|im_start\|>assistant/g, "")
+    .replace(/<\|im_end\|>/g, "")
+    .replace(/<\|endoftext\|>/g, "")
+    .trim();
+
+  return reply;
+}
+
+async function callSoulAI(message) {
+  const start = Date.now();
+
+  const { riskLevel, safetyWarning } = detectRisk(message);
+
+  if (riskLevel === "emergency") {
+    return {
+      reply:
+        "Mình nghe bạn nói đang có dấu hiệu cơ thể đáng lo, nên mình muốn ưu tiên an toàn trước. Nếu bạn đang khó thở nhiều, đau ngực, chóng mặt, sắp ngất hoặc cảm thấy nguy hiểm, hãy gọi cấp cứu hoặc nhờ người gần bạn hỗ trợ ngay. Nếu tình trạng nhẹ hơn và bạn vẫn an toàn, mình có thể ở đây cùng bạn vài phút để giúp bạn chậm lại nhịp thở.",
+      riskLevel,
+      safetyWarning,
+      time: Number(((Date.now() - start) / 1000).toFixed(2)),
+    };
+  }
+
+  if (riskLevel === "high") {
+    return {
+      reply:
+        "Mình nghe thấy bạn đang ở trong một trạng thái rất nặng nề, và điều này cần được xem là nghiêm túc. Ngay lúc này, bạn có đang ở nơi an toàn không? Nếu bạn có ý định làm hại bản thân hoặc cảm thấy mình không kiểm soát được hành động, hãy gọi người thân đáng tin cậy ở gần bạn hoặc liên hệ dịch vụ hỗ trợ khẩn cấp tại nơi bạn sống ngay bây giờ.",
+      riskLevel,
+      safetyWarning,
+      time: Number(((Date.now() - start) / 1000).toFixed(2)),
+    };
+  }
+
+  const prompt = buildPrompt(message);
+
+  const response = await fetch(process.env.AI_SERVER_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.HF_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      inputs: prompt,
+      parameters: {
+        temperature: 0.7,
+        top_p: 0.9,
+        max_new_tokens: 300,
+        repetition_penalty: 1.12,
+        do_sample: true,
+        return_full_text: false,
+      },
+    }),
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    console.error("HF ERROR:", data);
+    throw new Error(data?.error || "Hugging Face endpoint error");
+  }
+
+  let generatedText = "";
+
+  if (Array.isArray(data)) {
+    generatedText = data[0]?.generated_text || "";
+  } else {
+    generatedText =
+      data?.generated_text ||
+      data?.[0]?.generated_text ||
+      data?.choices?.[0]?.text ||
+      "";
+  }
+
+  const reply = cleanReply(generatedText, prompt);
+
+  return {
+    reply:
+      reply ||
+      "Mình đang hơi khó phản hồi rõ lúc này. Bạn có thể nói ngắn lại điều đang làm bạn nặng lòng nhất không?",
+    riskLevel,
+    safetyWarning,
+    time: Number(((Date.now() - start) / 1000).toFixed(2)),
+  };
+}
+
+module.exports = {
+  callSoulAI,
+  detectRisk,
 };
-
-module.exports = { askSoulAI };

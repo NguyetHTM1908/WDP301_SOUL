@@ -18,7 +18,10 @@ const journalRoutes = require("./src/routes/journalRoutes");
 const eventRoutes = require("./src/routes/eventRoutes");
 const tagRoutes = require("./src/routes/tagRoutes");
 const app = express();
-const aiRoutes = require("./src/routes/aiRoutes");
+const aiChatRoutes = require("./src/routes/aiRoutes");
+const emotionalTestRoutes = require("./src/routes/emotionalTest.routes");
+
+
 
 connectDB();
 
@@ -37,8 +40,9 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/admin/forum", adminForumRoutes);
 app.use("/api/journals", journalRoutes);
 app.use("/api/events", eventRoutes);
-app.use("/api/ai", aiRoutes);
+app.use("/api/ai", aiChatRoutes);
 app.use("/api/tags", tagRoutes);
+app.use("/api/emotional-tests", emotionalTestRoutes);
 
 app.get("/", (req, res) => {
   res.status(200).json({
