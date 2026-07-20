@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import type { ReportReason } from "@/api/forumApi";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -402,15 +403,39 @@ export default function ForumScreen() {
 
       if (isApiSuccess(res)) {
         const data = res?.data;
+
+        const imageModeration =
+          res?.imageModeration ||
+          data?.imageModeration;
+
+        const imageNeedsReview =
+          imageModeration?.needsAdminReview === true ||
+          imageModeration?.status === "review_required" ||
+          imageModeration?.status === "blocked";
+
+        const imageCheckFailed =
+          imageModeration?.status === "failed";
+
         const isFlagged =
           data?.isFlagged === true ||
-          res?.moderation?.isViolationSuspected === true;
+          res?.moderation?.isViolationSuspected === true ||
+          res?.moderation?.needsAdminReview === true ||
+          imageNeedsReview;
+
+        let alertMessage =
+          "Bài viết của bạn đã xuất hiện trong cộng đồng.";
+
+        if (isFlagged) {
+          alertMessage =
+            "SOUL AI phát hiện nội dung cần xem xét và đã chuyển bài viết đến quản trị viên.";
+        } else if (imageCheckFailed) {
+          alertMessage =
+            "Bài viết đã được đăng. Hệ thống chưa thể kiểm tra hình ảnh tự động.";
+        }
 
         Alert.alert(
           editingPost ? "Đã cập nhật bài viết" : "Bài viết đã được đăng 🌿",
-          isFlagged
-            ? "SOUL AI phát hiện nội dung nhạy cảm và đã gửi cho quản trị viên xem xét. Bài viết của bạn có thể bị giới hạn hiển thị trong khi chờ xử lý."
-            : "Bài viết của bạn đã xuất hiện trong cộng đồng. SOUL AI vẫn có thể kiểm tra để giữ không gian an toàn."
+          alertMessage
         );
 
         setShowCreate(false);
@@ -672,8 +697,11 @@ export default function ForumScreen() {
     setReportTarget({ type, id });
   };
 
-  const submitReport = async (reason: string, description: string) => {
-    if (!token || !reportTarget) return;
+const submitReport = async (
+  reason: ReportReason,
+  description: string
+) => {
+      if (!token || !reportTarget) return;
 
     try {
       await createReport({
