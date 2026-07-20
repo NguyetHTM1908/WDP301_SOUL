@@ -10,6 +10,8 @@ import { router } from "expo-router";
 import { useAuthStore } from "@/store";
 import { styles } from "@/styles/home.styles";
 import { AvatarFallback } from "../profile/AvatarFallback";
+import { useState, useEffect, useRef } from "react";
+import { getUnreadCount } from "@/api/messageApi";
 
 type Props = {
   showSidebar: boolean;
@@ -26,9 +28,34 @@ export function HomeHeader({
   onToggleProfileMenu,
   onCloseProfileMenu,
 }: Props) {
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
 
   const greetingName = user ? user.fullName.split(" ")[0] : "Vy";
+
+  // Polling unread message count
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    const fetchUnread = async () => {
+      if (!token) return;
+      try {
+        const res = await getUnreadCount(token);
+        if (res?.success) {
+          setUnreadMsgCount(res.count || 0);
+        }
+      } catch (e) {
+        // silent
+      }
+    };
+
+    fetchUnread();
+    pollingRef.current = setInterval(fetchUnread, 10000);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
+  }, [token]);
 
   return (
     <View style={styles.header}>
@@ -51,6 +78,25 @@ export function HomeHeader({
       </View>
 
       <View style={styles.headerRight}>
+        {/* Nút tin nhắn */}
+        <TouchableOpacity
+          style={styles.bellWrap}
+          onPress={() => router.push("/messages/conversations" as any)}
+        >
+          <MaterialCommunityIcons
+            name="message-text-outline"
+            size={28}
+            color="#005F56"
+          />
+          {unreadMsgCount > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>
+                {unreadMsgCount > 99 ? "99+" : unreadMsgCount}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
         <View style={styles.bellWrap}>
           <MaterialCommunityIcons
             name="bell-outline"
@@ -98,6 +144,8 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
     } else if (text === "Chỉnh sửa hồ sơ") {
       // Mở modal Edit Profile — render ở tầng root (index.tsx)
       onEditProfile();
+    } else if (text === "Tin nhắn") {
+      router.push("/messages/conversations" as any);
     }
   };
 
@@ -131,6 +179,7 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
         {[
           ["account-outline", "Hồ sơ của tôi"],
           ["pencil-outline", "Chỉnh sửa hồ sơ"],
+          ["message-text-outline", "Tin nhắn"],
           ["trophy-outline", "Thành tích"],
           ["bell-outline", "Lời nhắc"],
           ["logout", "Đăng xuất"],
@@ -140,13 +189,13 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
             onPress={() => handleActionPress(text)}
             style={[
               styles.profileAction,
-              index === 4 && styles.profileLogout,
+              index === 5 && styles.profileLogout,
             ]}
           >
             <MaterialCommunityIcons
               name={icon as any}
               size={22}
-              color={index === 4 ? "#FF6B6B" : "#214B5B"}
+              color={index === 5 ? "#FF6B6B" : "#214B5B"}
             />
             <Text style={styles.profileActionText}>{text}</Text>
           </TouchableOpacity>
