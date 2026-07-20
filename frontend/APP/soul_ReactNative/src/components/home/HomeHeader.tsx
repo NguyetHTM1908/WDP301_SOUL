@@ -12,6 +12,7 @@ import { styles } from "@/styles/home.styles";
 import { AvatarFallback } from "../profile/AvatarFallback";
 import { useState, useEffect, useRef } from "react";
 import { getUnreadCount } from "@/api/messageApi";
+import { useNotif } from "@/components/notification/NotificationProvider";
 
 type Props = {
   showSidebar: boolean;
@@ -32,7 +33,7 @@ export function HomeHeader({
 
   const greetingName = user ? user.fullName.split(" ")[0] : "Vy";
 
-  // Polling unread message count
+  // Tin nhắn chưa đọc (tự poll)
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -56,6 +57,9 @@ export function HomeHeader({
       if (pollingRef.current) clearInterval(pollingRef.current);
     };
   }, [token]);
+
+  // Số thông báo chưa đọc từ NotificationProvider
+  const { unreadCount: notifUnreadCount } = useNotif();
 
   return (
     <View style={styles.header}>
@@ -98,14 +102,23 @@ export function HomeHeader({
         </TouchableOpacity>
 
         <View style={styles.bellWrap}>
-          <MaterialCommunityIcons
-            name="bell-outline"
-            size={32}
-            color="#005F56"
-          />
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>3</Text>
-          </View>
+          <TouchableOpacity
+            style={styles.bellWrap}
+            onPress={() => router.push("/notifications" as any)}
+          >
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={32}
+              color="#005F56"
+            />
+            {notifUnreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>
+                  {notifUnreadCount > 99 ? "99+" : notifUnreadCount}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Bấm Avatar để hiển thị menu hồ sơ (menu render ở tầng root) */}
