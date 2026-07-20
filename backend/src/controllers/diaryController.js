@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 const Diary = require("../models/Diary");
-const AiAnalysis = require("../models/AiAnalysis");
+const AiAnalysis = require("../models/AIAnalysis");
 const UserEmotionProfile = require("../models/UserEmotionProfile");
 const User = require("../models/User");
 const emotionAnalysisService = require("../services/emotionAnalysisService");
