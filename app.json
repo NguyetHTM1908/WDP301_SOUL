@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "a03bb005-256f-4075-a595-feeb48128234"
+      }
+    },
+    "android": {
+      "package": "com.lethanhdat2306.wdp301_soul"
+    }
+  }
+}
