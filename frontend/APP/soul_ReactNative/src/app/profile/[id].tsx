@@ -37,6 +37,7 @@ import {
   deleteComment,
   reactToComment,
   createReport,
+  type ReportReason,
 } from "@/api/forumApi";
 
 import { PostCard } from "@/components/forum/PostCard";
@@ -490,7 +491,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const submitReport = async (reason: string, description: string) => {
+  const submitReport = async (reason: ReportReason, description: string) => {
     if (!token || !reportTarget) return;
     try {
       await createReport({

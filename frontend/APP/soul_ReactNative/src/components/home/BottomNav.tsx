@@ -2,16 +2,21 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import { styles } from "@/styles/home.styles";
-
-const navItems = [
-  { icon: "home", label: "Home", route: "/" },
-  { icon: "chart-line", label: "Track", route: null },
-  { icon: "plus", label: "", route: "/forum" },
-  { icon: "account-group-outline", label: "Community", route: "/forum" },
-  { icon: "account-outline", label: "Profile", route: null },
-];
+import { useAuthStore } from "@/store";
 
 export function BottomNav() {
+  const user = useAuthStore((state: any) => state.user);
+
+  const profileRoute = user?._id || user?.id ? `/profile/${user._id || user.id}` : "/profile/me";
+
+  const navItems = [
+    { icon: "home", label: "Home", route: "/" },
+    { icon: "chart-line", label: "Track", route: null },
+    { icon: "plus", label: "", route: "/forum" },
+    { icon: "account-group-outline", label: "Community", route: "/forum" },
+    { icon: "account-outline", label: "Profile", route: profileRoute },
+  ];
+
   const handlePress = (route: string | null) => {
     if (route) {
       router.push(route as any);
