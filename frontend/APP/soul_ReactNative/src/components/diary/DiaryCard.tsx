@@ -41,7 +41,9 @@ export const DiaryCard: React.FC<DiaryCardProps> = ({
 
           <View style={[s.diaryHeaderInfo, { marginRight: 80 }]}>
             <View style={s.diaryTitleRow}>
-              <Text style={s.diaryMood}>{moodInfo.label}</Text>
+              <Text style={s.diaryMood}>
+                {item?.mentalHealth?.displayStatusLabel || moodInfo.label}
+              </Text>
             </View>
 
             <Text style={s.diaryDate}>
@@ -51,21 +53,21 @@ export const DiaryCard: React.FC<DiaryCardProps> = ({
         </View>
 
         <View style={s.scoreRow}>
-          <Text style={s.scoreLabel}>Mood score</Text>
+          <Text style={s.scoreLabel}>Mental Health Score</Text>
 
           <View style={s.scoreBar}>
             <View
               style={[
                 s.scoreBarFill,
                 {
-                  width: `${Math.min(Math.max(item?.moodScore || 1, 1), 10) * 10}%`,
+                  width: `${Math.min(Math.max(item?.finalMentalScore ?? item?.moodScore ?? 0, 0), 100)}%`,
                   backgroundColor: moodInfo.color,
                 },
               ]}
             />
           </View>
 
-          <Text style={s.scoreValue}>{item?.moodScore || 0}/10</Text>
+          <Text style={s.scoreValue}>{item?.finalMentalScore ?? item?.moodScore ?? 0}/100</Text>
         </View>
 
         {item?.note ? (
