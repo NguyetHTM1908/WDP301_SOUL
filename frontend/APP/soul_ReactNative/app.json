@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "soul_ReactNative",
-    "slug": "soul_ReactNative",
+    "name": "SOUL",
+    "slug": "soul-react-native",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -9,9 +9,12 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wdp301.soul"
     },
     "android": {
+      "package": "com.wdp301.soul",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -39,11 +42,18 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "85d3d9ef-96c5-4e35-aee3-8c4d876a73ee"
+      }
     }
   }
 }
