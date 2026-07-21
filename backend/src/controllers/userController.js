@@ -3,6 +3,7 @@ const Post = require("../models/Post");
 const UserEmotionProfile = require("../models/UserEmotionProfile");
 const Friendship = require("../models/Friendship");
 const FriendRequest = require("../models/FriendRequest");
+const { createNotification } = require("../services/notificationService");
 
 // Lấy thông tin chi tiết một người dùng (chỉ người dùng có role là 'user' mới có trang cá nhân)
 exports.getUserProfile = async (req, res) => {
@@ -432,6 +433,16 @@ exports.friendshipAction = async (req, res) => {
         },
         { upsert: true, new: true }
       );
+      // Tạo thông báo cho người nhận lời mời kết bạn
+      const senderUser = await User.findById(currentUserId).select("fullName");
+      createNotification(
+        targetUserId,
+        "friend_request",
+        "Lời mời kết bạn mới",
+        `${senderUser?.fullName || "Ai đó"} đã gửi lời mời kết bạn với bạn.`,
+        { type: "user", id: currentUserId }
+      );
+
       return res.status(200).json({
         success: true,
         message: "Đã gửi lời mời kết bạn.",
@@ -484,6 +495,16 @@ exports.friendshipAction = async (req, res) => {
           $setOnInsert: { createdAt: new Date() }
         },
         { upsert: true }
+      );
+
+      // Tạo thông báo cho người gửi lời mời ban đầu (giờ đã được chấp nhận)
+      const accepterUser = await User.findById(currentUserId).select("fullName");
+      createNotification(
+        targetUserId,
+        "friend_accepted",
+        "Lời mời kết bạn đã được chấp nhận",
+        `${accepterUser?.fullName || "Ai đó"} đã chấp nhận lời mời kết bạn của bạn. Hai bạn giờ là bạn bè! 🎉`,
+        { type: "user", id: currentUserId }
       );
 
       return res.status(200).json({

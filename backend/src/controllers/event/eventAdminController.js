@@ -1,4 +1,5 @@
 const Event = require("../../models/Event");
+const { createNotification } = require("../../services/notificationService");
 const {
   isAdmin,
   isValidObjectId,
@@ -231,6 +232,17 @@ async function approveEvent(req, res) {
 
     await event.save();
 
+    // Thông báo cho người tạo sự kiện
+    if (event.createdBy) {
+      createNotification(
+        event.createdBy._id || event.createdBy,
+        "event_approved",
+        "✅ Sự kiện được phê duyệt",
+        `Sự kiện "${event.title}" của bạn đã được admin phê duyệt và đang mở đăng ký!`,
+        { type: "event", id: event._id }
+      );
+    }
+
     return res.status(200).json({
       success: true,
       message: "Duyệt event thành công. Event đã public cho user đăng ký.",
@@ -288,6 +300,15 @@ async function rejectEvent(req, res) {
     event.approvedAt = null;
 
     await event.save();
+
+    // Thông báo cho người tạo sự kiện
+    createNotification(
+      event.createdBy,
+      "event_rejected",
+      "❌ Sự kiện bị từ chối",
+      `Sự kiện "${event.title}" đã bị từ chối. Lý do: ${reason}`,
+      { type: "event", id: event._id }
+    );
 
     return res.status(200).json({
       success: true,
