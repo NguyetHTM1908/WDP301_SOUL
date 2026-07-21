@@ -108,13 +108,14 @@ export function ProfileHeader({
                 </View>
               </View>
               
-              {/* Cột 2: Nút hành động */}
+              {/* Cột 2: Nút hành động kết bạn + nhắn tin */}
               {friendshipStatus !== "self" && friendshipStatus !== "loading" && (
-                <View style={{ flex: 1, alignItems: "center" }}>
+                <View style={{ flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  {/* Nút kết bạn */}
                   <TouchableOpacity
                     style={[
                       s.friendActionMiniButton,
-                      { marginLeft: 0, width: "85%", height: 38 },
+                      { marginLeft: 0, flex: 1, height: 38 },
                       friendshipStatus === "friends"
                         ? { backgroundColor: "#FEE2E2", borderColor: "#FCA5A5", borderWidth: 1 }
                         : friendshipStatus === "pending_sent"
@@ -163,6 +164,34 @@ export function ProfileHeader({
                         : friendshipStatus === "pending_received"
                         ? "Xác nhận"
                         : "Hủy kết bạn"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {/* Nút nhắn tin */}
+                  <TouchableOpacity
+                    style={[
+                      s.friendActionMiniButton,
+                      { marginLeft: 0, flex: 1, height: 38, backgroundColor: "#0284C7" }
+                    ]}
+                    onPress={() => {
+                      router.push({
+                        pathname: "/messages/chat",
+                        params: {
+                          userId: userProfile?._id || userProfile?.id,
+                          userName: userProfile?.fullName || "Người dùng",
+                          userAvatar: userProfile?.avatarUrl || "",
+                        },
+                      } as any);
+                    }}
+                  >
+                    <MaterialCommunityIcons
+                      name="message-text"
+                      size={16}
+                      color="#FFFFFF"
+                      style={{ marginRight: 4 }}
+                    />
+                    <Text style={[s.friendActionMiniText, { color: "#FFFFFF" }]}>
+                      Nhắn tin
                     </Text>
                   </TouchableOpacity>
                 </View>

@@ -1,4 +1,6 @@
 const Event = require("../../models/Event");
+const { createNotification } = require("../../services/notificationService");
+const User = require("../../models/User");
 const {
   ADMIN_REGISTRATION_FILTERS,
   REGISTRATION_STATUSES,
@@ -189,8 +191,19 @@ async function registerEvent(req, res) {
     }
 
     syncRegisteredCount(event);
-
     await event.save();
+
+    // Thông báo cho người tổ chức sự kiện
+    if (event.createdBy && event.createdBy.toString() !== userId.toString()) {
+      const registrant = await User.findById(userId).select("fullName");
+      createNotification(
+        event.createdBy,
+        "event_registered",
+        "🎉 Có người đăng ký sự kiện",
+        `${registrant?.fullName || "Một người dùng"} vừa đăng ký tham gia sự kiện "${event.title}" của bạn.`,
+        { type: "event", id: event._id }
+      );
+    }
 
     return res.status(200).json({
       success: true,

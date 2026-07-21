@@ -12,6 +12,7 @@ import { EventCard } from "@/components/home/EventCard";
 import { BottomNav } from "@/components/home/BottomNav";
 import { Sidebar } from "@/components/home/Sidebar";
 import { ProfileModals } from "@/components/home/ProfileModals";
+import { NotificationProvider } from "@/components/notification/NotificationProvider";
 
 export default function HomeScreen() {
   const [showSidebar, setShowSidebar] = useState(false);
@@ -22,55 +23,57 @@ export default function HomeScreen() {
   const [showEditProfile, setShowEditProfile] = useState(false);
 
   return (
-    <View style={styles.page}>
-      {showSidebar ? (
-        <Sidebar onClose={() => setShowSidebar(false)} />
-      ) : null}
+    <NotificationProvider>
+      <View style={styles.page}>
+        {showSidebar ? (
+          <Sidebar onClose={() => setShowSidebar(false)} />
+        ) : null}
 
-      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
-        <HomeHeader
-          showSidebar={showSidebar}
-          onToggleSidebar={() => setShowSidebar((prev) => !prev)}
-          showProfileMenu={showProfileMenu}
-          onToggleProfileMenu={() => setShowProfileMenu(!showProfileMenu)}
-          onCloseProfileMenu={() => setShowProfileMenu(false)}
+        <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
+          <HomeHeader
+            showSidebar={showSidebar}
+            onToggleSidebar={() => setShowSidebar((prev) => !prev)}
+            showProfileMenu={showProfileMenu}
+            onToggleProfileMenu={() => setShowProfileMenu(!showProfileMenu)}
+            onCloseProfileMenu={() => setShowProfileMenu(false)}
+          />
+
+          <DailyMotivation />
+          <QuickActions />
+
+          <View style={styles.row}>
+            <MoodAnalytics />
+            <WeeklyInsight />
+          </View>
+
+          <View style={styles.row}>
+            <CommunityPreview />
+            <EventCard />
+          </View>
+
+          <BottomNav />
+        </ScrollView>
+
+        {/* Dropdown profile render ở tầng root — không bị ScrollView hay header clip */}
+        {showProfileMenu && (
+          <ProfileDropdown
+            onClose={() => setShowProfileMenu(false)}
+            onEditProfile={() => {
+              setShowProfileMenu(false);
+              setShowEditProfile(true);
+            }}
+          />
+        )}
+
+        {/* ProfileModals render ở root — không bị clip, truy cập được từ dropdown */}
+        <ProfileModals
+          showMyProfile={showMyProfile}
+          onCloseMyProfile={() => setShowMyProfile(false)}
+          showEditProfile={showEditProfile}
+          onCloseEditProfile={() => setShowEditProfile(false)}
+          onOpenEditProfile={() => setShowEditProfile(true)}
         />
-
-        <DailyMotivation />
-        <QuickActions />
-
-        <View style={styles.row}>
-          <MoodAnalytics />
-          <WeeklyInsight />
-        </View>
-
-        <View style={styles.row}>
-          <CommunityPreview />
-          <EventCard />
-        </View>
-
-        <BottomNav />
-      </ScrollView>
-
-      {/* Dropdown profile render ở tầng root — không bị ScrollView hay header clip */}
-      {showProfileMenu && (
-        <ProfileDropdown
-          onClose={() => setShowProfileMenu(false)}
-          onEditProfile={() => {
-            setShowProfileMenu(false);
-            setShowEditProfile(true);
-          }}
-        />
-      )}
-
-      {/* ProfileModals render ở root — không bị clip, truy cập được từ dropdown */}
-      <ProfileModals
-        showMyProfile={showMyProfile}
-        onCloseMyProfile={() => setShowMyProfile(false)}
-        showEditProfile={showEditProfile}
-        onCloseEditProfile={() => setShowEditProfile(false)}
-        onOpenEditProfile={() => setShowEditProfile(true)}
-      />
-    </View>
+      </View>
+    </NotificationProvider>
   );
 }
