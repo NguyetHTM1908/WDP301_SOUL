@@ -3,24 +3,35 @@ import { router } from "expo-router";
 import { Text, TouchableOpacity, View } from "react-native";
 import { styles } from "@/styles/home.styles";
 
+import { useAuthStore } from "@/store";
+
 type SidebarProps = {
   onClose?: () => void;
 };
 
-const menuItems = [
-  { icon: "home", label: "Trang chủ", route: "/(tabs)" },
-  { icon: "brain", label: "Bạn đồng hành AI" },
-  { icon: "book-outline", label: "Nhật ký", route: "/diary" },
-  { icon: "heart-pulse", label: "Kiểm tra cảm xúc", route: "/emotional-test" },
-  { icon: "calendar-month-outline", label: "Sự kiện", route: "/user-events" },
-  { icon: "chart-line", label: "Phân tích cảm xúc" },
-  { icon: "emoticon-happy-outline", label: "Theo dõi tâm trạng" },
-  { icon: "account-group-outline", label: "Cộng đồng", route: "/(tabs)/forum" },
-  { icon: "cog-outline", label: "Cài đặt" },
-  { icon: "help-circle-outline", label: "Trợ giúp & hỗ trợ" },
-];
-
 export function Sidebar({ onClose }: SidebarProps) {
+  const user = useAuthStore((state: any) => state.user);
+  const userRole = String(user?.role || "").trim().toLowerCase();
+  const homeRoute =
+    userRole === "admin" || userRole === "administrator"
+      ? "/(admin)"
+      : userRole === "event_organizer" || userRole === "organizer" || userRole === "event-organizer"
+      ? "/(organizer)"
+      : "/(tabs)";
+
+  const menuItems = [
+    { icon: "home", label: "Trang chủ", route: homeRoute },
+    { icon: "brain", label: "Bạn đồng hành AI" },
+    { icon: "book-outline", label: "Nhật ký", route: "/diary" },
+    { icon: "heart-pulse", label: "Kiểm tra cảm xúc", route: "/emotional-test" },
+    { icon: "calendar-month-outline", label: "Sự kiện", route: "/user-events" },
+    { icon: "chart-line", label: "Phân tích cảm xúc" },
+    { icon: "emoticon-happy-outline", label: "Theo dõi tâm trạng" },
+    { icon: "account-group-outline", label: "Cộng đồng", route: "/(tabs)/forum" },
+    { icon: "cog-outline", label: "Cài đặt" },
+    { icon: "help-circle-outline", label: "Trợ giúp & hỗ trợ" },
+  ];
+
   const handleMenuPress = (route?: string) => {
     if (route) {
       router.push(route as any);

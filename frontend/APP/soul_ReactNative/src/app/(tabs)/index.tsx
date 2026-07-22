@@ -44,11 +44,10 @@ export default function HomeScreen() {
         {/* 2. Nội dung cuộn ở giữa */}
         <ScrollView
           style={{ flex: 1, paddingHorizontal: 18 }}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: 90 }}
+          contentContainerStyle={{ paddingTop: 6, paddingBottom: 20 }}
           showsVerticalScrollIndicator={false}
         >
           <DailyMotivation />
-          <DiaryPromptCard />
           <QuickActions />
 
           <View style={styles.row}>

@@ -12,6 +12,8 @@ import { LinearGradient } from "expo-linear-gradient";
 import TestOptionCard from "../../components/emotional-test/TestOptionCard";
 import { router } from "expo-router";
 
+import { useAuthStore } from "@/store";
+
 const GREEN = "#2FBF71";
 const GREEN_DARK = "#1F9D5C";
 const TEXT_DARK = "#1D1B38";
@@ -21,6 +23,23 @@ type Props = {
 };
 
 export default function EmotionalTestMainScreen({ navigation }: Props) {
+  const user = useAuthStore((state: any) => state.user);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      const role = String(user?.role || "").trim().toLowerCase();
+      if (role === "admin" || role === "administrator") {
+        router.replace("/(admin)" as any);
+      } else if (role === "event_organizer" || role === "organizer" || role === "event-organizer") {
+        router.replace("/(organizer)" as any);
+      } else {
+        router.replace("/(tabs)" as any);
+      }
+    }
+  };
+
   const goToAssessment = (testId?: string) => {
     router.push({
       pathname: "/emotional-test/assessment" as any,
@@ -35,7 +54,7 @@ export default function EmotionalTestMainScreen({ navigation }: Props) {
           <View style={styles.header}>
             <TouchableOpacity
               style={styles.backHomeButton}
-              onPress={() => router.replace("/(tabs)" as any)}
+              onPress={handleBack}
             >
               <Text style={styles.backHomeText}>‹</Text>
             </TouchableOpacity>
