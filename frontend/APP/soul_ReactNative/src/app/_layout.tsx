@@ -19,7 +19,9 @@ export default function RootLayout() {
     pathname.includes("/onboarding") ||
     pathname.includes("/splash") ||
     pathname.includes("/(admin)") ||
-    pathname.includes("/(organizer)");
+    pathname.includes("/(organizer)") ||
+    pathname.includes("/messages") ||
+    pathname.includes("/ai-chat");
 
   return (
     <NotificationProvider>
