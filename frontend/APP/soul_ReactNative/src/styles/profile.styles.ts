@@ -10,7 +10,7 @@ export const profileStyles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingBottom: 40,
+    paddingBottom: 95,
   },
   loadingContainer: {
     flex: 1,

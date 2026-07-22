@@ -182,6 +182,7 @@ export default function DiaryScreen() {
 
   const visibleDiaries = useMemo(() => diaries, [diaries]);
 
+
   const resetForm = () => {
     setEditingDiary(null);
     setMood("neutral");
