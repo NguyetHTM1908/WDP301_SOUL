@@ -8,14 +8,14 @@ type SidebarProps = {
 };
 
 const menuItems = [
-  { icon: "home", label: "Trang chủ", route: "/(tabs)" },
+  { icon: "home", label: "Trang chủ", route: "/" },
   { icon: "brain", label: "Bạn đồng hành AI" },
   { icon: "book-outline", label: "Nhật ký", route: "/diary" },
   { icon: "heart-pulse", label: "Kiểm tra cảm xúc", route: "/emotional-test" },
   { icon: "calendar-month-outline", label: "Sự kiện", route: "/user-events" },
   { icon: "chart-line", label: "Phân tích cảm xúc" },
   { icon: "emoticon-happy-outline", label: "Theo dõi tâm trạng" },
-  { icon: "account-group-outline", label: "Cộng đồng", route: "/(tabs)/forum" },
+  { icon: "account-group-outline", label: "Cộng đồng", route: "/forum" },
   { icon: "cog-outline", label: "Cài đặt" },
   { icon: "help-circle-outline", label: "Trợ giúp & hỗ trợ" },
 ];

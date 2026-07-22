@@ -76,7 +76,6 @@ function formatDate(value?: string) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
-    timeZone: "Asia/Ho_Chi_Minh",
   });
 }
 
@@ -90,7 +89,6 @@ function formatTime(value?: string) {
   return date.toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
-    timeZone: "Asia/Ho_Chi_Minh",
   });
 }
 
@@ -181,7 +179,6 @@ export default function DiaryScreen() {
   }, [filter]);
 
   const visibleDiaries = useMemo(() => diaries, [diaries]);
-
 
   const resetForm = () => {
     setEditingDiary(null);

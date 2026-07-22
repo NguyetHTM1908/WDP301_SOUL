@@ -92,14 +92,3 @@ export async function friendshipAction(
   });
   return handleResponse(res);
 }
-
-export async function searchUsers(token: string, q: string) {
-  const res = await fetch(
-    `${API_BASE_URL}/users/search?q=${encodeURIComponent(q)}`,
-    {
-      method: "GET",
-      headers: authHeaders(token),
-    }
-  );
-  return handleResponse(res);
-}

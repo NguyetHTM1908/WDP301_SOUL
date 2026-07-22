@@ -37,7 +37,6 @@ import {
   deleteComment,
   reactToComment,
   createReport,
-  type ReportReason,
 } from "@/api/forumApi";
 
 import { PostCard } from "@/components/forum/PostCard";
@@ -271,19 +270,6 @@ export default function ProfileScreen() {
     }
   };
 
-  const handleDeclineFriendshipAction = async () => {
-    if (!token || !targetUserId) return;
-    try {
-      const res = await friendshipAction(token, targetUserId as string, "decline");
-      if (res && res.success) {
-        setFriendshipStatus("none");
-        Alert.alert("Thông báo", "Đã từ chối lời mời kết bạn.");
-      }
-    } catch (e: any) {
-      Alert.alert("Lỗi", e.message || "Không thể từ chối lời mời kết bạn.");
-    }
-  };
-
   useEffect(() => {
     if (token && targetUserId) {
       loadData(token);
@@ -504,7 +490,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const submitReport = async (reason: ReportReason, description: string) => {
+  const submitReport = async (reason: string, description: string) => {
     if (!token || !reportTarget) return;
     try {
       await createReport({
@@ -659,7 +645,6 @@ export default function ProfileScreen() {
             setShowEditBioModal(true);
           }}
           onFriendshipAction={handleFriendshipAction}
-          onDeclineFriendshipAction={handleDeclineFriendshipAction}
         />
 
         {/* ================= TABS SELECTOR ================= */}
@@ -677,9 +662,7 @@ export default function ProfileScreen() {
                   ? "Giới thiệu"
                   : tab === "ảnh"
                   ? "Ảnh"
-                  : isMyProfile
-                  ? "Bạn bè & Gợi ý"
-                  : "Bạn bè"}
+                  : "Bạn bè & Gợi ý"}
               </Text>
               {activeTab === tab && <View style={s.tabIndicator} />}
             </TouchableOpacity>
@@ -770,7 +753,6 @@ export default function ProfileScreen() {
               onAcceptRequest={handleAcceptRequest}
               onDeclineRequest={handleDeclineRequest}
               onRecommendationAction={handleRecommendationAction}
-              onRefreshData={() => loadData(token)}
             />
           )}
 

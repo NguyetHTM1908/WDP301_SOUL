@@ -84,7 +84,7 @@ export function CommunityPreview() {
   }, []);
 
   const goToForum = () => {
-    router.push("/(tabs)/forum" as any);
+    router.push("/forum" as any);
   };
 
   return (

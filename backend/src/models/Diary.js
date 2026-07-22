@@ -18,90 +18,8 @@ const diarySchema = new mongoose.Schema(
     moodScore: {
       type: Number,
       required: true,
-      min: 0,
-      max: 100,
-    },
-
-    diaryScore: {
-      type: Number,
-      default: null,
-      min: 0,
-      max: 100,
-    },
-
-    finalMentalScore: {
-      type: Number,
-      default: null,
-      min: 0,
-      max: 100,
-    },
-
-    mentalHealthStatus: {
-      type: String,
-      enum: ["critical", "poor", "fair", "good", "excellent", null],
-      default: null,
-    },
-
-    moodWeight: {
-      type: Number,
-      default: 0.5,
-    },
-
-    diaryWeight: {
-      type: Number,
-      default: 0.5,
-    },
-
-    sentiment: {
-      type: String,
-      default: null,
-    },
-
-    emotionalIntensity: {
-      type: String,
-      enum: ["low", "medium", "high", null],
-      default: null,
-    },
-
-    stressLevel: {
-      type: String,
-      enum: ["low", "medium", "high", null],
-      default: null,
-    },
-
-    anxietyLevel: {
-      type: String,
-      enum: ["low", "medium", "high", null],
-      default: null,
-    },
-
-    hopelessnessLevel: {
-      type: String,
-      enum: ["low", "medium", "high", null],
-      default: null,
-    },
-
-    motivationLevel: {
-      type: String,
-      enum: ["low", "medium", "high", null],
-      default: null,
-    },
-
-    riskLevel: {
-      type: String,
-      enum: ["low", "medium", "high", "emergency", null],
-      default: null,
-    },
-
-    generatedAt: {
-      type: Date,
-      default: null,
-    },
-
-    diaryAnalysisId: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: "AiAnalysis",
-      default: null,
+      min: 1,
+      max: 10,
     },
 
     note: {
@@ -137,7 +55,7 @@ const diarySchema = new mongoose.Schema(
 
       riskLevel: {
         type: String,
-        enum: ["low", "medium", "high", "emergency", null],
+        enum: ["low", "medium", "high", null],
         default: null,
       },
 

@@ -8,15 +8,11 @@ const {
   getFriendshipStatus,
   friendshipAction,
   getPendingFriendRequests,
-  searchUsers,
 } = require("../controllers/userController");
 const auth = require("../middleware/auth");
 
 // Lấy danh sách yêu cầu kết bạn đang chờ (Đặt TRƯỚC /:id để tránh trùng lặp route)
 router.get("/friend-requests/pending", auth, getPendingFriendRequests);
-
-// Tìm kiếm người dùng theo tên hoặc email (Phải đặt TRƯỚC /:id)
-router.get("/search", auth, searchUsers);
 
 // Gợi ý kết bạn dựa trên cảm xúc (Cần token đăng nhập)
 router.get("/recommendations", auth, getFriendRecommendations);
