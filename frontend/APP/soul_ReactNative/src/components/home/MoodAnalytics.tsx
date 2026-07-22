@@ -139,10 +139,8 @@ export function MoodAnalytics() {
               barHeight = 15;
             } else {
               emojiDisplay = moodEmojis[latestDiary.mood] || "🌱";
-              const rawScore = latestDiary.finalMentalScore ?? latestDiary.moodScore ?? 50;
-              const normalizedScore = rawScore <= 10 ? rawScore * 10 : rawScore;
-              const clampedScore = Math.min(100, Math.max(0, normalizedScore));
-              barHeight = Math.round((clampedScore / 100) * 45 + 12);
+              const score = latestDiary.moodScore || 5;
+              barHeight = score * 8 + 15;
             }
 
             const today = new Date();
@@ -375,7 +373,6 @@ export function MoodAnalytics() {
                 {/* Mood Name & Score */}
                 <Text style={{ fontSize: 18, fontWeight: "900", color: getMoodColorInfo(selectedDay.latestDiary.mood).text }}>
                   {
-                    selectedDay.latestDiary.mentalHealth?.displayStatusLabel ||
                     {
                       happy: "Tích cực",
                       sad: "Buồn bã",
@@ -388,7 +385,7 @@ export function MoodAnalytics() {
                 </Text>
                 
                 <Text style={{ fontSize: 13, color: "#64748B", marginTop: 4, fontWeight: "600" }}>
-                  Chỉ số tâm trạng: {selectedDay.latestDiary.finalMentalScore ?? (selectedDay.latestDiary.moodScore <= 10 ? selectedDay.latestDiary.moodScore * 10 : selectedDay.latestDiary.moodScore)}/100
+                  Chỉ số tâm trạng: {selectedDay.latestDiary.moodScore}/10
                 </Text>
 
                 {/* Divider */}

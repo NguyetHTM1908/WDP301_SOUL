@@ -133,21 +133,6 @@ function getAnonymousAlias(user: any, fallbackName?: string) {
 export default function ForumScreen() {
   const user = useAuthStore((state: any) => state.user);
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      const role = String(user?.role || "").trim().toLowerCase();
-      if (role === "admin" || role === "administrator") {
-        router.replace("/(admin)" as any);
-      } else if (role === "event_organizer" || role === "organizer" || role === "event-organizer") {
-        router.replace("/(organizer)" as any);
-      } else {
-        router.replace("/(tabs)" as any);
-      }
-    }
-  };
-
   const [token, setToken] = useState<string | null>(null);
   const currentUserId = user?._id || user?.id || getUserIdFromToken(token);
 
@@ -757,7 +742,7 @@ const submitReport = async (
         filters={filters}
         onCreatePress={openCreateModal}
         onReportsPress={openMyReports}
-        onBackPress={handleBack}
+        onBackPress={() => router.replace("/(tabs)" as any)}
       />
 
       <FlatList

@@ -82,7 +82,7 @@ export const DiaryDetailModal: React.FC<DiaryDetailModalProps> = ({
               </View>
               <View>
                 <Text style={[s.diaryMood, { fontSize: 19 }]}>
-                  {diary?.mentalHealth?.displayStatusLabel || moodInfo.label}
+                  {moodInfo.label}
                 </Text>
                 <Text
                   style={[
@@ -90,7 +90,7 @@ export const DiaryDetailModal: React.FC<DiaryDetailModalProps> = ({
                     { fontSize: 13, color: "#60706C", marginTop: 2 },
                   ]}
                 >
-                  Mental Health Score: {diary.finalMentalScore ?? diary.moodScore ?? 0}/100
+                  Mood score: {diary.moodScore || 0}/10
                 </Text>
               </View>
             </View>
@@ -98,27 +98,18 @@ export const DiaryDetailModal: React.FC<DiaryDetailModalProps> = ({
             <View
               style={[
                 s.scoreBar,
-                { height: 8, marginBottom: 12, width: "100%" },
+                { height: 8, marginBottom: 20, width: "100%" },
               ]}
             >
               <View
                 style={[
                   s.scoreBarFill,
                   {
-                    width: `${Math.min(Math.max(diary.finalMentalScore ?? diary.moodScore ?? 0, 0), 100)}%`,
+                    width: `${Math.min(Math.max(diary.moodScore || 1, 1), 10) * 10}%`,
                     backgroundColor: moodInfo.color,
                   },
                 ]}
               />
-            </View>
-
-            <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 20, paddingHorizontal: 4 }}>
-              <Text style={{ fontSize: 12, color: "#4B5563" }}>
-                Mood Tracking: <Text style={{ fontWeight: "700" }}>{diary.moodScore ?? 0}/100</Text>
-              </Text>
-              <Text style={{ fontSize: 12, color: "#4B5563" }}>
-                Diary Analysis: <Text style={{ fontWeight: "700" }}>{diary.diaryScore ?? insight.emotionScore ?? "N/A"}{diary.diaryScore || insight.emotionScore ? "/100" : ""}</Text>
-              </Text>
             </View>
 
             <Text style={[s.sectionLabel, { marginTop: 10, fontSize: 16 }]}>

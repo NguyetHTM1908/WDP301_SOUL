@@ -13,7 +13,6 @@ import { BottomNav } from "@/components/home/BottomNav";
 import { Sidebar } from "@/components/home/Sidebar";
 import { ProfileModals } from "@/components/home/ProfileModals";
 import { NotificationProvider } from "@/components/notification/NotificationProvider";
-import { DiaryPromptCard } from "@/components/home/DiaryPromptCard";
 
 export default function HomeScreen() {
   const [showSidebar, setShowSidebar] = useState(false);
@@ -30,8 +29,7 @@ export default function HomeScreen() {
           <Sidebar onClose={() => setShowSidebar(false)} />
         ) : null}
 
-        {/* 1. Header cố định ở trên */}
-        <View style={{ paddingHorizontal: 18, paddingTop: 36, paddingBottom: 6, backgroundColor: "#F2FFFB", zIndex: 99 }}>
+        <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
           <HomeHeader
             showSidebar={showSidebar}
             onToggleSidebar={() => setShowSidebar((prev) => !prev)}
@@ -39,14 +37,7 @@ export default function HomeScreen() {
             onToggleProfileMenu={() => setShowProfileMenu(!showProfileMenu)}
             onCloseProfileMenu={() => setShowProfileMenu(false)}
           />
-        </View>
 
-        {/* 2. Nội dung cuộn ở giữa */}
-        <ScrollView
-          style={{ flex: 1, paddingHorizontal: 18 }}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: 20 }}
-          showsVerticalScrollIndicator={false}
-        >
           <DailyMotivation />
           <QuickActions />
 
@@ -59,9 +50,9 @@ export default function HomeScreen() {
             <CommunityPreview />
             <EventCard />
           </View>
+
+          <BottomNav />
         </ScrollView>
-
-
 
         {/* Dropdown profile render ở tầng root — không bị ScrollView hay header clip */}
         {showProfileMenu && (

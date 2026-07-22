@@ -8,7 +8,6 @@ type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 
 type Props = {
   postId: string;
-  isProfilePage?: boolean;
   comments: any[];
   commentInput: string;
   replyInputs: Record<string, string>;
@@ -135,7 +134,6 @@ function getCommentAvatarUrl(comment: any) {
 
 export function CommentThread({
   postId,
-  isProfilePage = false,
   comments,
   commentInput,
   replyInputs,
@@ -160,7 +158,7 @@ export function CommentThread({
   const [editingContent, setEditingContent] = useState("");
   const [menuOpenCommentId, setMenuOpenCommentId] = useState<string | null>(null);
 
-  const commentAsAnonymous = isProfilePage ? false : Boolean(commentAnonymousByPost[postId]);
+  const commentAsAnonymous = Boolean(commentAnonymousByPost[postId]);
 
   const getCommentId = (comment: any) =>
     comment?._id?.toString?.() ||
@@ -244,7 +242,6 @@ export function CommentThread({
   };
 
   const toggleMainCommentIdentity = () => {
-    if (isProfilePage) return; // Bài viết trang cá nhân luôn mặc định tài khoản chính chủ
     setCommentAnonymousByPost((prev) => ({
       ...prev,
       [postId]: !prev[postId],
@@ -252,7 +249,6 @@ export function CommentThread({
   };
 
   const toggleReplyIdentity = (commentId: string) => {
-    if (isProfilePage) return; // Bài viết trang cá nhân luôn mặc định tài khoản chính chủ
     setReplyAnonymousByComment((prev) => ({
       ...prev,
       [commentId]: !prev[commentId],
@@ -273,7 +269,7 @@ export function CommentThread({
 
     setReplyAnonymousByComment((prev) => ({
       ...prev,
-      [commentId]: isProfilePage ? false : (prev[commentId] || false),
+      [commentId]: prev[commentId] || false,
     }));
   };
 
@@ -477,15 +473,14 @@ export function CommentThread({
 
         {openReplyCommentId === commentId ? (
           <View>
-            {!isProfilePage &&
-              renderIdentityToggle({
-                active: replyAsAnonymous,
-                onPress: () => toggleReplyIdentity(commentId),
-                anonymousText: `Trả lời ẩn danh với tên ${getAnonymousAlias(
-                  currentUser
-                )}`,
-                realText: "Trả lời bằng tài khoản của tôi",
-              })}
+            {renderIdentityToggle({
+              active: replyAsAnonymous,
+              onPress: () => toggleReplyIdentity(commentId),
+              anonymousText: `Trả lời ẩn danh với tên ${getAnonymousAlias(
+                currentUser
+              )}`,
+              realText: "Trả lời bằng tài khoản của tôi",
+            })}
 
             <View style={s.replyInputRow}>
               <TextInput
@@ -600,15 +595,14 @@ export function CommentThread({
         );
       })}
 
-      {!isProfilePage &&
-        renderIdentityToggle({
-          active: commentAsAnonymous,
-          onPress: toggleMainCommentIdentity,
-          anonymousText: `Bình luận ẩn danh với tên ${getAnonymousAlias(
-            currentUser
-          )}`,
-          realText: "Bình luận bằng tài khoản của tôi",
-        })}
+      {renderIdentityToggle({
+        active: commentAsAnonymous,
+        onPress: toggleMainCommentIdentity,
+        anonymousText: `Bình luận ẩn danh với tên ${getAnonymousAlias(
+          currentUser
+        )}`,
+        realText: "Bình luận bằng tài khoản của tôi",
+      })}
 
       <View style={s.inlineCommentInputRow}>
         <TextInput

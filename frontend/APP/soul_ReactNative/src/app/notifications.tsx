@@ -267,7 +267,6 @@ export default function NotificationsScreen() {
       <FlatList
         data={listData}
         keyExtractor={(item) => item._id}
-        contentContainerStyle={{ paddingBottom: 90 }}
         renderItem={({ item }) => {
           if (item.isSection) {
             return (

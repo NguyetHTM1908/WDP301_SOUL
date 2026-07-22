@@ -48,26 +48,8 @@ function getLevelLabel(level?: ResultLevel) {
   return "Kết quả";
 }
 
-import { useAuthStore } from "@/store";
-
 export default function EmotionalResultScreen() {
-  const user = useAuthStore((state: any) => state.user);
   const params = useLocalSearchParams();
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      const role = String(user?.role || "").trim().toLowerCase();
-      if (role === "admin" || role === "administrator") {
-        router.replace("/(admin)" as any);
-      } else if (role === "event_organizer" || role === "organizer" || role === "event-organizer") {
-        router.replace("/(organizer)" as any);
-      } else {
-        router.replace("/(tabs)" as any);
-      }
-    }
-  };
 
   const result = useMemo(() => {
     return parseResultParam(params.result);
@@ -80,7 +62,7 @@ export default function EmotionalResultScreen() {
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={handleBack}
+              onPress={() => router.replace("/(tabs)" as any)}
             >
               <Text style={styles.backText}>‹</Text>
             </TouchableOpacity>

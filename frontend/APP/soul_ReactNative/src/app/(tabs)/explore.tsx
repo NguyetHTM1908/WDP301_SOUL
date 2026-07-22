@@ -19,23 +19,12 @@ export default function ExploreScreen() {
     <View style={styles.page}>
       {showSidebar && <Sidebar />}
 
-      {/* 1. Header cố định ở trên */}
-      <View style={{ paddingHorizontal: 18, paddingTop: 36, paddingBottom: 6, backgroundColor: "#F2FFFB", zIndex: 99 }}>
+      <ScrollView style={styles.main} showsVerticalScrollIndicator={false}>
         <HomeHeader
           showSidebar={showSidebar}
           onToggleSidebar={() => setShowSidebar(!showSidebar)}
-          showProfileMenu={false}
-          onToggleProfileMenu={() => {}}
-          onCloseProfileMenu={() => {}}
         />
-      </View>
 
-      {/* 2. Nội dung cuộn ở giữa */}
-      <ScrollView
-        style={{ flex: 1, paddingHorizontal: 18 }}
-        contentContainerStyle={{ paddingTop: 6, paddingBottom: 90 }}
-        showsVerticalScrollIndicator={false}
-      >
         <HeroCard />
         <QuickActions />
 
@@ -48,6 +37,8 @@ export default function ExploreScreen() {
           <CommunityPreview />
           <EventCard />
         </View>
+
+        <BottomNav />
       </ScrollView>
     </View>
   );

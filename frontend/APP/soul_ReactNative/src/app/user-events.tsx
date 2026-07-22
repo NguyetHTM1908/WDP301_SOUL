@@ -17,7 +17,6 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
 import { eventService, normalizeListResponse } from "@/services/eventApi";
 import { scheduleEventReminder } from "@/services/eventNotification";
-import { useAuthStore } from "@/store";
 import { eventStyles as s } from "@/styles/event.styles";
 import {
   canCancelRegistration,
@@ -98,23 +97,6 @@ function getEventIcon(event: any) {
 }
 
 export default function UserEventsScreen() {
-  const user = useAuthStore((state: any) => state.user);
-
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      const role = String(user?.role || "").trim().toLowerCase();
-      if (role === "admin" || role === "administrator") {
-        router.replace("/(admin)" as any);
-      } else if (role === "event_organizer" || role === "organizer" || role === "event-organizer") {
-        router.replace("/(organizer)" as any);
-      } else {
-        router.replace("/(tabs)" as any);
-      }
-    }
-  };
-
   const [activeTab, setActiveTab] = useState<TabKey>("explore");
 
   const [events, setEvents] = useState<any[]>([]);
@@ -442,7 +424,7 @@ export default function UserEventsScreen() {
       <View style={s.hero}>
         <TouchableOpacity
           activeOpacity={0.75}
-          onPress={handleBack}
+          onPress={() => router.replace("/(tabs)" as any)}
           style={{
             width: 42,
             height: 42,

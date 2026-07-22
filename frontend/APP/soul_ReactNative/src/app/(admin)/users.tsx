@@ -643,24 +643,20 @@ const styles = StyleSheet.create({
     color: colors.dark,
   },
   filterScroll: {
-    maxHeight: 52,
+    maxHeight: 48,
     marginBottom: 8,
   },
   filterContainer: {
     paddingHorizontal: 20,
-    alignItems: "center",
-    paddingVertical: 4,
     gap: 8,
   },
   filterTab: {
     paddingHorizontal: 16,
-    height: 38,
-    borderRadius: 19,
+    paddingVertical: 8,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
     borderWidth: 1,
     borderColor: "#E5E7EB",
-    alignItems: "center",
-    justifyContent: "center",
   },
   filterTabActive: {
     backgroundColor: colors.dark,
@@ -668,9 +664,8 @@ const styles = StyleSheet.create({
   },
   filterTabText: {
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "600",
     color: "#6B7280",
-    lineHeight: 18,
   },
   filterTabTextActive: {
     color: "#FFFFFF",

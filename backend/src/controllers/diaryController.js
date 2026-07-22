@@ -3,20 +3,7 @@ const Diary = require("../models/Diary");
 const AiAnalysis = require("../models/AiAnalysis");
 const UserEmotionProfile = require("../models/UserEmotionProfile");
 const User = require("../models/User");
-const DailySummary = require("../models/DailySummary");
 const emotionAnalysisService = require("../services/emotionAnalysisService");
-const {
-  getCalendarDateString,
-  getStartAndEndOfDay,
-  recalculateDailySummary,
-  recalculateUserProfileFromDailySummaries,
-} = require("../services/dailySummaryService");
-const {
-  normalizeMoodScore,
-  calculateFinalMentalScore,
-  getMentalHealthStatus,
-  formatMentalHealthResponse,
-} = require("../utils/mentalHealthHelper");
 
 function getCurrentUserId(req) {
   return (
@@ -36,7 +23,7 @@ function buildAiInsightFromAnalysis(analysisResult) {
   return {
     sentiment: analysisResult.sentiment,
     emotion: analysisResult.emotion,
-    emotionScore: analysisResult.diaryScore ?? analysisResult.emotionScore,
+    emotionScore: analysisResult.emotionScore,
     riskLevel: analysisResult.riskLevel,
     summary: analysisResult.summary,
     suggestion: analysisResult.suggestion,
@@ -56,7 +43,6 @@ async function analyzeDiaryAndUpdateInsight(diary, userId) {
       analyzedAt: null,
     };
 
-    diary.diaryScore = null;
     await diary.save();
     return null;
   }
@@ -68,26 +54,134 @@ async function analyzeDiaryAndUpdateInsight(diary, userId) {
   );
 
   diary.aiInsight = buildAiInsightFromAnalysis(analysisResult);
-  diary.diaryScore = analysisResult.diaryScore ?? analysisResult.emotionScore;
-  diary.diaryAnalysisId = analysisResult.analysisId || null;
-  diary.sentiment = analysisResult.sentiment || "neutral";
-  diary.emotionalIntensity = analysisResult.emotionalIntensity || "medium";
-  diary.stressLevel = analysisResult.stressLevel || "low";
-  diary.anxietyLevel = analysisResult.anxietyLevel || "low";
-  diary.hopelessnessLevel = analysisResult.hopelessnessLevel || "low";
-  diary.motivationLevel = analysisResult.motivationLevel || "medium";
-  diary.riskLevel = analysisResult.riskLevel || "low";
-  diary.generatedAt = new Date();
 
   await diary.save();
 
   return analysisResult;
 }
 
+async function recalculateUserEmotionProfile(userId) {
+  const recentAnalyses = await AiAnalysis.find({
+    userId,
+    analysisType: "emotion_analysis",
+  })
+    .sort({ analyzedAt: -1 })
+    .limit(7);
+
+  if (recentAnalyses.length === 0) {
+    const profile = await UserEmotionProfile.findOneAndUpdate(
+      { userId },
+      {
+        $set: {
+          userId,
+          currentSentiment: "neutral",
+          averageEmotionScore: 50,
+          latestEmotion: null,
+          latestRiskLevel: "low",
+          positiveCount: 0,
+          neutralCount: 0,
+          negativeCount: 0,
+          analysisCount: 0,
+          lastAnalysisId: null,
+          lastSource: null,
+          lastSourceId: null,
+          lastAnalyzedAt: null,
+          isVisibleToOthers: false,
+          privacyLevel: "internal_only",
+          updatedAt: new Date(),
+        },
+        $setOnInsert: {
+          createdAt: new Date(),
+        },
+      },
+      {
+        new: true,
+        upsert: true,
+      }
+    );
+
+    await User.findByIdAndUpdate(userId, {
+      moodReputation: "neutral",
+      moodReputationScore: 50,
+      moodReputationUpdatedAt: new Date(),
+    });
+
+    return profile;
+  }
+
+  const positiveCount = recentAnalyses.filter(
+    (item) => item.sentiment === "positive"
+  ).length;
+
+  const neutralCount = recentAnalyses.filter(
+    (item) => item.sentiment === "neutral"
+  ).length;
+
+  const negativeCount = recentAnalyses.filter(
+    (item) => item.sentiment === "negative"
+  ).length;
+
+  const totalScore = recentAnalyses.reduce(
+    (sum, item) => sum + item.emotionScore,
+    0
+  );
+
+  const averageEmotionScore = Math.round(totalScore / recentAnalyses.length);
+
+  let currentSentiment = "neutral";
+
+  if (negativeCount >= 3 || averageEmotionScore <= 40) {
+    currentSentiment = "negative";
+  } else if (positiveCount >= 3 || averageEmotionScore >= 65) {
+    currentSentiment = "positive";
+  }
+
+  const latestAnalysis = recentAnalyses[0];
+
+  const profile = await UserEmotionProfile.findOneAndUpdate(
+    { userId },
+    {
+      $set: {
+        userId,
+        currentSentiment,
+        averageEmotionScore,
+        latestEmotion: latestAnalysis.emotion,
+        latestRiskLevel: latestAnalysis.riskLevel,
+        positiveCount,
+        neutralCount,
+        negativeCount,
+        analysisCount: recentAnalyses.length,
+        lastAnalysisId: latestAnalysis._id,
+        lastSource: latestAnalysis.target.type,
+        lastSourceId: latestAnalysis.target.id,
+        lastAnalyzedAt: latestAnalysis.analyzedAt,
+        isVisibleToOthers: false,
+        privacyLevel: "internal_only",
+        updatedAt: new Date(),
+      },
+      $setOnInsert: {
+        createdAt: new Date(),
+      },
+    },
+    {
+      new: true,
+      upsert: true,
+    }
+  );
+
+  await User.findByIdAndUpdate(userId, {
+    moodReputation: profile.currentSentiment,
+    moodReputationScore: profile.averageEmotionScore,
+    moodReputationUpdatedAt: new Date(),
+  });
+
+  return profile;
+}
+
 async function createDiary(req, res) {
   try {
     const userId = getCurrentUserId(req);
-    const { mood, moodScore: rawMoodScore, note, isPrivate } = req.body;
+    const { mood, moodScore, note, isPrivate } = req.body;
 
     if (!userId) {
       return res.status(400).json({
@@ -96,33 +190,36 @@ async function createDiary(req, res) {
       });
     }
 
-    if (!mood || !String(mood).trim()) {
+    if (!mood || !mood.trim()) {
       return res.status(400).json({
         success: false,
         message: "mood is required",
       });
     }
 
-    if (rawMoodScore === undefined || rawMoodScore === null) {
+    if (moodScore === undefined || moodScore === null) {
       return res.status(400).json({
         success: false,
         message: "moodScore is required",
       });
     }
 
-    const normMoodScore = normalizeMoodScore(rawMoodScore, mood);
-    if (normMoodScore === null) {
+    if (Number(moodScore) < 1 || Number(moodScore) > 10) {
       return res.status(400).json({
         success: false,
-        message: "Invalid moodScore value",
+        message: "moodScore must be from 1 to 10",
       });
     }
 
-    // Timezone GMT+7 today start/end
+    // 1. Xác định khoảng thời gian của ngày hôm nay theo múi giờ Việt Nam (GMT+7)
     const now = new Date();
-    const dateStr = getCalendarDateString(now);
-    const { start: startOfToday, end: endOfToday } = getStartAndEndOfDay(dateStr);
+    const tzOffset = 7; // GMT+7
+    const startOfToday = new Date(now);
+    startOfToday.setUTCHours(0 - tzOffset, 0, 0, 0);
+    const endOfToday = new Date(now);
+    endOfToday.setUTCHours(23 - tzOffset, 59, 59, 999);
 
+    // 2. Tìm kiếm nhật ký đã tạo hôm nay của user
     let diary = await Diary.findOne({
       userId,
       createdAt: { $gte: startOfToday, $lte: endOfToday },
@@ -133,40 +230,41 @@ async function createDiary(req, res) {
     let isNewDiary = false;
 
     if (diary) {
+      // Đã có nhật ký hôm nay -> Cập nhật/Append nội dung
       const oldNote = diary.note || "";
-      const newNotePart = note && String(note).trim() ? String(note).trim() : "";
-
+      const newNotePart = note && note.trim() ? note.trim() : "";
+      
+      // Append thêm dòng mới nếu nội dung trước đó đã có
       diary.note = oldNote ? `${oldNote}\n${newNotePart}` : newNotePart;
-      diary.mood = String(mood).trim();
-      diary.moodScore = normMoodScore; // Store 0-100 normalized score
+      diary.mood = mood.trim();
+      diary.moodScore = Number(moodScore);
       if (isPrivate !== undefined) {
         diary.isPrivate = Boolean(isPrivate);
       }
 
       await diary.save();
 
+      // Xóa các bản phân tích AI cũ của diary này để tránh trùng lặp/rác dữ liệu
       await AiAnalysis.deleteMany({
         userId,
         "target.type": "diary",
         "target.id": diary._id,
       });
 
-      if (diary.note && diary.note.trim()) {
-        try {
-          analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
-        } catch (error) {
-          analysisWarning = error.message;
-        }
-      } else {
-        diary.diaryScore = null;
+      // Chạy phân tích AI cho toàn bộ nội dung mới sau khi nối
+      try {
+        analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
+      } catch (error) {
+        analysisWarning = error.message;
       }
     } else {
+      // Chưa có nhật ký hôm nay -> Tạo mới
       isNewDiary = true;
       diary = await Diary.create({
         userId,
-        mood: String(mood).trim(),
-        moodScore: normMoodScore,
-        note: note && String(note).trim() ? String(note).trim() : null,
+        mood: mood.trim(),
+        moodScore: Number(moodScore),
+        note: note && note.trim() ? note.trim() : null,
         isPrivate: isPrivate === undefined ? false : Boolean(isPrivate),
         aiInsight: {
           sentiment: null,
@@ -179,64 +277,23 @@ async function createDiary(req, res) {
         },
       });
 
-      if (diary.note && diary.note.trim()) {
-        try {
-          analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
-        } catch (error) {
-          analysisWarning = error.message;
-        }
-      } else {
-        diary.diaryScore = null;
+      // Phân tích AI
+      try {
+        analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
+      } catch (error) {
+        analysisWarning = error.message;
       }
     }
 
-    // Determine diaryScore from direct analysis or same day analysis
-    let resolvedDiaryScore = diary.diaryScore;
-    if (resolvedDiaryScore === null || resolvedDiaryScore === undefined) {
-      const sameDayAnalysis = await AiAnalysis.findOne({
-        userId,
-        "target.type": "diary",
-        analyzedAt: { $gte: startOfToday, $lte: endOfToday },
-      }).sort({ analyzedAt: -1 });
-
-      if (sameDayAnalysis) {
-        resolvedDiaryScore = sameDayAnalysis.emotionScore;
-        diary.diaryScore = resolvedDiaryScore;
-        diary.diaryAnalysisId = sameDayAnalysis._id;
-        diary.sentiment = sameDayAnalysis.sentiment;
-        diary.riskLevel = sameDayAnalysis.riskLevel;
-      }
-    }
-
-    // Compute 50/50 Mental Health Score & Status for Level 1 Diary
-    diary.finalMentalScore = calculateFinalMentalScore(normMoodScore, resolvedDiaryScore);
-    diary.mentalHealthStatus = getMentalHealthStatus(diary.finalMentalScore);
-    diary.moodWeight = 0.5;
-    diary.diaryWeight = 0.5;
-    diary.generatedAt = new Date();
-
-    await diary.save();
-
-    console.log("[Mental Health Score]", {
-      rawMoodValue: rawMoodScore,
-      normalizedMoodScore: normMoodScore,
-      diaryScore: resolvedDiaryScore,
-      finalMentalScore: diary.finalMentalScore,
-    });
-
-    // Trigger Level 2 (Daily Summary) and Level 3 (User Profile) Aggregations
-    const dailySummary = await recalculateDailySummary(userId, dateStr);
-    await recalculateUserProfileFromDailySummaries(userId);
+    // 3. Cập nhật lại chỉ số cảm xúc của user (UserEmotionProfile & User.moodReputation)
+    await recalculateUserEmotionProfile(userId);
 
     const updatedDiary = await Diary.findById(diary._id);
-    const mentalHealthResponse = formatMentalHealthResponse(updatedDiary, analysis);
 
     return res.status(isNewDiary ? 201 : 200).json({
       success: true,
       message: isNewDiary ? "Diary created successfully" : "Diary appended and updated successfully",
       data: updatedDiary,
-      mentalHealth: mentalHealthResponse,
-      dailySummary,
       analysis,
       analysisWarning,
     });
@@ -261,6 +318,7 @@ async function getMyDiaries(req, res) {
 
     const page = Math.max(Number(req.query.page) || 1, 1);
     const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 50);
+    const skip = (page - 1) * limit;
 
     const filter = { userId };
 
@@ -268,86 +326,14 @@ async function getMyDiaries(req, res) {
       filter.mood = req.query.mood;
     }
 
-    const rawDiaries = await Diary.find(filter).sort({ createdAt: -1 });
-
-    const RISK_PRIORITY = { emergency: 4, high: 3, medium: 2, low: 1 };
-    const dayGroups = new Map();
-
-    for (const d of rawDiaries) {
-      const dateStr = getCalendarDateString(d.createdAt);
-      if (!dayGroups.has(dateStr)) {
-        dayGroups.set(dateStr, []);
-      }
-      dayGroups.get(dateStr).push(d);
-    }
-
-    const allFormattedDays = [];
-
-    for (const [dateStr, group] of dayGroups.entries()) {
-      const primaryEntry = group[0];
-      const entryCount = group.length;
-
-      const normalizedMoodScores = group.map((item) => normalizeMoodScore(item.moodScore, item.mood) ?? 60);
-      const totalMood = normalizedMoodScores.reduce((sum, s) => sum + s, 0);
-      const avgMoodScore = Math.round(totalMood / entryCount);
-
-      const validDiaryScores = group
-        .map((item) => item.diaryScore)
-        .filter((s) => s !== null && s !== undefined && !isNaN(Number(s)));
-
-      const avgDiaryScore =
-        validDiaryScores.length > 0
-          ? Math.round(validDiaryScores.reduce((sum, s) => sum + Number(s), 0) / validDiaryScores.length)
-          : null;
-
-      const finalMentalScores = group.map((item) => {
-        if (item.finalMentalScore !== null && item.finalMentalScore !== undefined) {
-          return item.finalMentalScore;
-        }
-        const normMood = normalizeMoodScore(item.moodScore, item.mood) ?? 60;
-        return calculateFinalMentalScore(normMood, item.diaryScore);
-      });
-
-      const totalFinalMental = finalMentalScores.reduce((sum, s) => sum + s, 0);
-      const avgFinalMentalScore = Math.round(totalFinalMental / entryCount);
-
-      let highestRiskLevel = "low";
-      for (const item of group) {
-        const r = item.riskLevel || item.aiInsight?.riskLevel || "low";
-        if ((RISK_PRIORITY[r] || 1) > (RISK_PRIORITY[highestRiskLevel] || 1)) {
-          highestRiskLevel = r;
-        }
-      }
-
-      const mh = formatMentalHealthResponse(
-        {
-          ...primaryEntry.toObject(),
-          moodScore: avgMoodScore,
-          diaryScore: avgDiaryScore,
-          finalMentalScore: avgFinalMentalScore,
-          riskLevel: highestRiskLevel,
-        },
-        primaryEntry.aiInsight
-      );
-
-      const doc = primaryEntry.toObject();
-      allFormattedDays.push({
-        ...doc,
-        moodScore: avgMoodScore,
-        diaryScore: avgDiaryScore,
-        finalMentalScore: avgFinalMentalScore,
-        mentalHealth: mh,
-        entryCount,
-      });
-    }
-
-    const total = allFormattedDays.length;
-    const skip = (page - 1) * limit;
-    const paginatedDays = allFormattedDays.slice(skip, skip + limit);
+    const [diaries, total] = await Promise.all([
+      Diary.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit),
+      Diary.countDocuments(filter),
+    ]);
 
     return res.status(200).json({
       success: true,
-      data: paginatedDays,
+      data: diaries,
       pagination: {
         page,
         limit,
@@ -387,15 +373,9 @@ async function getDiaryById(req, res) {
       });
     }
 
-    const mh = formatMentalHealthResponse(diary);
-    const doc = diary.toObject();
-
     return res.status(200).json({
       success: true,
-      data: {
-        ...doc,
-        mentalHealth: mh,
-      },
+      data: diary,
     });
   } catch (error) {
     return res.status(500).json({
@@ -409,7 +389,7 @@ async function updateDiary(req, res) {
   try {
     const userId = getCurrentUserId(req);
     const { id } = req.params;
-    const { mood, moodScore: rawMoodScore, note, isPrivate } = req.body;
+    const { mood, moodScore, note, isPrivate } = req.body;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json({
@@ -430,34 +410,32 @@ async function updateDiary(req, res) {
       });
     }
 
-    const oldDateStr = getCalendarDateString(diary.createdAt);
     const oldNote = diary.note || "";
 
     if (mood !== undefined) {
-      if (!mood || !String(mood).trim()) {
+      if (!mood || !mood.trim()) {
         return res.status(400).json({
           success: false,
           message: "mood cannot be empty",
         });
       }
-      diary.mood = String(mood).trim();
+
+      diary.mood = mood.trim();
     }
 
-    if (rawMoodScore !== undefined) {
-      const normScore = normalizeMoodScore(rawMoodScore, mood || diary.mood);
-      if (normScore === null) {
+    if (moodScore !== undefined) {
+      if (Number(moodScore) < 1 || Number(moodScore) > 10) {
         return res.status(400).json({
           success: false,
-          message: "Invalid moodScore value",
+          message: "moodScore must be from 1 to 10",
         });
       }
-      diary.moodScore = normScore;
-    } else {
-      diary.moodScore = normalizeMoodScore(diary.moodScore, diary.mood) ?? 60;
+
+      diary.moodScore = Number(moodScore);
     }
 
     if (note !== undefined) {
-      diary.note = note && String(note).trim() ? String(note).trim() : null;
+      diary.note = note && note.trim() ? note.trim() : null;
     }
 
     if (isPrivate !== undefined) {
@@ -479,58 +457,21 @@ async function updateDiary(req, res) {
         "target.id": diary._id,
       });
 
-      if (newNote.trim()) {
-        try {
-          analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
-        } catch (error) {
-          analysisWarning = error.message;
-        }
-      } else {
-        diary.diaryScore = null;
-        diary.aiInsight = {
-          sentiment: null,
-          emotion: null,
-          emotionScore: null,
-          riskLevel: null,
-          summary: null,
-          suggestion: null,
-          analyzedAt: null,
-        };
+      try {
+        analysis = await analyzeDiaryAndUpdateInsight(diary, userId);
+      } catch (error) {
+        analysisWarning = error.message;
       }
+
+      await recalculateUserEmotionProfile(userId);
     }
-
-    // Re-compute 50/50 Mental Health Score & Status
-    const resolvedDiaryScore = diary.diaryScore;
-    diary.finalMentalScore = calculateFinalMentalScore(diary.moodScore, resolvedDiaryScore);
-    diary.mentalHealthStatus = getMentalHealthStatus(diary.finalMentalScore);
-    diary.generatedAt = new Date();
-
-    await diary.save();
-
-    console.log("[Mental Health Score Update]", {
-      rawMoodValue: rawMoodScore,
-      normalizedMoodScore: diary.moodScore,
-      diaryScore: resolvedDiaryScore,
-      finalMentalScore: diary.finalMentalScore,
-    });
-
-    // Trigger Level 2 (Daily Summary) and Level 3 (User Profile) Aggregations
-    const newDateStr = getCalendarDateString(diary.createdAt);
-    const dailySummary = await recalculateDailySummary(userId, oldDateStr);
-    if (oldDateStr !== newDateStr) {
-      await recalculateDailySummary(userId, newDateStr);
-    }
-    await recalculateUserProfileFromDailySummaries(userId);
 
     const updatedDiary = await Diary.findById(diary._id);
-    const mentalHealthResponse = formatMentalHealthResponse(updatedDiary, analysis);
 
     return res.status(200).json({
       success: true,
       message: "Diary updated successfully",
       data: updatedDiary,
-      mentalHealth: mentalHealthResponse,
-      dailySummary,
       analysis,
       analysisWarning,
     });
@@ -554,7 +495,7 @@ async function deleteDiary(req, res) {
       });
     }
 
-    const diary = await Diary.findOne({
+    const diary = await Diary.findOneAndDelete({
       _id: id,
       userId,
     });
@@ -566,92 +507,18 @@ async function deleteDiary(req, res) {
       });
     }
 
-    const dateStr = getCalendarDateString(diary.createdAt);
-
-    await Diary.deleteOne({ _id: id, userId });
-
     await AiAnalysis.deleteMany({
       userId,
       "target.type": "diary",
-      "target.id": id,
+      "target.id": diary._id,
     });
 
-    // Trigger Level 2 (Daily Summary) and Level 3 (User Profile) Aggregations
-    const dailySummary = await recalculateDailySummary(userId, dateStr);
-    await recalculateUserProfileFromDailySummaries(userId);
+    await recalculateUserEmotionProfile(userId);
 
     return res.status(200).json({
       success: true,
       message: "Diary deleted successfully",
       data: diary,
-      dailySummary,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-async function getDailySummaries(req, res) {
-  try {
-    const userId = getCurrentUserId(req);
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
-    }
-
-    const limit = Math.min(Math.max(Number(req.query.limit) || 30, 1), 100);
-    const summaries = await DailySummary.find({ userId })
-      .sort({ date: -1 })
-      .limit(limit);
-
-    return res.status(200).json({
-      success: true,
-      data: summaries,
-    });
-  } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
-  }
-}
-
-async function getDailySummaryByDate(req, res) {
-  try {
-    const userId = getCurrentUserId(req);
-    const dateStr = req.params.date || req.query.date;
-
-    if (!userId) {
-      return res.status(400).json({
-        success: false,
-        message: "userId is required",
-      });
-    }
-
-    if (!dateStr || !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-      return res.status(400).json({
-        success: false,
-        message: "Valid date parameter (YYYY-MM-DD) is required",
-      });
-    }
-
-    const summary = await DailySummary.findOne({ userId, date: dateStr });
-
-    if (!summary) {
-      return res.status(404).json({
-        success: false,
-        message: "Daily summary not found for this date",
-      });
-    }
-
-    return res.status(200).json({
-      success: true,
-      data: summary,
     });
   } catch (error) {
     return res.status(500).json({
@@ -667,6 +534,4 @@ module.exports = {
   getDiaryById,
   updateDiary,
   deleteDiary,
-  getDailySummaries,
-  getDailySummaryByDate,
 };

@@ -16,7 +16,6 @@ interface ProfileHeaderProps {
   onAvatarPress: () => void;
   onBioPress: () => void;
   onFriendshipAction: () => void;
-  onDeclineFriendshipAction?: () => void;
 }
 
 export function ProfileHeader({
@@ -29,7 +28,6 @@ export function ProfileHeader({
   onAvatarPress,
   onBioPress,
   onFriendshipAction,
-  onDeclineFriendshipAction,
 }: ProfileHeaderProps) {
   return (
     <View style={s.headerSection}>
@@ -112,8 +110,8 @@ export function ProfileHeader({
               
               {/* Cột 2: Nút hành động kết bạn + nhắn tin */}
               {friendshipStatus !== "self" && friendshipStatus !== "loading" && (
-                <View style={{ flex: 2.5, flexDirection: "row", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
-                  {/* Nút chính: Thêm bạn / Chờ xác nhận / Xác nhận / Hủy kết bạn */}
+                <View style={{ flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                  {/* Nút kết bạn */}
                   <TouchableOpacity
                     style={[
                       s.friendActionMiniButton,
@@ -160,7 +158,7 @@ export function ProfileHeader({
                       ]}
                     >
                       {friendshipStatus === "none"
-                        ? "Thêm bạn"
+                        ? "Thêm bạn bè"
                         : friendshipStatus === "pending_sent"
                         ? "Chờ xác nhận"
                         : friendshipStatus === "pending_received"
@@ -168,27 +166,6 @@ export function ProfileHeader({
                         : "Hủy kết bạn"}
                     </Text>
                   </TouchableOpacity>
-
-                  {/* Nút "Từ chối" màu đỏ (Hiện khi có lời mời kết bạn từ người này) */}
-                  {friendshipStatus === "pending_received" && onDeclineFriendshipAction && (
-                    <TouchableOpacity
-                      style={[
-                        s.friendActionMiniButton,
-                        { marginLeft: 0, flex: 1, height: 38, backgroundColor: "#EF4444" }
-                      ]}
-                      onPress={onDeclineFriendshipAction}
-                    >
-                      <MaterialCommunityIcons
-                        name="account-remove"
-                        size={16}
-                        color="#FFFFFF"
-                        style={{ marginRight: 4 }}
-                      />
-                      <Text style={[s.friendActionMiniText, { color: "#FFFFFF" }]}>
-                        Từ chối
-                      </Text>
-                    </TouchableOpacity>
-                  )}
 
                   {/* Nút nhắn tin */}
                   <TouchableOpacity
