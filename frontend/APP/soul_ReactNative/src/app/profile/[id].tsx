@@ -714,6 +714,7 @@ export default function ProfileScreen() {
                     key={post._id}
                     item={post}
                     mode={isMe ? "mine" : "community"}
+                    isProfilePage={true}
                     moodLabel={moodLabel}
                     openCommentPostId={openCommentPostId}
                     commentsByPost={commentsByPost}
