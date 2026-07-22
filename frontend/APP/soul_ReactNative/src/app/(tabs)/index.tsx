@@ -13,6 +13,7 @@ import { BottomNav } from "@/components/home/BottomNav";
 import { Sidebar } from "@/components/home/Sidebar";
 import { ProfileModals } from "@/components/home/ProfileModals";
 import { NotificationProvider } from "@/components/notification/NotificationProvider";
+import { DiaryPromptCard } from "@/components/home/DiaryPromptCard";
 
 export default function HomeScreen() {
   const [showSidebar, setShowSidebar] = useState(false);
@@ -43,10 +44,11 @@ export default function HomeScreen() {
         {/* 2. Nội dung cuộn ở giữa */}
         <ScrollView
           style={{ flex: 1, paddingHorizontal: 18 }}
-          contentContainerStyle={{ paddingTop: 6, paddingBottom: 16 }}
+          contentContainerStyle={{ paddingTop: 6, paddingBottom: 90 }}
           showsVerticalScrollIndicator={false}
         >
           <DailyMotivation />
+          <DiaryPromptCard />
           <QuickActions />
 
           <View style={styles.row}>
@@ -60,10 +62,7 @@ export default function HomeScreen() {
           </View>
         </ScrollView>
 
-        {/* 3. Navigation cố định ở dưới */}
-        <View style={{ paddingHorizontal: 18, paddingBottom: 10, backgroundColor: "#F2FFFB" }}>
-          <BottomNav />
-        </View>
+
 
         {/* Dropdown profile render ở tầng root — không bị ScrollView hay header clip */}
         {showProfileMenu && (
