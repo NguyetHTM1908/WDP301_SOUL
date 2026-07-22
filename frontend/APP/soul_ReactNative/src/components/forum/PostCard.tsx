@@ -12,6 +12,7 @@ type ReactionType = "support" | "hug" | "encourage" | "thankyou";
 type Props = {
   item: any;
   mode: "community" | "mine";
+  isProfilePage?: boolean;
   currentUser?: ForumUser | null;
   moodLabel: (mood: string) => string;
   openCommentPostId: string | null;
@@ -148,7 +149,7 @@ function formatPostTime(item: any) {
     getPostDate(item);
 
   if (!date) {
-    return "Không rõ thời gian";
+    return "";
   }
 
   return date.toLocaleString(
@@ -255,6 +256,7 @@ function getStatusInfo(item: any) {
 export function PostCard({
   item,
   mode,
+  isProfilePage = false,
   currentUser,
   moodLabel,
   openCommentPostId,
@@ -886,6 +888,7 @@ export function PostCard({
       postId ? (
         <CommentThread
           postId={postId}
+          isProfilePage={isProfilePage || item?.postType === "profile"}
           comments={
             commentsByPost[
               postId

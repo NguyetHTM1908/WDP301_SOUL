@@ -111,6 +111,10 @@ function createRiskResult({
   confidenceScore = 90,
   reason,
   description = null,
+  isExplicitDenial = false,
+  isEmergencyPlan = false,
+  isThirdPerson = false,
+  isHistorical = false,
 }) {
   return {
     riskLevel,
@@ -123,6 +127,11 @@ function createRiskResult({
     severity,
     confidenceScore,
 
+    isExplicitDenial,
+    isEmergencyPlan,
+    isThirdPerson,
+    isHistorical,
+
     reason,
     description: description || reason,
   };
@@ -133,6 +142,75 @@ function analyzeSafetyRisk(content = "") {
 
   if (!normalizedText) {
     return createSafeResult();
+  }
+
+  // 1. Third-person or Quoted mention: "Bạn tôi nói...", "Đọc bài viết có câu..."
+  const isThirdPerson =
+    /\b(ban toi|ban cua toi|nguoi ban|anh toi|chi toi|em toi|bo toi|me toi|ban ay|ho noi|doc bai viet|nghe ke|nguoi khac|co nguoi|doc tren|thay bai viet)\b/.test(normalizedText) &&
+    /\b(muon chet|tu tu|khong muon song|muon bien mat|muon giet minh)\b/.test(normalizedText);
+
+  if (isThirdPerson) {
+    return {
+      riskLevel: RISK_LEVELS.MEDIUM,
+      safetyWarning: false,
+      safetyTriggered: false,
+      safetyType: null,
+      isThirdPerson: true,
+      reason: "Nội dung nhắc đến người khác hoặc trích dẫn bài viết, không phải ý định tự hại của bản thân.",
+      description: "Người dùng thuật lại chia sẻ của bạn bè hoặc nội dung trích dẫn.",
+    };
+  }
+
+  // 2. Historical / Past Tense mention: "Trước đây tôi từng...", "Hồi trước..."
+  const isHistorical =
+    /\b(truoc day|hoi truoc|da tung|tung co y dinh|qua khu|ngay truoc|dieu do da qua)\b/.test(normalizedText) &&
+    /\b(muon chet|tu tu|muon bien mat|khong muon song)\b/.test(normalizedText) &&
+    /\b(nhung gio|hien tai|bay gio|da on|on hon|da vuot qua|khong con y dinh|khong con muon)\b/.test(normalizedText);
+
+  if (isHistorical) {
+    return {
+      riskLevel: RISK_LEVELS.LOW,
+      safetyWarning: false,
+      safetyTriggered: false,
+      safetyType: null,
+      isHistorical: true,
+      reason: "Nội dung đề cập đến ý nghĩ trong quá khứ nhưng hiện tại đã ổn định hơn.",
+      description: "Mệnh đề hiện tại phản ánh trạng thái đã hồi phục.",
+    };
+  }
+
+  // 3. Hopelessness with explicit denial of self-harm / suicide intent
+  const isExplicitDenial =
+    /\b(khong muon chet|khong co y dinh tu tu|khong muon tu tu|khong dinh tu tu|khong dinh lam hai ban than|khong muon tu lam hai|toi khong muon chet)\b/.test(normalizedText);
+
+  if (isExplicitDenial) {
+    return createRiskResult({
+      riskLevel: RISK_LEVELS.HIGH,
+      safetyType: SAFETY_TYPES.SELF_HARM_RISK,
+      violationType: VIOLATION_TYPES.SELF_HARM,
+      severity: "medium",
+      confidenceScore: 95,
+      isExplicitDenial: true,
+      reason: "Nội dung thể hiện sự bế tắc/vô nghĩa nhưng khẳng định không có ý định tự hại.",
+      description: "Người dùng mệt mỏi nhưng ghi nhận rõ không muốn chết hay tự hại.",
+    });
+  }
+
+  // 4. Explicit Intent / Emergency Plan: "Tôi muốn chết", "Tôi sẽ tự tử", "chuẩn bị thuốc"
+  const isEmergencyPlan =
+    /\b(toi muon chet|toi se tu tu|chuan bi thuoc|ket thuc moi thu|toi se lam hai ban than|toi se chet|giet minh toi nay|uong thuoc toi nay|lam hai ban than toi nay)\b/.test(normalizedText);
+
+  if (isEmergencyPlan) {
+    return createRiskResult({
+      riskLevel: RISK_LEVELS.EMERGENCY,
+      safetyType: SAFETY_TYPES.SELF_HARM_RISK,
+      violationType: VIOLATION_TYPES.SELF_HARM,
+      severity: "high",
+      confidenceScore: 99,
+      isEmergencyPlan: true,
+      reason: "Nội dung thể hiện ý định hoặc kế hoạch khẩn cấp tự hại/tự tử.",
+      description: "Cảnh báo khẩn cấp: Ý định tự tử rõ ràng hoặc chuẩn bị phương tiện khẩn cấp.",
+    });
   }
 
   if (matchesAnyPattern(normalizedText, MEDICAL_EMERGENCY_PATTERNS)) {
@@ -213,19 +291,59 @@ function toEmotionSafetyResult(content = "") {
   }
 
   if (result.safetyType === SAFETY_TYPES.SELF_HARM_RISK) {
+    // Tier 1: Hopelessness / Loss of Meaning (with explicit denial)
+    if (result.isExplicitDenial) {
+      return {
+        sentiment: "negative",
+        emotion: "negative",
+        emotionScore: 35,
+        diaryScore: 35,
+        confidenceScore: result.confidenceScore,
+        riskLevel: "medium",
+        toxicityLevel: "low",
+        safetyTriggered: true,
+        safetyType: result.safetyType,
+        summary:
+          "SOUL lắng nghe sự mệt mỏi và cảm giác mất đi ý nghĩa cuộc sống mà bạn đang trải qua.",
+        suggestion:
+          "SOUL ghi nhận việc bạn khẳng định không có ý định làm hại bản thân. Cảm giác mất ý nghĩa là thật, nhưng nó không phải là mãi mãi. Hãy thử tìm một điều nhỏ trong ngày — một cuốn sách, âm nhạc hoặc trò chuyện với người bạn tin tưởng. Bạn không cần phải gánh vác cảm giác này một mình.",
+      };
+    }
+
+    // Tier 3: Immediate Suicide Intent / Emergency Plan (e.g. "Tôi muốn chết.", "Tôi sẽ tự tử.")
+    if (result.isEmergencyPlan || result.riskLevel === RISK_LEVELS.EMERGENCY) {
+      return {
+        sentiment: "negative",
+        emotion: "negative",
+        emotionScore: 10,
+        diaryScore: 10,
+        confidenceScore: result.confidenceScore,
+        riskLevel: "emergency",
+        toxicityLevel: "low",
+        safetyTriggered: true,
+        safetyType: result.safetyType,
+        summary:
+          "Nhật ký chứa tín hiệu nguy cơ khẩn cấp đối với sự an toàn của bạn.",
+        suggestion:
+          "Nếu bạn đang có ý định hoặc chuẩn bị làm hại bản thân, xin hãy dừng lại ngay. Đặt xa các vật có thể gây tổn thương, liên hệ ngay người thân ở gần nhất hoặc gọi ngay tổng đài hỗ trợ tâm lý khẩn cấp 1900 636 527 hoặc 115 để nhận trợ giúp kịp thời.",
+      };
+    }
+
+    // Tier 2: Active Suicidal Ideation without explicit emergency plan (e.g. "Tôi không muốn sống nữa.")
     return {
       sentiment: "negative",
       emotion: "negative",
-      emotionScore: 10,
+      emotionScore: 15,
+      diaryScore: 15,
       confidenceScore: result.confidenceScore,
-      riskLevel: result.riskLevel,
+      riskLevel: "high",
       toxicityLevel: "low",
       safetyTriggered: true,
       safetyType: result.safetyType,
       summary:
-        "Nội dung nhật ký cho thấy bạn đang trải qua cảm xúc rất nặng nề và có dấu hiệu không an toàn đối với bản thân.",
+        "Nội dung nhật ký cho thấy bạn đang trải qua cảm xúc rất nặng nề và có ý nghĩ mệt mỏi với cuộc sống.",
       suggestion:
-        "Lúc này, điều quan trọng nhất là giữ bạn ở nơi an toàn. Hãy đặt xa những vật có thể khiến bạn bị thương, đến gần một người đáng tin và nói trực tiếp rằng bạn đang cần họ ở bên ngay bây giờ.",
+        "Trạng thái kiệt sức này hoàn toàn có thể tìm được sự hỗ trợ. Bạn không cần phải gánh vác điều này một mình. Hãy kết nối với một người bạn tin tưởng hoặc trò chuyện với tổng đài tư vấn tâm lý 1900 636 527 để nhận được sự lắng nghe an toàn.",
     };
   }
 

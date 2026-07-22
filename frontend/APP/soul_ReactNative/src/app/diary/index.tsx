@@ -25,6 +25,7 @@ import {
   DiaryMood,
 } from "@/api/diaryApi";
 
+import { useAuthStore } from "@/store";
 import { diaryStyles as s } from "@/styles/diary.styles";
 import { DiaryCard } from "@/components/diary/DiaryCard";
 import { DiaryDetailModal } from "@/components/diary/DiaryDetailModal";
@@ -76,6 +77,7 @@ function formatDate(value?: string) {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: "Asia/Ho_Chi_Minh",
   });
 }
 
@@ -89,6 +91,7 @@ function formatTime(value?: string) {
   return date.toLocaleTimeString("vi-VN", {
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Asia/Ho_Chi_Minh",
   });
 }
 
@@ -107,7 +110,23 @@ function getSentimentText(sentiment?: string | null) {
 }
 
 export default function DiaryScreen() {
+  const user = useAuthStore((state: any) => state.user);
   const [token, setToken] = useState<string | null>(null);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      const role = String(user?.role || "").trim().toLowerCase();
+      if (role === "admin" || role === "administrator") {
+        router.replace("/(admin)" as any);
+      } else if (role === "event_organizer" || role === "organizer" || role === "event-organizer") {
+        router.replace("/(organizer)" as any);
+      } else {
+        router.replace("/(tabs)" as any);
+      }
+    }
+  };
 
   const [diaries, setDiaries] = useState<any[]>([]);
   const [filter, setFilter] = useState("all");
@@ -179,6 +198,7 @@ export default function DiaryScreen() {
   }, [filter]);
 
   const visibleDiaries = useMemo(() => diaries, [diaries]);
+
 
   const resetForm = () => {
     setEditingDiary(null);
@@ -318,7 +338,7 @@ export default function DiaryScreen() {
     <View style={s.page}>
       <View style={s.header}>
         <View style={s.headerTop}>
-          <Pressable style={s.backButton} onPress={() => router.replace("/(tabs)" as any)}>
+          <Pressable style={s.backButton} onPress={handleBack}>
             <MaterialCommunityIcons name="arrow-left" size={24} color="#064D3D" />
           </Pressable>
 
