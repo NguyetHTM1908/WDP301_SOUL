@@ -271,6 +271,19 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleDeclineFriendshipAction = async () => {
+    if (!token || !targetUserId) return;
+    try {
+      const res = await friendshipAction(token, targetUserId as string, "decline");
+      if (res && res.success) {
+        setFriendshipStatus("none");
+        Alert.alert("Thông báo", "Đã từ chối lời mời kết bạn.");
+      }
+    } catch (e: any) {
+      Alert.alert("Lỗi", e.message || "Không thể từ chối lời mời kết bạn.");
+    }
+  };
+
   useEffect(() => {
     if (token && targetUserId) {
       loadData(token);
@@ -646,6 +659,7 @@ export default function ProfileScreen() {
             setShowEditBioModal(true);
           }}
           onFriendshipAction={handleFriendshipAction}
+          onDeclineFriendshipAction={handleDeclineFriendshipAction}
         />
 
         {/* ================= TABS SELECTOR ================= */}
@@ -663,7 +677,9 @@ export default function ProfileScreen() {
                   ? "Giới thiệu"
                   : tab === "ảnh"
                   ? "Ảnh"
-                  : "Bạn bè & Gợi ý"}
+                  : isMyProfile
+                  ? "Bạn bè & Gợi ý"
+                  : "Bạn bè"}
               </Text>
               {activeTab === tab && <View style={s.tabIndicator} />}
             </TouchableOpacity>
@@ -698,6 +714,7 @@ export default function ProfileScreen() {
                     key={post._id}
                     item={post}
                     mode={isMe ? "mine" : "community"}
+                    isProfilePage={true}
                     moodLabel={moodLabel}
                     openCommentPostId={openCommentPostId}
                     commentsByPost={commentsByPost}
@@ -754,6 +771,7 @@ export default function ProfileScreen() {
               onAcceptRequest={handleAcceptRequest}
               onDeclineRequest={handleDeclineRequest}
               onRecommendationAction={handleRecommendationAction}
+              onRefreshData={() => loadData(token)}
             />
           )}
 

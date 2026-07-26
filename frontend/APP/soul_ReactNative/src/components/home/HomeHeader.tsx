@@ -193,22 +193,21 @@ export function ProfileDropdown({ onClose, onEditProfile }: ProfileMenuProps) {
           ["account-outline", "Hồ sơ của tôi"],
           ["pencil-outline", "Chỉnh sửa hồ sơ"],
           ["message-text-outline", "Tin nhắn"],
-          ["trophy-outline", "Thành tích"],
           ["bell-outline", "Lời nhắc"],
           ["logout", "Đăng xuất"],
-        ].map(([icon, text], index) => (
+        ].map(([icon, text], index, arr) => (
           <TouchableOpacity
             key={text}
             onPress={() => handleActionPress(text)}
             style={[
               styles.profileAction,
-              index === 5 && styles.profileLogout,
+              index === arr.length - 1 && styles.profileLogout,
             ]}
           >
             <MaterialCommunityIcons
               name={icon as any}
               size={22}
-              color={index === 5 ? "#FF6B6B" : "#214B5B"}
+              color={index === arr.length - 1 ? "#FF6B6B" : "#214B5B"}
             />
             <Text style={styles.profileActionText}>{text}</Text>
           </TouchableOpacity>

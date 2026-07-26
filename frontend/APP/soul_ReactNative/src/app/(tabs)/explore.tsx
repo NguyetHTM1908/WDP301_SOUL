@@ -33,7 +33,7 @@ export default function ExploreScreen() {
       {/* 2. Nội dung cuộn ở giữa */}
       <ScrollView
         style={{ flex: 1, paddingHorizontal: 18 }}
-        contentContainerStyle={{ paddingTop: 6, paddingBottom: 16 }}
+        contentContainerStyle={{ paddingTop: 6, paddingBottom: 90 }}
         showsVerticalScrollIndicator={false}
       >
         <HeroCard />
@@ -49,11 +49,6 @@ export default function ExploreScreen() {
           <EventCard />
         </View>
       </ScrollView>
-
-      {/* 3. Bottom Navigation cố định ở dưới */}
-      <View style={{ paddingHorizontal: 18, paddingBottom: 10, backgroundColor: "#F2FFFB" }}>
-        <BottomNav />
-      </View>
     </View>
   );
 }

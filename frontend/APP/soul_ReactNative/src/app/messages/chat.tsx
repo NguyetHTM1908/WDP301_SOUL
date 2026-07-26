@@ -14,6 +14,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { useAuthStore } from "@/store";
 import { getMessages, sendMessage, markAsRead } from "@/api/messageApi";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { messageStyles as s } from "@/styles/message.styles";
 
 function getInitials(name: string) {
@@ -72,6 +73,7 @@ function shouldShowDateSeparator(
 }
 
 export default function ChatScreen() {
+  const insets = useSafeAreaInsets();
   const { userId, userName, userAvatar } = useLocalSearchParams<{
     userId: string;
     userName: string;
@@ -324,7 +326,7 @@ export default function ChatScreen() {
       />
 
       {/* Input bar */}
-      <View style={s.inputBar}>
+      <View style={[s.inputBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
         <View style={s.inputWrapper}>
           <TextInput
             style={s.textInput}

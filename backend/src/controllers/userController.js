@@ -11,7 +11,7 @@ exports.getUserProfile = async (req, res) => {
     const user = await User.findById(req.params.id)
       .select("fullName email phone gender avatarUrl bio moodReputation moodReputationScore role status createdAt");
     
-    if (!user || user.role !== "user") {
+    if (!user || user.role === "admin") {
       return res.status(403).json({
         success: false,
         message: "Chỉ người dùng thường (user) mới có trang cá nhân.",
@@ -34,15 +34,25 @@ exports.getUserProfile = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
   try {
     const { id } = req.params;
-    const posts = await Post.find({
+    const currentUserId = req.user ? (req.user._id || req.user.id)?.toString?.() : null;
+    const isOwner = Boolean(currentUserId && currentUserId === id.toString());
+
+    let query = {
       authorId: id,
-      status: "approved",
-      visibility: "public",
-      isFlagged: false,
-      postType: "profile"
-    })
-    .populate("authorId", "fullName email avatarUrl anonymousAlias")
-    .sort({ createdAt: -1 });
+      postType: "profile",
+      status: { $ne: "deleted" },
+    };
+
+    if (!isOwner) {
+      // Khách xem thì chỉ hiển thị bài công khai, đã duyệt và không bị AI cờ/cảnh báo
+      query.status = "approved";
+      query.visibility = "public";
+      query.isFlagged = false;
+    }
+
+    const posts = await Post.find(query)
+      .populate("authorId", "fullName email avatarUrl anonymousAlias")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,
@@ -78,7 +88,7 @@ exports.getUserFriends = async (req, res) => {
     // Tìm thông tin của các bạn bè đó (chỉ lấy user)
     const friends = await User.find({
       _id: { $in: friendIds },
-      role: "user"
+      role: { $ne: "admin" }
     }).select("fullName email avatarUrl bio moodReputation");
 
     return res.status(200).json({
@@ -167,11 +177,11 @@ exports.getFriendRecommendations = async (req, res) => {
     // 3. Lấy TẤT CẢ user eligible (không phân biệt có EmotionProfile hay không)
     const allCandidateUsers = await User.find({
       _id: { $nin: Array.from(excludedIds) },
-      role: "user",
-      status: "active",
+      role: { $ne: "admin" },
+      status: { $ne: "blocked" },
     })
       .select("fullName email avatarUrl bio moodReputation moodReputationScore interests")
-      .limit(50);
+      .limit(100);
 
     const allCandidateIds = allCandidateUsers.map((u) => u._id);
 
@@ -289,7 +299,7 @@ exports.getFriendRecommendations = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      data: scored.slice(0, 10),
+      data: scored.slice(0, 50),
     });
   } catch (error) {
     return res.status(500).json({
@@ -410,7 +420,7 @@ exports.friendshipAction = async (req, res) => {
     }
 
     const targetUser = await User.findById(targetUserId);
-    if (!targetUser || targetUser.role !== "user") {
+    if (!targetUser || targetUser.role === "admin") {
       return res.status(403).json({
         success: false,
         message: "Chỉ có thể kết bạn với người dùng thường (user)."
@@ -567,3 +577,98 @@ exports.friendshipAction = async (req, res) => {
     });
   }
 };
+
+// Helper: chuẩn hóa chuỗi, bỏ dấu tiếng Việt, lowercase
+function normalizeText(str) {
+  if (!str) return "";
+  return str
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/đ/gi, "d")
+    .toLowerCase()
+    .trim();
+}
+
+// Tìm kiếm người dùng theo tên hoặc email (không phân biệt hoa thường, dấu tiếng Việt)
+exports.searchUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id || req.user._id;
+    const q = (req.query.q || "").trim();
+
+    if (!q || q.length < 1) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const normalizedQ = normalizeText(q);
+    const words = normalizedQ.split(/\s+/).filter(Boolean);
+
+    // Lấy rộng để filter JS - MongoDB regex không xử lý được dấu tiếng Việt
+    const allUsers = await User.find({
+      _id: { $ne: currentUserId },
+      role: { $ne: "admin" },
+      status: { $ne: "blocked" },
+    })
+      .select("fullName email avatarUrl bio moodReputation")
+      .limit(200);
+
+    // Filter: tất cả từ trong query phải xuất hiện trong tên hoặc email (sau normalize)
+    const matched = allUsers.filter((u) => {
+      const haystack = normalizeText(u.fullName) + " " + normalizeText(u.email);
+      return words.every((word) => haystack.includes(word));
+    });
+
+    const topMatched = matched.slice(0, 20);
+
+    if (topMatched.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const userIds = topMatched.map((u) => u._id);
+
+    // Lấy danh sách bạn bè hiện tại
+    const friendships = await Friendship.find({
+      $or: [{ userAId: currentUserId }, { userBId: currentUserId }],
+      status: "active",
+    });
+    const friendIdSet = new Set(
+      friendships.map((f) =>
+        f.userAId.toString() === currentUserId.toString()
+          ? f.userBId.toString()
+          : f.userAId.toString()
+      )
+    );
+
+    // Lấy các yêu cầu kết bạn đang chờ
+    const pendingRequests = await FriendRequest.find({
+      $or: [
+        { requesterId: currentUserId, receiverId: { $in: userIds } },
+        { requesterId: { $in: userIds }, receiverId: currentUserId },
+      ],
+      status: "pending",
+    });
+    const pendingMap = {};
+    pendingRequests.forEach((r) => {
+      if (r.requesterId.toString() === currentUserId.toString()) {
+        pendingMap[r.receiverId.toString()] = "pending_sent";
+      } else {
+        pendingMap[r.requesterId.toString()] = "pending_received";
+      }
+    });
+
+    const results = topMatched.map((u) => {
+      const uid = u._id.toString();
+      let friendshipStatus = "none";
+      if (friendIdSet.has(uid)) friendshipStatus = "friends";
+      else if (pendingMap[uid]) friendshipStatus = pendingMap[uid];
+      return { ...u.toObject(), friendshipStatus };
+    });
+
+    return res.status(200).json({ success: true, data: results });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi tìm kiếm người dùng: " + error.message,
+    });
+  }
+};
+
