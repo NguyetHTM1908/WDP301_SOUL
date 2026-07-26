@@ -118,7 +118,33 @@ export default function EmotionalTestMainScreen({ navigation }: Props) {
               </TouchableOpacity>
             </View>
           </View>
+              <TouchableOpacity
+  style={styles.historyButton}
+  activeOpacity={0.85}
+  onPress={() =>
+    router.push("/emotional-test/history" as any)
+  }
+>
+  <View style={styles.historyIconBox}>
+    <Text style={styles.historyIcon}>📋</Text>
+  </View>
 
+  <View style={styles.historyContent}>
+    <Text style={styles.historyTitle}>
+      Lịch sử kết quả
+    </Text>
+
+    <Text style={styles.historyDescription}>
+      Xem lại điểm số và các lần bạn đã thực hiện bài test.
+    </Text>
+  </View>
+
+  <View style={styles.historyArrowBox}>
+    <Text style={styles.historyArrow}>›</Text>
+  </View>
+</TouchableOpacity>
+
+<View style={styles.sectionHeader}></View>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Bài kiểm tra</Text>
 
@@ -368,5 +394,64 @@ const styles = StyleSheet.create({
   filterText: {
     color: GREEN,
     fontSize: 18,
-  },
+  },historyButton: {
+  marginTop: 14,
+  minHeight: 82,
+  borderRadius: 24,
+  backgroundColor: "#FFFFFF",
+  padding: 12,
+  flexDirection: "row",
+  alignItems: "center",
+  shadowColor: GREEN,
+  shadowOpacity: 0.12,
+  shadowRadius: 12,
+  elevation: 2,
+},
+
+historyIconBox: {
+  width: 56,
+  height: 56,
+  borderRadius: 18,
+  backgroundColor: "#EFFFF5",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+historyIcon: {
+  fontSize: 27,
+},
+
+historyContent: {
+  flex: 1,
+  marginLeft: 13,
+},
+
+historyTitle: {
+  fontSize: 15,
+  fontWeight: "900",
+  color: TEXT_DARK,
+},
+
+historyDescription: {
+  marginTop: 5,
+  fontSize: 11,
+  lineHeight: 16,
+  color: "#4E6B5A",
+},
+
+historyArrowBox: {
+  width: 36,
+  height: 36,
+  borderRadius: 18,
+  backgroundColor: "#ECFFF4",
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+historyArrow: {
+  fontSize: 27,
+  lineHeight: 28,
+  color: GREEN,
+  fontWeight: "700",
+},
 });

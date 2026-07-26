@@ -145,7 +145,16 @@ export default function EmotionalResultScreen() {
           >
             <Text style={styles.secondaryButtonText}>Trò chuyện với SOUL AI</Text>
           </TouchableOpacity>
-
+          <TouchableOpacity
+            style={styles.historyButton}
+            onPress={() =>
+            router.push("/emotional-test/history" as any)
+  }
+>
+            <Text style={styles.historyButtonText}>
+              Xem lịch sử kết quả
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.homeButton}
             onPress={() => router.push("/emotional-test" as any)}
@@ -300,5 +309,19 @@ const styles = StyleSheet.create({
     color: "#2F6B48",
     fontSize: 14,
     fontWeight: "800",
-  },
+  },historyButton: {
+  marginTop: 12,
+  height: 52,
+  borderRadius: 26,
+  borderWidth: 1.5,
+  borderColor: GREEN,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+historyButtonText: {
+  color: GREEN_DARK,
+  fontSize: 14,
+  fontWeight: "900",
+},
 });

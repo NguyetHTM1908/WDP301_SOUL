@@ -80,7 +80,7 @@ export default function EmotionalAssessmentScreen() {
       const data = await getEmotionalTestQuestions(testId);
 
       setTestTitle(data.title);
-      setDescription(data.description);
+      setDescription(data.description? data.description : "Không có mô tả cho bài test này.");
       setQuestions(data.questions);
     } catch (error: any) {
       Alert.alert("Lỗi", error.message || "Không thể tải câu hỏi.");
