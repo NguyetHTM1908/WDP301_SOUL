@@ -3,6 +3,10 @@ const jwt = require("jsonwebtoken");
 const axios = require("axios");
 const User = require("../models/User");
 const TokenBlacklist = require("../models/TokenBlacklist");
+const { sendOtpEmail } = require("../services/emailService");
+
+/** Tạo mã OTP 6 số ngẫu nhiên */
+const generateOtp = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 // Generate JWT Helper
 const generateToken = (userId) => {
@@ -46,8 +50,24 @@ const register = async (req, res) => {
     }
 
     // 4. Kiểm tra xem email đã tồn tại chưa
-    const userExists = await User.findOne({ email });
-    if (userExists) {
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      // Nếu user đã tồn tại nhưng chưa xác thực, cho phép gửi lại OTP
+      if (!existingUser.isEmailVerified) {
+        const otp = generateOtp();
+        existingUser.otpCode = otp;
+        existingUser.otpCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
+        await existingUser.save();
+        try {
+          await sendOtpEmail(email, otp, "register");
+        } catch (mailErr) {
+          console.error("[Register] Lỗi gửi email OTP:", mailErr.message);
+        }
+        return res.status(200).json({
+          success: true,
+          message: "Email đã đăng ký nhưng chưa xác thực. Mã OTP mới đã được gửi tới email của bạn.",
+        });
+      }
       return res.status(400).json({
         success: false,
         message: "Email này đã được sử dụng để đăng ký tài khoản khác.",
@@ -69,8 +89,7 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
-    // 7. Tạo người dùng mới
-    // Chỉ cho phép chọn user hoặc event_organizer khi đăng ký, không cho phép tự gán admin
+    // 7. Tạo người dùng mới (chưa xác thực email)
     const allowedRoles = ["user", "event_organizer"];
     const finalRole = (role && allowedRoles.includes(role)) ? role : "user";
 
@@ -80,31 +99,34 @@ const register = async (req, res) => {
       passwordHash,
       role: finalRole,
       status: "active",
-      isEmailVerified: false,
+      isEmailVerified: false, // Chưa xác thực email
     };
 
-    if (phone) {
-      userFields.phone = phone;
-    }
-    if (gender) {
-      userFields.gender = gender;
-    }
-    if (dateOfBirth) {
-      userFields.dateOfBirth = new Date(dateOfBirth);
-    }
+    if (phone) userFields.phone = phone;
+    if (gender) userFields.gender = gender;
+    if (dateOfBirth) userFields.dateOfBirth = new Date(dateOfBirth);
+
+    // 8. Sinh OTP và lưu vào user
+    const otp = generateOtp();
+    userFields.otpCode = otp;
+    userFields.otpCodeExpires = new Date(Date.now() + 10 * 60 * 1000); // 10 phút
 
     const newUser = await User.create(userFields);
 
-    // 8. Tạo JWT token
-    const token = generateToken(newUser._id);
+    // 9. Gửi email OTP xác thực
+    try {
+      await sendOtpEmail(email, otp, "register");
+    } catch (mailErr) {
+      console.error("[Register] Lỗi gửi email OTP:", mailErr.message);
+      // Không rollback user — vẫn cho phép resend OTP sau
+    }
 
-    // 9. Trả về kết quả (toJSON đã tự động xóa passwordHash)
+    // 10. Trả về kết quả (không trả token — cần xác thực OTP trước)
     return res.status(201).json({
       success: true,
-      message: "Đăng ký tài khoản thành công.",
+      message: "Đăng ký thành công! Vui lòng kiểm tra email và nhập mã OTP để xác thực tài khoản.",
       data: {
-        user: newUser,
-        token,
+        email: newUser.email,
       },
     });
   } catch (error) {
@@ -149,7 +171,16 @@ const login = async (req, res) => {
       });
     }
 
-    // 4. So sánh mật khẩu bằng bcryptjs
+    // 4. Kiểm tra xác thực email (nếu chưa xác thực)
+    if (!user.isEmailVerified) {
+      return res.status(403).json({
+        success: false,
+        message: "Tài khoản chưa được xác thực email. Vui lòng kiểm tra email và nhập mã OTP.",
+        data: { email: user.email, requireOtp: true },
+      });
+    }
+
+    // 5. So sánh mật khẩu bằng bcryptjs
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
       return res.status(401).json({
@@ -158,11 +189,11 @@ const login = async (req, res) => {
       });
     }
 
-    // 5. Cập nhật thời gian đăng nhập cuối cùng
+    // 6. Cập nhật thời gian đăng nhập cuối cùng
     user.lastLoginAt = new Date();
     await user.save();
 
-    // 6. Tạo JWT token
+    // 7. Tạo JWT token
     const token = generateToken(user._id);
 
     return res.status(200).json({
@@ -259,26 +290,36 @@ const forgotPassword = async (req, res) => {
     // Tìm người dùng bằng email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "Không tìm thấy tài khoản với email này.",
+      // Trả về 200 để không lộ thông tin tài khoản tồn tại hay không
+      return res.status(200).json({
+        success: true,
+        message: "Nếu email tồn tại trong hệ thống, mã OTP đặt lại mật khẩu sẽ được gửi tới email của bạn.",
       });
     }
 
-    // Tạo mã xác thực 4 chữ số ngẫu nhiên
-    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    // Tạo mã OTP 6 số ngẫu nhiên
+    const code = generateOtp();
 
     // Lưu mã xác thực và thời gian hết hạn (10 phút) vào database
     user.resetCode = code;
     user.resetCodeExpires = new Date(Date.now() + 10 * 60 * 1000);
     await user.save();
 
-    console.log(`[FORGOT PASSWORD] Mã xác thực cho ${email} là: ${code}`);
+    // Gửi OTP qua email
+    try {
+      await sendOtpEmail(email, code, "reset-password");
+      console.log(`[Forgot Password] Đã gửi OTP tới: ${email}`);
+    } catch (mailErr) {
+      console.error("[Forgot Password] Lỗi gửi email OTP:", mailErr.message);
+      return res.status(500).json({
+        success: false,
+        message: "Không thể gửi email OTP. Vui lòng thử lại sau.",
+      });
+    }
 
     return res.status(200).json({
       success: true,
-      message: "Mã xác thực đã được gửi thành công.",
-      code, // Trả về kèm code trong môi trường test/development để frontend dễ mock
+      message: "Mã OTP đã được gửi tới email của bạn. Vui lòng kiểm tra hộp thư (kể cả thư rác).",
     });
   } catch (error) {
     return res.status(500).json({
@@ -304,22 +345,35 @@ const verifyCode = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      email,
-      resetCode: code,
-      resetCodeExpires: { $gt: new Date() }, // Kiểm tra mã chưa hết hạn
-    });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = String(code).trim();
+
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy tài khoản với email này.",
+      });
+    }
+
+    if (!user.resetCode || user.resetCode !== cleanCode) {
       return res.status(400).json({
         success: false,
-        message: "Mã xác thực không hợp lệ hoặc đã hết hạn.",
+        message: "Mã OTP khôi phục mật khẩu không chính xác.",
+      });
+    }
+
+    if (!user.resetCodeExpires || new Date(user.resetCodeExpires) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Mã OTP đã hết hạn. Vui lòng gửi lại yêu cầu mới.",
       });
     }
 
     return res.status(200).json({
       success: true,
-      message: "Xác thực mã thành công.",
+      message: "Xác thực mã OTP thành công.",
     });
   } catch (error) {
     return res.status(500).json({
@@ -339,6 +393,7 @@ const resetPassword = async (req, res) => {
     const { email, code, newPassword } = req.body;
 
     if (!email || !code || !newPassword) {
+      console.error("[Reset Password Error] Thiếu params:", { email: !!email, code: !!code, newPassword: !!newPassword });
       return res.status(400).json({
         success: false,
         message: "Vui lòng cung cấp đầy đủ email, mã xác thực và mật khẩu mới.",
@@ -352,16 +407,32 @@ const resetPassword = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({
-      email,
-      resetCode: code,
-      resetCodeExpires: { $gt: new Date() },
-    });
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanCode = String(code).trim();
+
+    console.log(`[Reset Password] Email: ${cleanEmail}, Code: ${cleanCode}`);
+
+    const user = await User.findOne({ email: cleanEmail });
 
     if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy tài khoản với email này.",
+      });
+    }
+
+    if (!user.resetCode || user.resetCode !== cleanCode) {
+      console.error(`[Reset Password Error] Mã OTP không khớp! Trong DB: '${user.resetCode}', Nhận được: '${cleanCode}'`);
       return res.status(400).json({
         success: false,
-        message: "Mã xác thực không hợp lệ hoặc đã hết hạn.",
+        message: "Mã OTP khôi phục mật khẩu không chính xác hoặc đã hết hiệu lực.",
+      });
+    }
+
+    if (!user.resetCodeExpires || new Date(user.resetCodeExpires) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Mã OTP đã hết hạn. Vui lòng gửi lại yêu cầu mới.",
       });
     }
 
@@ -374,6 +445,8 @@ const resetPassword = async (req, res) => {
     user.resetCode = null;
     user.resetCodeExpires = null;
     await user.save();
+
+    console.log(`[Reset Password Success] Đã đổi mật khẩu thành công cho email: ${cleanEmail}`);
 
     return res.status(200).json({
       success: true,
@@ -388,47 +461,71 @@ const resetPassword = async (req, res) => {
 };
 
 /**
- * @desc    Đăng nhập hoặc đăng ký bằng tài khoản Google (OAuth)
+ * @desc    Đăng nhập hoặc đăng ký bằng tài khoản Google (OAuth / ID Token)
  * @route   POST /api/auth/google-login
  * @access  Public
  */
 const googleLogin = async (req, res) => {
   try {
-    const { email, fullName, googleId, avatarUrl } = req.body;
+    const { email, fullName, googleId, avatarUrl, idToken } = req.body;
 
-    if (!email || !fullName || !googleId) {
+    let userEmail = email;
+    let userName = fullName;
+    let userGoogleId = googleId;
+    let userAvatarUrl = avatarUrl;
+
+    // Nếu frontend truyền idToken từ Google Identity Services / GIS
+    if (idToken) {
+      try {
+        const decoded = jwt.decode(idToken);
+        if (decoded) {
+          userEmail = userEmail || decoded.email;
+          userName = userName || decoded.name || decoded.email?.split("@")[0];
+          userGoogleId = userGoogleId || decoded.sub;
+          userAvatarUrl = userAvatarUrl || decoded.picture;
+        }
+      } catch (err) {
+        console.warn("[Google Login] Lỗi decode idToken:", err.message);
+      }
+    }
+
+    if (!userEmail || !userGoogleId) {
       return res.status(400).json({
         success: false,
-        message: "Vui lòng cung cấp đầy đủ email, họ tên và googleId.",
+        message: "Vui lòng cung cấp thông tin tài khoản Google (email & googleId hoặc idToken).",
       });
     }
 
+    userName = userName || userEmail.split("@")[0];
+    const cleanEmail = userEmail.trim().toLowerCase();
+
     // 1. Kiểm tra xem người dùng đã tồn tại bằng email hoặc googleId chưa
-    let user = await User.findOne({ $or: [{ googleId }, { email }] });
+    let user = await User.findOne({ $or: [{ googleId: userGoogleId }, { email: cleanEmail }] });
 
     if (user) {
-      // Nếu người dùng đã tồn tại bằng email nhưng chưa có googleId (đăng ký thường từ trước), liên kết tài khoản
       let isUpdated = false;
       if (!user.googleId) {
-        user.googleId = googleId;
+        user.googleId = userGoogleId;
         isUpdated = true;
       }
-      if (avatarUrl && !user.avatarUrl) {
-        user.avatarUrl = avatarUrl;
+      if (userAvatarUrl && !user.avatarUrl) {
+        user.avatarUrl = userAvatarUrl;
+        isUpdated = true;
+      }
+      if (!user.isEmailVerified) {
+        user.isEmailVerified = true;
+        user.emailVerifiedAt = new Date();
         isUpdated = true;
       }
 
       user.lastLoginAt = new Date();
       await user.save();
 
-      // Tạo JWT token cho phiên đăng nhập
       const token = generateToken(user._id);
 
       return res.status(200).json({
         success: true,
-        message: isUpdated
-          ? "Liên kết tài khoản và đăng nhập bằng Google thành công."
-          : "Đăng nhập bằng Google thành công.",
+        message: "Đăng nhập bằng Google thành công.",
         data: {
           user,
           token,
@@ -437,25 +534,23 @@ const googleLogin = async (req, res) => {
     }
 
     // 2. Nếu người dùng chưa tồn tại, tự động đăng ký tài khoản mới bằng thông tin Google
-    // Sinh mật khẩu ngẫu nhiên và băm mật khẩu
-    const randomPassword = Math.random().toString(36).substring(2, 10);
+    const randomPassword = Math.random().toString(36).substring(2, 12);
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(randomPassword, salt);
 
     const newUser = await User.create({
-      fullName,
-      email,
+      fullName: userName,
+      email: cleanEmail,
       passwordHash,
-      googleId,
-      avatarUrl: avatarUrl || null,
+      googleId: userGoogleId,
+      avatarUrl: userAvatarUrl || null,
       role: "user",
       status: "active",
-      isEmailVerified: true, // Tài khoản của Google được xem là đã xác minh email sẵn
+      isEmailVerified: true,
       emailVerifiedAt: new Date(),
       lastLoginAt: new Date(),
     });
 
-    // Tạo JWT token cho tài khoản mới
     const token = generateToken(newUser._id);
 
     return res.status(201).json({
@@ -575,7 +670,40 @@ const googleCallback = async (req, res) => {
     // 3. Tạo JWT token
     const token = generateToken(user._id);
 
-    // 4. Chuyển hướng người dùng về App di động thông qua Deep Link (soulreactnative://)
+    // 4. Kiểm tra xem request từ Web hay Mobile App
+    const userAgent = req.headers["user-agent"] || "";
+    const isMobileApp = userAgent.includes("okhttp") || userAgent.includes("Expo");
+
+    if (!isMobileApp) {
+      // Nếu là trình duyệt Web: Trả về trang HTML tự động lưu token và chuyển về http://localhost:8081
+      return res.send(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Đăng nhập thành công</title>
+            <meta charset="utf-8">
+          </head>
+          <body style="font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; background: #F8FAFC;">
+            <div style="background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); text-align: center;">
+              <h2 style="color: #1E293B; margin-bottom: 8px;">🎉 Đăng nhập Google thành công!</h2>
+              <p style="color: #64748B;">Đang chuyển hướng bạn về ứng dụng...</p>
+            </div>
+            <script>
+              try {
+                localStorage.setItem("token", "${token}");
+                localStorage.setItem("user", '${JSON.stringify(user).replace(/'/g, "\\'")}');
+              } catch(e){}
+              setTimeout(() => {
+                const target = "${user.role === 'admin' ? '(admin)' : '(tabs)'}";
+                window.location.href = "http://localhost:8081/" + target + "?token=${token}&user=${encodeURIComponent(JSON.stringify(user))}";
+              }, 500);
+            </script>
+          </body>
+        </html>
+      `);
+    }
+
+    // Nếu là Mobile App: Chuyển hướng thông qua Deep Link (soulreactnative://)
     const deepLinkUrl = `soulreactnative://login-success?token=${token}&user=${encodeURIComponent(JSON.stringify(user))}`;
     console.log("[Google OAuth] Thành công. Chuyển hướng về App di động:", deepLinkUrl);
     return res.redirect(deepLinkUrl);
@@ -708,6 +836,155 @@ const changePassword = async (req, res) => {
   }
 };
 
+/**
+ * @desc    Xác thực OTP sau khi đăng ký (kích hoạt tài khoản)
+ * @route   POST /api/auth/verify-register-otp
+ * @access  Public
+ */
+const verifyRegisterOtp = async (req, res) => {
+  try {
+    const { email, otp } = req.body;
+
+    if (!email || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập đầy đủ email và mã OTP.",
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanOtp = String(otp).trim();
+
+    console.log(`[Verify OTP] Email: ${cleanEmail}, OTP: ${cleanOtp}`);
+
+    // Tìm người dùng theo email
+    const user = await User.findOne({ email: cleanEmail });
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "Không tìm thấy tài khoản với email này.",
+      });
+    }
+
+    // Nếu tài khoản đã được xác thực trước đó
+    if (user.isEmailVerified) {
+      const token = generateToken(user._id);
+      return res.status(200).json({
+        success: true,
+        message: "Tài khoản của bạn đã được xác thực trước đó. Đăng nhập thành công!",
+        data: { user, token },
+      });
+    }
+
+    // Kiểm tra mã OTP
+    if (!user.otpCode || user.otpCode !== cleanOtp) {
+      return res.status(400).json({
+        success: false,
+        message: "Mã OTP không chính xác. Vui lòng kiểm tra lại email.",
+      });
+    }
+
+    // Kiểm tra thời gian hết hạn mã OTP
+    if (!user.otpCodeExpires || new Date(user.otpCodeExpires) < new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Mã OTP đã hết hạn. Vui lòng nhấn 'Gửi lại mã OTP'.",
+      });
+    }
+
+    // Kích hoạt tài khoản
+    user.isEmailVerified = true;
+    user.emailVerifiedAt = new Date();
+    user.otpCode = null;
+    user.otpCodeExpires = null;
+    await user.save();
+
+    // Tạo token để đăng nhập ngay
+    const token = generateToken(user._id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Xác thực email thành công! Tài khoản của bạn đã được kích hoạt.",
+      data: { user, token },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi xác thực OTP: " + error.message,
+    });
+  }
+};
+
+/**
+ * @desc    Gửi lại mã OTP (dùng được cho cả đăng ký và quên mật khẩu)
+ * @route   POST /api/auth/resend-otp
+ * @access  Public
+ */
+const resendOtp = async (req, res) => {
+  try {
+    const { email, type } = req.body; // type: 'register' | 'reset-password'
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Vui lòng nhập địa chỉ email.",
+      });
+    }
+
+    const otpType = type === "reset-password" ? "reset-password" : "register";
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(200).json({
+        success: true,
+        message: "Nếu email tồn tại, mã OTP mới sẽ được gửi tới email của bạn.",
+      });
+    }
+
+    // Nếu type là register nhưng user đã verified, không cần gửi
+    if (otpType === "register" && user.isEmailVerified) {
+      return res.status(400).json({
+        success: false,
+        message: "Tài khoản này đã được xác thực email rồi.",
+      });
+    }
+
+    const newOtp = generateOtp();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    if (otpType === "register") {
+      user.otpCode = newOtp;
+      user.otpCodeExpires = expiresAt;
+    } else {
+      user.resetCode = newOtp;
+      user.resetCodeExpires = expiresAt;
+    }
+
+    await user.save();
+
+    try {
+      await sendOtpEmail(email, newOtp, otpType);
+    } catch (mailErr) {
+      console.error("[ResendOtp] Lỗi gửi email OTP:", mailErr.message);
+      return res.status(500).json({
+        success: false,
+        message: "Không thể gửi email OTP. Vui lòng thử lại sau.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Mã OTP mới đã được gửi tới email của bạn.",
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: "Lỗi hệ thống khi gửi lại OTP: " + error.message,
+    });
+  }
+};
+
 module.exports = {
   register,
   login,
@@ -721,6 +998,8 @@ module.exports = {
   googleCallback,
   updateProfile,
   changePassword,
+  verifyRegisterOtp,
+  resendOtp,
 };
 
 

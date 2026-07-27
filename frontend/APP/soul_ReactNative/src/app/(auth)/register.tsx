@@ -19,6 +19,15 @@ import { useAuthStore } from "@/store";
 import { authStyles as styles } from "@/styles/auth.styles";
 import { WebView } from "react-native-webview";
 import { API_BASE_URL } from "@/api/config";
+import * as Google from "expo-auth-session/providers/google";
+import * as WebBrowser from "expo-web-browser";
+import { makeRedirectUri } from "expo-auth-session";
+import { useEffect } from "react";
+
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_CLIENT_ID = "174376142-i5mmq3ssn1n6n8h2k3bttlllh21ep2qo.apps.googleusercontent.com";
+const GOOGLE_ANDROID_CLIENT_ID = "174376142-cdasefrkjmif196msi88l0p4av2qpf68.apps.googleusercontent.com";
 
 const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -27,6 +36,7 @@ export default function RegisterScreen() {
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("");
   const [email, setEmail] = useState("");
+  const [gLoading, setGLoading] = useState(false);
   const [password, setPassword] = useState("");
   const [secureText, setSecureText] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -47,6 +57,56 @@ export default function RegisterScreen() {
 
   const registerAction = useAuthStore((state) => state.register);
   const setSession = useAuthStore((state) => state.setSession);
+  const loginWithGoogle = useAuthStore((state) => state.loginWithGoogle);
+
+  // ── expo-auth-session Google ──────────────────────────────────
+  // ── expo-auth-session Google ──────────────────────────────────
+  // Khi dùng androidClientId, expo-auth-session tự tạo redirect URI đúng:
+  // com.googleusercontent.apps.{androidClientId}:/oauth2redirect
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    clientId: GOOGLE_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    scopes: ["openid", "profile", "email"],
+  });
+
+  useEffect(() => {
+    if (response?.type === "success") {
+      const { authentication } = response;
+      if (authentication?.accessToken) {
+        handleGoogleToken(authentication.accessToken);
+      }
+    } else if (response?.type === "error") {
+      console.error("[Google SignUp Error]:", response.error);
+      Alert.alert("Lỗi đăng ký Google", response.error?.message || "Đã có lỗi xảy ra");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [response]);
+
+  const handleGoogleToken = async (accessToken: string) => {
+    setGLoading(true);
+    try {
+      const userInfoRes = await fetch("https://www.googleapis.com/oauth2/v3/userinfo", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const profile = await userInfoRes.json();
+      const result = await loginWithGoogle(
+        profile.email,
+        profile.name,
+        profile.sub,
+        profile.picture,
+        undefined
+      );
+      setGLoading(false);
+      if (result.success) {
+        router.replace("/(tabs)");
+      } else {
+        Alert.alert("Lỗi", result.message || "Đăng ký Google thất bại.");
+      }
+    } catch (err: any) {
+      setGLoading(false);
+      Alert.alert("Lỗi", "Không lấy được thông tin Google: " + err.message);
+    }
+  };
 
   // ── Validate helpers ──────────────────────────────────────────
   const validateName = (value: string) => {
@@ -121,11 +181,12 @@ export default function RegisterScreen() {
   };
 
   // ── Google Auth ───────────────────────────────────────────────
-  const handleGoogleSignUp = () => {
-    const authUrl = `${API_BASE_URL}/auth/google`;
-    console.log("[Google SignUp WebView] Khởi động, load URL:", authUrl);
-    setGoogleAuthUrl(authUrl);
-    setShowGoogleAuth(true);
+  const handleGoogleSignUp = async () => {
+    if (Platform.OS === "web") {
+      window.location.href = `${API_BASE_URL}/auth/google`;
+      return;
+    }
+    await promptAsync();
   };
 
   const handleGoogleNavigation = async (navState: any) => {
@@ -487,7 +548,8 @@ export default function RegisterScreen() {
             
             {/* Description */}
             <Text style={styles.modalDescText}>
-              Chào mừng bạn đến với SOUL. Hãy đăng nhập để bắt đầu.
+              Mã OTP xác thực 6 số đã được gửi tới email:{"\n"}
+              <Text style={{ fontWeight: "700", color: "#0F766E" }}>{email}</Text>
             </Text>
             
             {/* Button */}
@@ -495,10 +557,13 @@ export default function RegisterScreen() {
               style={styles.modalConfirmButton}
               onPress={() => {
                 setShowSuccessModal(false);
-                router.push("/(auth)/login");
+                router.push({
+                  pathname: "/(auth)/verify",
+                  params: { email, type: "register" },
+                });
               }}
             >
-              <Text style={styles.modalConfirmButtonText}>ĐĂNG NHẬP NGAY</Text>
+              <Text style={styles.modalConfirmButtonText}>NHẬP MÃ OTP XÁC THỰC</Text>
             </TouchableOpacity>
           </View>
         </View>

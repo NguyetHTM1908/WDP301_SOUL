@@ -11,44 +11,54 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/store";
 import { authStyles as styles } from "@/styles/auth.styles";
 
 export default function RecoveryPasswordScreen() {
+  const params = useLocalSearchParams<{ email?: string; code?: string }>();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [secureNewText, setSecureNewText] = useState(true);
   const [secureConfirmText, setSecureConfirmText] = useState(true);
   const [loading, setLoading] = useState(false);
+  const [serverError, setServerError] = useState("");
 
   const resetPassAction = useAuthStore((state) => state.resetPass);
 
   // Xử lý lưu mật khẩu mới khi nhấn nút "Save"
   const handleSave = async () => {
+    setServerError("");
     if (!newPassword || !confirmPassword) {
-      Alert.alert("Thông báo", "Vui lòng nhập mật khẩu mới và xác nhận mật khẩu.");
+      setServerError("Vui lòng nhập mật khẩu mới và xác nhận mật khẩu.");
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert("Lỗi", "Mật khẩu mới phải có ít nhất 6 ký tự.");
+      setServerError("Mật khẩu mới phải có ít nhất 6 ký tự.");
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert("Lỗi", "Xác nhận mật khẩu không khớp. Vui lòng nhập lại.");
+      setServerError("Xác nhận mật khẩu không khớp. Vui lòng nhập lại.");
       return;
     }
 
     setLoading(true);
-    const result = await resetPassAction(newPassword);
+    const result = await resetPassAction(newPassword, params.email, params.code);
     setLoading(false);
 
     if (result.success) {
-      // Chuyển sang màn hình Chúc mừng sau khi đổi mật khẩu thành công
-      router.push("/(auth)/congrats");
+      if (Platform.OS === "web") {
+        router.push("/(auth)/congrats");
+      } else {
+        Alert.alert("Thành công", "Đổi mật khẩu thành công!", [
+          { text: "Đăng nhập ngay", onPress: () => router.push("/(auth)/congrats") },
+        ]);
+        router.push("/(auth)/congrats");
+      }
     } else {
+      setServerError(result.message || "Không thể đặt lại mật khẩu. Vui lòng thử lại.");
       Alert.alert("Lỗi đặt lại mật khẩu", result.message);
     }
   };
@@ -91,6 +101,13 @@ export default function RecoveryPasswordScreen() {
           <Text style={styles.subText}>
             Please enter your new strong password below to recover your forgotten account
           </Text>
+
+          {/* Hộp hiển thị lỗi server/validation */}
+          {serverError ? (
+            <View style={styles.serverErrorBox}>
+              <Text style={styles.serverErrorText}>{serverError}</Text>
+            </View>
+          ) : null}
 
           {/* Ô nhập mật khẩu mới */}
           <Text style={styles.forgotText}>New password</Text>

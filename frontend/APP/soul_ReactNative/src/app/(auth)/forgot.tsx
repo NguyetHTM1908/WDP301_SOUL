@@ -34,12 +34,10 @@ export default function ForgotPasswordScreen() {
     setLoading(false);
 
     if (result.success) {
-      // Hiển thị thông báo kèm mã OTP trả về (tiện lợi cho việc test không cần SMTP email)
-      Alert.alert(
-        "Mã xác thực",
-        `Mã khôi phục đã được tạo (MOCK): ${result.code}\nVui lòng nhập mã này ở bước tiếp theo.`,
-        [{ text: "Tiếp tục", onPress: () => router.push("/(auth)/verify") }]
-      );
+      router.push({
+        pathname: "/(auth)/verify",
+        params: { email, type: "reset-password" },
+      });
     } else {
       Alert.alert("Lỗi", result.message);
     }
