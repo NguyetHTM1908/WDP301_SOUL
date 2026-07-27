@@ -14,6 +14,8 @@ const {
   googleCallback,
   updateProfile,
   changePassword,
+  verifyRegisterOtp,
+  resendOtp,
 } = require("../controllers/authController");
 const auth = require("../middleware/auth");
 
@@ -33,6 +35,12 @@ router.post("/logout", auth, logout);
 router.post("/forgot-password", forgotPassword);
 router.post("/verify-code", verifyCode);
 router.post("/reset-password", resetPassword);
+
+// Xác thực OTP sau khi đăng ký để kích hoạt tài khoản (Public)
+router.post("/verify-register-otp", verifyRegisterOtp);
+
+// Gửi lại mã OTP (dùng cho cả đăng ký và quên mật khẩu) (Public)
+router.post("/resend-otp", resendOtp);
 
 // Đăng nhập bằng Google (Mục đích đồng bộ hóa/fallback) (Public)
 router.post("/google-login", googleLogin);

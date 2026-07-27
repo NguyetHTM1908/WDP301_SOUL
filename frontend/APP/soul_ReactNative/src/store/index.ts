@@ -39,10 +39,11 @@ interface AuthState {
     role?: string;
   }) => Promise<{ success: boolean; message: string }>;
   loginWithGoogle: (
-    email: string,
-    fullName: string,
-    googleId: string,
-    avatarUrl?: string
+    email?: string,
+    fullName?: string,
+    googleId?: string,
+    avatarUrl?: string,
+    idToken?: string
   ) => Promise<{ success: boolean; message: string }>;
   setSession: (token: string, user: User) => Promise<void> | void;
   updateProfile: (profileData: {
@@ -61,12 +62,14 @@ interface AuthState {
   logout: () => Promise<void> | void;
 
   
-  // Các hành động Khôi phục mật khẩu (Forgot Password)
+  // Các hành động Khôi phục mật khẩu & OTP
   setForgotEmail: (email: string) => void;
   setForgotCode: (code: string) => void;
   requestOtp: (email: string) => Promise<{ success: boolean; message: string; code?: string }>;
-  verifyOtp: (code: string) => Promise<{ success: boolean; message: string }>;
-  resetPass: (newPassword: string) => Promise<{ success: boolean; message: string }>;
+  verifyOtp: (email: string, code: string) => Promise<{ success: boolean; message: string }>;
+  verifyRegisterOtp: (email: string, otp: string) => Promise<{ success: boolean; message: string }>;
+  resendOtp: (email: string, type?: "register" | "reset-password") => Promise<{ success: boolean; message: string }>;
+  resetPass: (newPassword: string, email?: string, code?: string) => Promise<{ success: boolean; message: string }>;
 }
 
 // Tạo Zustand Store để quản lý Auth State toàn cục
@@ -118,9 +121,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   // Xử lý Đăng nhập / Đăng ký bằng Google
-  loginWithGoogle: async (email, fullName, googleId, avatarUrl) => {
+  loginWithGoogle: async (email, fullName, googleId, avatarUrl, idToken) => {
     try {
-      const response = await authService.googleLogin(email, fullName, googleId, avatarUrl);
+      const response = await authService.googleLogin(email, fullName, googleId, avatarUrl, idToken);
       if (response.success && response.data) {
         const { token, user } = response.data;
         
@@ -230,16 +233,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Xác thực mã OTP
-  verifyOtp: async (code) => {
+  // Xác thực mã OTP quên mật khẩu
+  verifyOtp: async (email, code) => {
     try {
-      const email = get().forgotEmail;
-      if (!email) {
+      const targetEmail = email || get().forgotEmail;
+      if (!targetEmail) {
         return { success: false, message: "Thiếu địa chỉ email khôi phục." };
       }
-      const response = await authService.verifyCode(email, code);
+      const response = await authService.verifyCode(targetEmail, code);
       if (response.success) {
-        set({ forgotCode: code });
+        set({ forgotEmail: targetEmail, forgotCode: code });
         return { success: true, message: response.message };
       }
       return { success: false, message: response.message || "Mã xác thực không đúng." };
@@ -248,15 +251,49 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     }
   },
 
-  // Đặt lại mật khẩu mới
-  resetPass: async (newPassword) => {
+  // Xác thực mã OTP đăng ký tài khoản (kích hoạt & tự động đăng nhập)
+  verifyRegisterOtp: async (email, otp) => {
     try {
-      const email = get().forgotEmail;
-      const code = get().forgotCode;
-      if (!email || !code) {
-        return { success: false, message: "Tiến trình khôi phục không hợp lệ." };
+      const response = await authService.verifyRegisterOtp(email, otp);
+      if (response.success && response.data) {
+        const { token, user } = response.data;
+        await AsyncStorage.setItem("token", token);
+        setAuthToken(token);
+        set({
+          user,
+          token,
+          isLoggedIn: true,
+        });
+        return { success: true, message: response.message };
       }
-      const response = await authService.resetPassword(email, code, newPassword);
+      return { success: false, message: response.message || "Xác thực OTP thất bại." };
+    } catch (error: any) {
+      return { success: false, message: error.message || "Mã OTP không hợp lệ hoặc đã hết hạn." };
+    }
+  },
+
+  // Gửi lại mã OTP
+  resendOtp: async (email, type = "register") => {
+    try {
+      const response = await authService.resendOtp(email, type);
+      if (response.success) {
+        return { success: true, message: response.message };
+      }
+      return { success: false, message: response.message || "Không thể gửi lại mã OTP." };
+    } catch (error: any) {
+      return { success: false, message: error.message || "Lỗi mạng khi gửi lại mã OTP." };
+    }
+  },
+
+  // Đặt lại mật khẩu mới
+  resetPass: async (newPassword, email, code) => {
+    try {
+      const targetEmail = email || get().forgotEmail;
+      const targetCode = code || get().forgotCode;
+      if (!targetEmail || !targetCode) {
+        return { success: false, message: "Tiến trình khôi phục không hợp lệ hoặc hết hạn." };
+      }
+      const response = await authService.resetPassword(targetEmail, targetCode, newPassword);
       if (response.success) {
         // Đặt lại thành công, làm sạch dữ liệu tiến trình khôi phục
         set({ forgotEmail: null, forgotCode: null });

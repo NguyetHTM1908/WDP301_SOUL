@@ -16,7 +16,7 @@ import { Platform } from "react-native";
 
 export const API_BASE_URL =
   Platform.select({
-    android: "http://192.168.2.43:5000/api",
+    android: "http://10.0.2.2:5000/api",
     ios: "http://localhost:5000/api",
     web: "http://localhost:5000/api",
     default: "http://localhost:5000/api",
