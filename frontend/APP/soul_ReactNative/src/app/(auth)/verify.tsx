@@ -11,77 +11,105 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useAuthStore } from "@/store";
 import { authStyles as styles } from "@/styles/auth.styles";
 import { colors } from "@/constants/colors";
 
 export default function VerificationScreen() {
-  const [code, setCode] = useState(["", "", "", ""]);
+  const params = useLocalSearchParams<{ email?: string; type?: string }>();
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [loading, setLoading] = useState(false);
 
-  const email = useAuthStore((state) => state.forgotEmail);
+  const storeEmail = useAuthStore((state) => state.forgotEmail);
   const verifyOtpAction = useAuthStore((state) => state.verifyOtp);
-  const requestOtpAction = useAuthStore((state) => state.requestOtp);
+  const verifyRegisterOtpAction = useAuthStore((state) => state.verifyRegisterOtp);
+  const resendOtpAction = useAuthStore((state) => state.resendOtp);
 
-  // Tạo các Ref cho các ô nhập để tự động dịch chuyển con trỏ chuột (focus)
+  // Email ưu tiên từ params, nếu không có lấy từ store
+  const email = params.email || storeEmail || "";
+  const flowType = (params.type === "register" ? "register" : "reset-password") as "register" | "reset-password";
+
+  // Tạo Ref cho 6 ô nhập OTP
   const inputRef1 = useRef<TextInput>(null);
   const inputRef2 = useRef<TextInput>(null);
   const inputRef3 = useRef<TextInput>(null);
   const inputRef4 = useRef<TextInput>(null);
+  const inputRef5 = useRef<TextInput>(null);
+  const inputRef6 = useRef<TextInput>(null);
 
-  const refs = [inputRef1, inputRef2, inputRef3, inputRef4];
+  const refs = [inputRef1, inputRef2, inputRef3, inputRef4, inputRef5, inputRef6];
 
-  // Xử lý thay đổi ký tự trong từng ô nhập
+  // Xử lý khi nhập OTP
   const handleChangeText = (text: string, index: number) => {
-    // Chỉ lấy ký tự số
     const cleanText = text.replace(/[^0-9]/g, "");
     const newCode = [...code];
     newCode[index] = cleanText;
     setCode(newCode);
 
-    // Nếu đã nhập số và chưa phải ô cuối cùng, tự động di chuyển sang ô tiếp theo
-    if (cleanText && index < 3) {
+    if (cleanText && index < 5) {
       refs[index + 1].current?.focus();
     }
   };
 
-  // Xử lý khi nhấn nút xóa (BackSpace) trên bàn phím
+  // Xử lý nút Xóa (Backspace)
   const handleKeyPress = (e: any, index: number) => {
     if (e.nativeEvent.key === "Backspace" && !code[index] && index > 0) {
-      // Tự động quay về ô trước đó nếu ô hiện tại trống
       refs[index - 1].current?.focus();
     }
   };
 
-  // Xác thực mã OTP khi nhấn nút "Verify"
+  // Xác thực mã OTP
   const handleVerify = async () => {
     const fullCode = code.join("");
-    if (fullCode.length < 4) {
-      Alert.alert("Thông báo", "Vui lòng nhập đầy đủ mã xác thực 4 chữ số.");
+    if (fullCode.length < 6) {
+      Alert.alert("Thông báo", "Vui lòng nhập đầy đủ mã OTP 6 chữ số.");
       return;
     }
 
     setLoading(true);
-    const result = await verifyOtpAction(fullCode);
-    setLoading(false);
 
-    if (result.success) {
-      // Chuyển sang màn hình Nhập mật khẩu mới
-      router.push("/(auth)/recovery");
+    if (flowType === "register") {
+      const result = await verifyRegisterOtpAction(email, fullCode);
+      setLoading(false);
+      if (result.success) {
+        // Tự động chuyển hướng vào Trang chủ (Tránh Alert.alert bị treo callback trên Web)
+        if (Platform.OS === "web") {
+          router.replace("/(tabs)");
+        } else {
+          Alert.alert("Thành công", "Tài khoản của bạn đã được xác thực!", [
+            { text: "Bắt đầu trải nghiệm", onPress: () => router.replace("/(tabs)") },
+          ]);
+          router.replace("/(tabs)");
+        }
+      } else {
+        Alert.alert("Lỗi xác minh", result.message);
+      }
     } else {
-      Alert.alert("Lỗi xác minh", result.message);
+      const result = await verifyOtpAction(email, fullCode);
+      setLoading(false);
+      if (result.success) {
+        router.push({
+          pathname: "/(auth)/recovery",
+          params: { email, code: fullCode },
+        });
+      } else {
+        Alert.alert("Lỗi xác minh", result.message);
+      }
     }
   };
 
   // Gửi lại mã OTP
   const handleResend = async () => {
-    if (!email) return;
+    if (!email) {
+      Alert.alert("Lỗi", "Không tìm thấy địa chỉ email.");
+      return;
+    }
     setLoading(true);
-    const result = await requestOtpAction(email);
+    const result = await resendOtpAction(email, flowType);
     setLoading(false);
     if (result.success) {
-      Alert.alert("Gửi lại mã", `Mã xác thực mới (MOCK): ${result.code}`);
+      Alert.alert("Gửi lại OTP", result.message || "Mã OTP mới đã được gửi tới email của bạn.");
     } else {
       Alert.alert("Lỗi", result.message);
     }
@@ -98,12 +126,12 @@ export default function VerificationScreen() {
       </TouchableOpacity>
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ flexGrow: 1 }}>
-        {/* Tiêu đề thanh Header */}
+        {/* Header Title */}
         <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Verification</Text>
+          <Text style={styles.headerTitle}>Xác thực OTP</Text>
         </View>
 
-        {/* Biểu tượng khiên bảo vệ ở trung tâm */}
+        {/* Shield Icon */}
         <View style={styles.illustrationContainer}>
           <View
             style={{
@@ -119,16 +147,18 @@ export default function VerificationScreen() {
           </View>
         </View>
 
-        {/* Card chứa form xác nhận OTP */}
+        {/* Card chứa form */}
         <View style={styles.formCard}>
-          <Text style={styles.sectionTitle}>Verify your email</Text>
+          <Text style={styles.sectionTitle}>
+            {flowType === "register" ? "Xác thực email đăng ký" : "Quên mật khẩu"}
+          </Text>
           <Text style={styles.subText}>
-            Please enter 4 verification codes that we have send to your email address:{"\n"}
+            Vui lòng nhập mã OTP 6 số đã được gửi tới email:{"\n"}
             <Text style={{ fontWeight: "bold", color: colors.dark }}>{email || "email của bạn"}</Text>
           </Text>
 
-          {/* Hàng chứa 4 ô nhập OTP */}
-          <View style={styles.otpRow}>
+          {/* Hàng chứa 6 ô nhập OTP */}
+          <View style={{ flexDirection: "row", justifyContent: "space-between", marginVertical: 20 }}>
             {code.map((digit, index) => (
               <TextInput
                 key={index}
@@ -138,7 +168,18 @@ export default function VerificationScreen() {
                 onKeyPress={(e) => handleKeyPress(e, index)}
                 keyboardType="number-pad"
                 maxLength={1}
-                style={styles.otpInput}
+                style={{
+                  width: 44,
+                  height: 52,
+                  borderRadius: 12,
+                  borderWidth: 1.5,
+                  borderColor: digit ? "#0F766E" : "#CBD5E1",
+                  backgroundColor: digit ? "#F0FDF4" : "#F8FAFC",
+                  textAlign: "center",
+                  fontSize: 22,
+                  fontWeight: "700",
+                  color: "#0F766E",
+                }}
                 selectTextOnFocus
               />
             ))}
@@ -146,20 +187,20 @@ export default function VerificationScreen() {
 
           {/* Gửi lại mã */}
           <View style={styles.centerLinkContainer}>
-            <Text style={styles.forgotText}>{"Don't receive code?"}</Text>
+            <Text style={styles.forgotText}>Chưa nhận được mã OTP?</Text>
             <TouchableOpacity onPress={handleResend} style={{ marginTop: 6 }}>
-              <Text style={[styles.forgotText, styles.linkText]}>Resend code</Text>
+              <Text style={[styles.forgotText, styles.linkText]}>Gửi lại mã OTP</Text>
             </TouchableOpacity>
           </View>
 
           <View style={{ flex: 1 }} />
 
-          {/* Nút kiểm tra mã */}
+          {/* Nút xác nhận */}
           <TouchableOpacity style={styles.buttonLarge} onPress={handleVerify} disabled={loading}>
             {loading ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
-              <Text style={styles.buttonLargeText}>Verify</Text>
+              <Text style={styles.buttonLargeText}>Xác nhận OTP</Text>
             )}
           </TouchableOpacity>
         </View>

@@ -171,6 +171,16 @@ const userSchema = new mongoose.Schema(
       default: null,
     },
 
+    otpCode: {
+      type: String,
+      default: null,
+    },
+
+    otpCodeExpires: {
+      type: Date,
+      default: null,
+    },
+
     googleId: {
       type: String,
       unique: true,

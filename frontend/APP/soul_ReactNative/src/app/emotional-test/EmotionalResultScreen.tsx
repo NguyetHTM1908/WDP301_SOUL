@@ -48,8 +48,26 @@ function getLevelLabel(level?: ResultLevel) {
   return "Kết quả";
 }
 
+import { useAuthStore } from "@/store";
+
 export default function EmotionalResultScreen() {
+  const user = useAuthStore((state: any) => state.user);
   const params = useLocalSearchParams();
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      const role = String(user?.role || "").trim().toLowerCase();
+      if (role === "admin" || role === "administrator") {
+        router.replace("/(admin)" as any);
+      } else if (role === "event_organizer" || role === "organizer" || role === "event-organizer") {
+        router.replace("/(organizer)" as any);
+      } else {
+        router.replace("/(tabs)" as any);
+      }
+    }
+  };
 
   const result = useMemo(() => {
     return parseResultParam(params.result);
@@ -62,7 +80,7 @@ export default function EmotionalResultScreen() {
           <View style={styles.topBar}>
             <TouchableOpacity
               style={styles.backButton}
-              onPress={() => router.replace("/(tabs)" as any)}
+              onPress={handleBack}
             >
               <Text style={styles.backText}>‹</Text>
             </TouchableOpacity>
@@ -127,7 +145,16 @@ export default function EmotionalResultScreen() {
           >
             <Text style={styles.secondaryButtonText}>Trò chuyện với SOUL AI</Text>
           </TouchableOpacity>
-
+          <TouchableOpacity
+            style={styles.historyButton}
+            onPress={() =>
+            router.push("/emotional-test/history" as any)
+  }
+>
+            <Text style={styles.historyButtonText}>
+              Xem lịch sử kết quả
+            </Text>
+          </TouchableOpacity>
           <TouchableOpacity
             style={styles.homeButton}
             onPress={() => router.push("/emotional-test" as any)}
@@ -282,5 +309,19 @@ const styles = StyleSheet.create({
     color: "#2F6B48",
     fontSize: 14,
     fontWeight: "800",
-  },
+  },historyButton: {
+  marginTop: 12,
+  height: 52,
+  borderRadius: 26,
+  borderWidth: 1.5,
+  borderColor: GREEN,
+  justifyContent: "center",
+  alignItems: "center",
+},
+
+historyButtonText: {
+  color: GREEN_DARK,
+  fontSize: 14,
+  fontWeight: "900",
+},
 });

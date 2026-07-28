@@ -90,7 +90,7 @@ export const authService = {
     }
   },
 
-  // Kiểm tra mã OTP
+  // Kiểm tra mã OTP quên mật khẩu
   verifyCode: async (email: string, code: string) => {
     try {
       const response = await apiClient.post("/auth/verify-code", {
@@ -100,6 +100,32 @@ export const authService = {
       return response.data;
     } catch (error: any) {
       throw error.response?.data || new Error("Mã xác thực không hợp lệ.");
+    }
+  },
+
+  // Xác thực mã OTP sau khi đăng ký tài khoản
+  verifyRegisterOtp: async (email: string, otp: string) => {
+    try {
+      const response = await apiClient.post("/auth/verify-register-otp", {
+        email,
+        otp,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || new Error("Mã OTP không hợp lệ hoặc đã hết hạn.");
+    }
+  },
+
+  // Gửi lại mã OTP (cho cả đăng ký và quên mật khẩu)
+  resendOtp: async (email: string, type: "register" | "reset-password" = "register") => {
+    try {
+      const response = await apiClient.post("/auth/resend-otp", {
+        email,
+        type,
+      });
+      return response.data;
+    } catch (error: any) {
+      throw error.response?.data || new Error("Không thể gửi lại mã OTP.");
     }
   },
 
@@ -119,10 +145,11 @@ export const authService = {
 
   // Đăng nhập bằng Google
   googleLogin: async (
-    email: string,
-    fullName: string,
-    googleId: string,
-    avatarUrl?: string
+    email?: string,
+    fullName?: string,
+    googleId?: string,
+    avatarUrl?: string,
+    idToken?: string
   ) => {
     try {
       const response = await apiClient.post("/auth/google-login", {
@@ -130,6 +157,7 @@ export const authService = {
         fullName,
         googleId,
         avatarUrl: avatarUrl || null,
+        idToken,
       });
       return response.data;
     } catch (error: any) {

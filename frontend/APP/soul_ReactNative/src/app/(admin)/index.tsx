@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -13,10 +13,28 @@ import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store";
 import { colors } from "@/constants/colors";
+import { getAdminUsers } from "@/api/adminApi";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
+
+  const [totalUserCount, setTotalUserCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await getAdminUsers({ limit: 1 });
+        if (res.success && res.data?.pagination?.total !== undefined) {
+          setTotalUserCount(res.data.pagination.total);
+        } else if (res.success && res.data?.users) {
+          setTotalUserCount(res.data.users.length);
+        }
+      } catch (e) {
+        console.warn("Lỗi lấy số lượng người dùng cho Dashboard Admin:", e);
+      }
+    })();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -39,7 +57,7 @@ export default function AdminDashboard() {
   const stats = [
     {
       label: "Người dùng",
-      value: "1,250",
+      value: totalUserCount !== null ? totalUserCount.toLocaleString("vi-VN") : "...",
       icon: "account-group",
       color: "#14B8A6",
     },

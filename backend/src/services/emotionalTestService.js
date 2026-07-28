@@ -222,16 +222,25 @@ async function submitTest({ userId, testType, testId, answers }) {
 }
 
 async function getMyResults(userId, testTypeOrId) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("userId không hợp lệ.");
+  }
+
   const filter = { userId };
 
-  if (testTypeOrId && mongoose.Types.ObjectId.isValid(testTypeOrId)) {
+  if (testTypeOrId) {
+    if (!mongoose.Types.ObjectId.isValid(testTypeOrId)) {
+      throw new Error("testId không hợp lệ.");
+    }
+
     filter.testId = testTypeOrId;
   }
 
   return EmotionalTestResult.find(filter)
-    .populate("testId", "title description")
+    .populate("testId", "title description isActive")
     .sort({ createdAt: -1 })
-    .limit(30);
+    .limit(30)
+    .lean();
 }
 
 async function getLatestResult(userId, testTypeOrId) {
@@ -245,6 +254,35 @@ async function getLatestResult(userId, testTypeOrId) {
     .populate("testId", "title description")
     .sort({ createdAt: -1 });
 }
+async function deleteMyResult(userId, resultId) {
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    throw new Error("userId không hợp lệ.");
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(resultId)) {
+    throw new Error("resultId không hợp lệ.");
+  }
+
+  const deletedResult =
+    await EmotionalTestResult.findOneAndDelete({
+      _id: resultId,
+      userId,
+    }).lean();
+
+  if (!deletedResult) {
+    const error = new Error(
+      "Không tìm thấy kết quả bài kiểm tra hoặc bạn không có quyền xóa kết quả này."
+    );
+
+    error.statusCode = 404;
+    throw error;
+  }
+
+  return {
+    resultId: deletedResult._id,
+    testId: deletedResult.testId,
+  };
+}
 
 module.exports = {
   getAllTests,
@@ -252,4 +290,5 @@ module.exports = {
   submitTest,
   getMyResults,
   getLatestResult,
+  deleteMyResult,
 };

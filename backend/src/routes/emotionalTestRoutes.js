@@ -17,5 +17,9 @@ router.post("/submit", authMiddleware, emotionalTestController.submitTest);
 router.get("/my-results", authMiddleware, emotionalTestController.getMyResults);
 
 router.get("/latest", authMiddleware, emotionalTestController.getLatestResult);
-
+router.delete(
+  "/my-results/:resultId",
+  authMiddleware,
+  emotionalTestController.deleteMyResult
+);
 module.exports = router;

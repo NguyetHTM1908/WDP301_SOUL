@@ -34,15 +34,25 @@ exports.getUserProfile = async (req, res) => {
 exports.getUserPosts = async (req, res) => {
   try {
     const { id } = req.params;
-    const posts = await Post.find({
+    const currentUserId = req.user ? (req.user._id || req.user.id)?.toString?.() : null;
+    const isOwner = Boolean(currentUserId && currentUserId === id.toString());
+
+    let query = {
       authorId: id,
-      status: "approved",
-      visibility: "public",
-      isFlagged: false,
-      postType: "profile"
-    })
-    .populate("authorId", "fullName email avatarUrl anonymousAlias")
-    .sort({ createdAt: -1 });
+      postType: "profile",
+      status: { $ne: "deleted" },
+    };
+
+    if (!isOwner) {
+      // Khách xem thì chỉ hiển thị bài công khai, đã duyệt và không bị AI cờ/cảnh báo
+      query.status = "approved";
+      query.visibility = "public";
+      query.isFlagged = false;
+    }
+
+    const posts = await Post.find(query)
+      .populate("authorId", "fullName email avatarUrl anonymousAlias")
+      .sort({ createdAt: -1 });
 
     return res.status(200).json({
       success: true,

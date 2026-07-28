@@ -225,10 +225,10 @@ export const messageStyles = StyleSheet.create({
     justifyContent: "center",
   },
   messagesContainer: {
-    flex: 1,
+    flexGrow: 1,
     paddingHorizontal: 12,
     paddingTop: 8,
-    paddingBottom: 4,
+    paddingBottom: 12,
   },
   dateSeparator: {
     alignItems: "center",

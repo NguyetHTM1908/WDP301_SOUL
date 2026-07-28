@@ -10,8 +10,16 @@ export function BottomNav() {
 
   const profileRoute = user?._id || user?.id ? `/profile/${user._id || user.id}` : "/profile/me";
 
+  const userRole = String(user?.role || "").trim().toLowerCase();
+  const homeRoute =
+    userRole === "admin" || userRole === "administrator"
+      ? "/(admin)"
+      : userRole === "event_organizer" || userRole === "organizer" || userRole === "event-organizer"
+      ? "/(organizer)"
+      : "/(tabs)";
+
   const navItems = [
-    { icon: "home", label: "Trang chủ", route: "/(tabs)" },
+    { icon: "home", label: "Trang chủ", route: homeRoute },
     { icon: "notebook-outline", label: "Nhật ký", route: "/diary" },
     { icon: "plus", label: "", route: "/(tabs)/forum" },
     { icon: "account-group-outline", label: "Cộng đồng", route: "/(tabs)/forum" },
@@ -26,7 +34,15 @@ export function BottomNav() {
 
   const isItemActive = (itemRoute: string | null, index: number) => {
     if (!itemRoute) return false;
-    if (index === 0 && (pathname === "/" || pathname === "/(tabs)" || pathname === "/(tabs)/index")) return true;
+    if (
+      index === 0 &&
+      (pathname === "/" ||
+        pathname === "/(tabs)" ||
+        pathname === "/(tabs)/index" ||
+        pathname.includes("/(admin)") ||
+        pathname.includes("/(organizer)"))
+    )
+      return true;
     if (index === 1 && pathname.includes("/diary")) return true;
     if (index === 3 && pathname.includes("/forum")) return true;
     if (index === 4 && pathname.includes("/profile")) return true;
