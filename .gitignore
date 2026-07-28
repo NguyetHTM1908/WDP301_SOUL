@@ -27,7 +27,10 @@ frontend/.env
 .DS_Store
 Thumbs.db
 
-# Env / secrets
+# Env / secrets - Không commit file .env thật
 .env
 *.env
-application-secret.yml
+# Nhưng vẫn cho phép commit file .env.example (template cho team)
+!.env.example
+!**/.env.example
+application-secret.yml
