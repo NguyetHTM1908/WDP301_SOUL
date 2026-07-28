@@ -15,7 +15,7 @@ import {
   Modal,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   getAdminUsers,
   updateAdminUserStatus,
@@ -104,10 +104,12 @@ function UserCard({
 
 // ── Main Screen ────────────────────────────────────────────────
 export default function AdminUsersScreen() {
+  const params = useLocalSearchParams<{ search?: string }>();
+
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(params.search || "");
   const [filterTab, setFilterTab] = useState(""); // role filter, "blocked" = status filter
   const [actionLoading, setActionLoading] = useState(false);
 
@@ -153,6 +155,12 @@ export default function AdminUsersScreen() {
   useEffect(() => {
     fetchUsers();
   }, [filterTab]);
+
+  useEffect(() => {
+    if (params.search) {
+      setSearch(params.search);
+    }
+  }, [params.search]);
 
   const handleRefresh = () => {
     setRefreshing(true);

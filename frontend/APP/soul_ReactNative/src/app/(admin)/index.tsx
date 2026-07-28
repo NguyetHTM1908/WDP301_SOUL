@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -8,33 +8,54 @@ import {
   SafeAreaView,
   Alert,
   StatusBar,
+  RefreshControl,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useAuthStore } from "@/store";
 import { colors } from "@/constants/colors";
-import { getAdminUsers } from "@/api/adminApi";
+import {
+  getAdminDashboardStats,
+  getAdminNotifUnreadCount,
+  DashboardStats,
+} from "@/api/adminApi";
 
 export default function AdminDashboard() {
   const user = useAuthStore((state) => state.user);
   const logout = useAuthStore((state) => state.logout);
 
-  const [totalUserCount, setTotalUserCount] = useState<number | null>(null);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [unreadNotifs, setUnreadNotifs] = useState<number>(0);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      const [statsRes, unreadRes] = await Promise.all([
+        getAdminDashboardStats(),
+        getAdminNotifUnreadCount(),
+      ]);
+
+      if (statsRes.success && statsRes.data) {
+        setStats(statsRes.data);
+        setUnreadNotifs(statsRes.data.adminUnreadNotifs ?? 0);
+      }
+      if (unreadRes.success && unreadRes.count !== undefined) {
+        setUnreadNotifs(unreadRes.count);
+      }
+    } catch (e) {
+      console.warn("Lỗi lấy dữ liệu Dashboard Admin:", e);
+    }
+  }, []);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await getAdminUsers({ limit: 1 });
-        if (res.success && res.data?.pagination?.total !== undefined) {
-          setTotalUserCount(res.data.pagination.total);
-        } else if (res.success && res.data?.users) {
-          setTotalUserCount(res.data.users.length);
-        }
-      } catch (e) {
-        console.warn("Lỗi lấy số lượng người dùng cho Dashboard Admin:", e);
-      }
-    })();
-  }, []);
+    fetchData();
+  }, [fetchData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchData();
+    setRefreshing(false);
+  };
 
   const handleLogout = () => {
     Alert.alert(
@@ -54,34 +75,56 @@ export default function AdminDashboard() {
     );
   };
 
-  const stats = [
+  const statCards = [
     {
-      label: "Người dùng",
-      value: totalUserCount !== null ? totalUserCount.toLocaleString("vi-VN") : "...",
+      label: "Tổng người dùng",
+      value:
+        stats !== null
+          ? stats.totalUsers.toLocaleString("vi-VN")
+          : "...",
       icon: "account-group",
       color: "#14B8A6",
+      sub:
+        stats !== null
+          ? `+${stats.newUsersThisWeek} tuần này`
+          : "",
     },
     {
-      label: "Báo cáo mới",
-      value: "12",
+      label: "Báo cáo chờ xử lý",
+      value: stats !== null ? String(stats.pendingReports) : "...",
       icon: "alert-decagram",
       color: "#EF4444",
+      sub: stats !== null && stats.pendingReports > 0 ? "Cần xử lý" : "Đã xử lý hết",
     },
     {
-      label: "Chat Sessions",
-      value: "348",
-      icon: "chat-processing",
+      label: "Cảnh báo an toàn",
+      value:
+        stats !== null ? String(stats.unresolvedSafetyEvents) : "...",
+      icon: "shield-alert",
       color: "#F59E0B",
+      sub:
+        stats !== null && stats.unresolvedSafetyEvents > 0
+          ? "Chưa giải quyết"
+          : "Ổn định",
     },
     {
-      label: "Kiểm duyệt AI",
-      value: "98.4%",
-      icon: "robot",
-      color: "#3B82F6",
+      label: "Thông báo Admin",
+      value: unreadNotifs > 0 ? String(unreadNotifs) : "0",
+      icon: "bell-ring",
+      color: "#6366F1",
+      sub: unreadNotifs > 0 ? "Chưa đọc" : "Đã đọc hết",
     },
   ];
 
   const adminActions = [
+    {
+      title: "Thông Báo Hệ Thống",
+      description: "Xem cảnh báo an toàn, kiểm duyệt và gửi thông báo broadcast",
+      icon: "bell-ring",
+      color: "#6366F1",
+      route: "/(admin)/notifications",
+      badge: unreadNotifs > 0 ? unreadNotifs : undefined,
+    },
     {
       title: "Quản lý Người dùng",
       description: "Xem, chặn, phân quyền tài khoản người dùng",
@@ -95,6 +138,10 @@ export default function AdminDashboard() {
       icon: "forum-outline",
       color: "#14B8A6",
       route: "/(admin)/forum",
+      badge:
+        stats && stats.pendingReports > 0
+          ? stats.pendingReports
+          : undefined,
     },
     {
       title: "Sự kiện & Hoạt động",
@@ -118,12 +165,10 @@ export default function AdminDashboard() {
       router.push(action.route as any);
       return;
     }
-
     if (action.onPress) {
       action.onPress();
       return;
     }
-
     Alert.alert(
       "Thông báo",
       `Tính năng "${action.title}" đang được hoàn thiện.`
@@ -134,6 +179,7 @@ export default function AdminDashboard() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
 
+      {/* Header */}
       <View style={styles.header}>
         <View>
           <Text style={styles.welcomeText}>Xin chào,</Text>
@@ -142,25 +188,73 @@ export default function AdminDashboard() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={handleLogout}
-          activeOpacity={0.8}
-        >
-          <MaterialCommunityIcons name="logout" size={22} color="#EF4444" />
-        </TouchableOpacity>
+        <View style={styles.headerRight}>
+          {/* Bell notification button with badge */}
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => router.push("/(admin)/notifications" as any)}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={22}
+              color={colors.dark}
+            />
+            {unreadNotifs > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {unreadNotifs > 99 ? "99+" : unreadNotifs}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Logout button */}
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="logout" size={22} color="#EF4444" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={colors.dark}
+          />
+        }
       >
+        {/* Banner */}
         <View style={styles.banner}>
           <View style={styles.bannerInfo}>
             <Text style={styles.bannerTitle}>Hệ Thống Quản Trị SOUL</Text>
             <Text style={styles.bannerSub}>
               Theo dõi sức khỏe tinh thần cộng đồng & giám sát an toàn nội dung.
             </Text>
+            {stats && (
+              <View style={styles.bannerStatRow}>
+                <View style={styles.bannerStat}>
+                  <Text style={styles.bannerStatValue}>
+                    {stats.activeUsers.toLocaleString("vi-VN")}
+                  </Text>
+                  <Text style={styles.bannerStatLabel}>User active</Text>
+                </View>
+                <View style={styles.bannerStatDivider} />
+                <View style={styles.bannerStat}>
+                  <Text style={styles.bannerStatValue}>
+                    {stats.blockedUsers}
+                  </Text>
+                  <Text style={styles.bannerStatLabel}>Bị chặn</Text>
+                </View>
+              </View>
+            )}
           </View>
 
           <MaterialCommunityIcons
@@ -171,10 +265,10 @@ export default function AdminDashboard() {
           />
         </View>
 
+        {/* Stats Grid */}
         <Text style={styles.sectionTitle}>Chỉ số Hệ thống</Text>
-
         <View style={styles.statsGrid}>
-          {stats.map((stat, idx) => (
+          {statCards.map((stat, idx) => (
             <View key={idx} style={styles.statCard}>
               <View
                 style={[
@@ -188,13 +282,18 @@ export default function AdminDashboard() {
                   color={stat.color}
                 />
               </View>
-
               <Text style={styles.statValue}>{stat.value}</Text>
               <Text style={styles.statLabel}>{stat.label}</Text>
+              {stat.sub ? (
+                <Text style={[styles.statSub, { color: stat.color }]}>
+                  {stat.sub}
+                </Text>
+              ) : null}
             </View>
           ))}
         </View>
 
+        {/* Action Cards */}
         <Text style={styles.sectionTitle}>Chức năng Quản lý</Text>
 
         {adminActions.map((action, idx) => (
@@ -224,11 +323,20 @@ export default function AdminDashboard() {
               </Text>
             </View>
 
-            <MaterialCommunityIcons
-              name="chevron-right"
-              size={24}
-              color="#9CA3AF"
-            />
+            {/* Badge for unread/pending count */}
+            {action.badge !== undefined && action.badge > 0 ? (
+              <View style={[styles.actionBadge, { backgroundColor: action.color }]}>
+                <Text style={styles.actionBadgeText}>
+                  {action.badge > 99 ? "99+" : action.badge}
+                </Text>
+              </View>
+            ) : (
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={24}
+                color="#9CA3AF"
+              />
+            )}
           </TouchableOpacity>
         ))}
 
@@ -270,6 +378,47 @@ const styles = StyleSheet.create({
     fontFamily: "Georgia",
   },
 
+  headerRight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+
+  bellButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#FFFFFF",
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.05,
+    shadowRadius: 5,
+    elevation: 3,
+    position: "relative",
+  },
+
+  bellBadge: {
+    position: "absolute",
+    top: 5,
+    right: 5,
+    backgroundColor: "#EF4444",
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: "#FFFFFF",
+  },
+
+  bellBadgeText: {
+    color: "#fff",
+    fontSize: 9,
+    fontWeight: "800",
+  },
+
   logoutButton: {
     width: 44,
     height: 44,
@@ -288,6 +437,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
+  // Banner
   banner: {
     backgroundColor: colors.dark,
     borderRadius: 24,
@@ -321,12 +471,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     opacity: 0.9,
+    marginBottom: 12,
+  },
+
+  bannerStatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+  },
+
+  bannerStat: {
+    alignItems: "flex-start",
+  },
+
+  bannerStatValue: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+
+  bannerStatLabel: {
+    color: "#D1FAE5",
+    fontSize: 11,
+    opacity: 0.8,
+  },
+
+  bannerStatDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: "rgba(255,255,255,0.2)",
   },
 
   bannerIcon: {
     opacity: 0.9,
   },
 
+  // Section title
   sectionTitle: {
     fontSize: 17,
     fontWeight: "700",
@@ -335,6 +515,7 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  // Stats Grid
   statsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -376,6 +557,13 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
+  statSub: {
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+
+  // Action Cards
   actionCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -413,6 +601,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#6B7280",
     lineHeight: 16,
+  },
+
+  actionBadge: {
+    borderRadius: 12,
+    minWidth: 26,
+    height: 26,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 6,
+  },
+
+  actionBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "800",
   },
 
   footer: {
