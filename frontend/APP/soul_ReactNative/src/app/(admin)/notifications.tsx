@@ -12,7 +12,6 @@ import {
   TextInput,
   ActivityIndicator,
   RefreshControl,
-  Animated,
 } from "react-native";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import { router } from "expo-router";
@@ -49,6 +48,30 @@ const NOTIF_CONFIG: Record<
     label: "Báo cáo",
     bgColor: "#F0FDFA",
   },
+  appeal_update: {
+    icon: "scale-balance",
+    color: "#8B5CF6",
+    label: "Khiếu nại",
+    bgColor: "#F5F3FF",
+  },
+  event_approved: {
+    icon: "calendar-check",
+    color: "#10B981",
+    label: "Duyệt sự kiện",
+    bgColor: "#ECFDF5",
+  },
+  event_rejected: {
+    icon: "calendar-remove",
+    color: "#EF4444",
+    label: "Từ chối sự kiện",
+    bgColor: "#FEF2F2",
+  },
+  event_registered: {
+    icon: "calendar-account",
+    color: "#3B82F6",
+    label: "Đăng ký sự kiện",
+    bgColor: "#EFF6FF",
+  },
   system: {
     icon: "bell-ring",
     color: "#6366F1",
@@ -68,7 +91,66 @@ function getNotifConfig(type: string) {
   );
 }
 
+/**
+ * Trả về { pathname, params, actionLabel } mô tả điểm đến khi tap vào thông báo.
+ */
+function getNotifDestination(item: AdminNotification): {
+  pathname: string;
+  params?: Record<string, string>;
+  actionLabel: string;
+} | null {
+  const relatedId = item.related?.id ? String(item.related.id) : undefined;
+  const relatedType = item.related?.type || undefined;
+  const type = item.type;
+
+  switch (type) {
+    case "safety_alert":
+      return {
+        pathname: "/(admin)/users",
+        params: relatedId && relatedType === "user" ? { search: relatedId } : undefined,
+        actionLabel: "Xem người dùng",
+      };
+
+    case "moderation_review":
+      return {
+        pathname: "/(admin)/forum",
+        params: { filter: "ai_review" },
+        actionLabel: "Xem bài cần duyệt",
+      };
+
+    case "report_update":
+    case "appeal_update":
+      return {
+        pathname: "/(admin)/forum",
+        params: { filter: "reported" },
+        actionLabel: "Xem báo cáo",
+      };
+
+    case "event_approved":
+    case "event_rejected":
+    case "event_registered":
+    case "event_reminder":
+      return {
+        pathname: "/(admin)/events",
+        actionLabel: "Xem sự kiện",
+      };
+
+    case "post_reaction":
+    case "post_comment":
+    case "comment_reply":
+      return {
+        pathname: "/(admin)/forum",
+        actionLabel: "Xem diễn đàn",
+      };
+
+    case "system":
+    default:
+      return null;
+  }
+}
+
 function timeAgo(dateStr: string): string {
+  if (!dateStr) return "";
   const now = new Date();
   const date = new Date(dateStr);
   const diffMs = now.getTime() - date.getTime();
@@ -273,19 +355,23 @@ interface NotifItemProps {
 
 function NotifItem({ item, onPress }: NotifItemProps) {
   const cfg = getNotifConfig(item.type);
+  const destination = getNotifDestination(item);
+  const isActionable = destination !== null;
 
   return (
     <TouchableOpacity
-      style={[styles.notifCard, !item.isRead && styles.notifCardUnread]}
+      style={[
+        styles.notifCard,
+        !item.isRead && styles.notifCardUnread,
+        isActionable && styles.notifCardActionable,
+      ]}
       onPress={() => onPress(item)}
       activeOpacity={0.7}
     >
       {/* Unread dot */}
       {!item.isRead && <View style={styles.unreadDot} />}
 
-      <View
-        style={[styles.notifIconWrap, { backgroundColor: cfg.bgColor }]}
-      >
+      <View style={[styles.notifIconWrap, { backgroundColor: cfg.bgColor }]}>
         <MaterialCommunityIcons
           name={cfg.icon as any}
           size={22}
@@ -308,6 +394,20 @@ function NotifItem({ item, onPress }: NotifItemProps) {
         <Text style={styles.notifBody} numberOfLines={2}>
           {item.content}
         </Text>
+
+        {/* Navigation hint */}
+        {isActionable && (
+          <View style={[styles.actionHint, { borderColor: cfg.color + "40" }]}>
+            <MaterialCommunityIcons
+              name="arrow-right-circle-outline"
+              size={13}
+              color={cfg.color}
+            />
+            <Text style={[styles.actionHintText, { color: cfg.color }]}>
+              {destination!.actionLabel}
+            </Text>
+          </View>
+        )}
       </View>
     </TouchableOpacity>
   );
@@ -373,6 +473,7 @@ export default function AdminNotificationsScreen() {
   };
 
   const handleNotifPress = async (item: AdminNotification) => {
+    // 1. Đánh dấu đã đọc nếu chưa
     if (!item.isRead) {
       await markAdminNotifAsRead(item._id);
       setNotifications((prev) =>
@@ -381,6 +482,23 @@ export default function AdminNotificationsScreen() {
         )
       );
       setUnreadCount((c) => Math.max(0, c - 1));
+    }
+
+    // 2. Điều hướng đến màn hình tương ứng nếu có destination
+    const destination = getNotifDestination(item);
+
+    if (destination) {
+      if (destination.params && Object.keys(destination.params).length > 0) {
+        router.push({
+          pathname: destination.pathname as any,
+          params: destination.params,
+        });
+      } else {
+        router.push(destination.pathname as any);
+      }
+    } else {
+      // Nếu là thông báo hệ thống / không có route cụ thể, hiển thị chi tiết trong Alert
+      Alert.alert(item.title, item.content);
     }
   };
 
@@ -710,6 +828,10 @@ const styles = StyleSheet.create({
     borderLeftColor: "#6366F1",
     backgroundColor: "#FEFEFF",
   },
+  notifCardActionable: {
+    borderRightWidth: 2,
+    borderRightColor: "#E5E7EB",
+  },
   unreadDot: {
     position: "absolute",
     top: 14,
@@ -765,6 +887,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
     lineHeight: 18,
+  },
+  actionHint: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignSelf: "flex-start",
+  },
+  actionHintText: {
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 
   // Loading & Empty

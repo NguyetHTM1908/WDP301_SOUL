@@ -1,5 +1,5 @@
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import {
   useCallback,
   useEffect,
@@ -522,13 +522,17 @@ function getToxicityInfo(
 }
 
 export default function AdminForumScreen() {
+  const params = useLocalSearchParams<{ filter?: string }>();
+
   const [search, setSearch] =
     useState("");
 
   const [
     activeFilter,
     setActiveFilter,
-  ] = useState<ForumStatus>("all");
+  ] = useState<ForumStatus>(
+    (params.filter as ForumStatus) || "all"
+  );
 
   const [posts, setPosts] = useState<
     ForumPost[]
@@ -711,6 +715,15 @@ export default function AdminForumScreen() {
   useEffect(() => {
     void fetchPosts();
   }, [fetchPosts]);
+
+  useEffect(() => {
+    if (params.filter) {
+      const validFilters = ["all", "pending", "approved", "ai_review", "reported", "hidden", "deleted"];
+      if (validFilters.includes(params.filter)) {
+        setActiveFilter(params.filter as ForumStatus);
+      }
+    }
+  }, [params.filter]);
 
   const visiblePosts = useMemo(() => {
     return posts.filter((post) => {
